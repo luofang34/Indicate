@@ -28,6 +28,8 @@ export const STREAM_KIND_VIDEO_V2 = 0x03;
 // The `pilotage.v1` schema version this build produces and accepts
 // (pilotage_protocol::convert::SCHEMA_VERSION mirrors this constant).
 export const SCHEMA_VERSION = 1;
+// Session capabilities evolve independently of protobuf envelope encoding.
+export const SESSION_PROTOCOL_VERSION = 2;
 
 // Byte offsets of the fixed v2 capture-identity header (little-endian), a
 // by-hand mirror of `frame_video_payload_v2` in

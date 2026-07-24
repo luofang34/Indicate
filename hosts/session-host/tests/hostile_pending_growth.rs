@@ -49,7 +49,7 @@ fn hello_bytes() -> Vec<u8> {
     let envelope = wire::Envelope {
         schema_version: SCHEMA_VERSION,
         payload: Some(wire::envelope::Payload::ClientHello(wire::ClientHello {
-            protocol_version: SCHEMA_VERSION,
+            protocol_version: pilotage_protocol::SESSION_PROTOCOL_VERSION,
             client_name: "post-attack-client".to_owned(),
             join_token: Vec::new(),
         })),

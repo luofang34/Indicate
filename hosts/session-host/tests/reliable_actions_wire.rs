@@ -142,7 +142,7 @@ async fn bind_session(connection: &Connection) -> BoundSession {
     send_envelope(
         &mut send,
         &envelope(wire::envelope::Payload::ClientHello(wire::ClientHello {
-            protocol_version: 1,
+            protocol_version: pilotage_protocol::SESSION_PROTOCOL_VERSION,
             client_name: "reliable-actions".to_owned(),
             join_token: vec![],
         })),

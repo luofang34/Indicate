@@ -462,15 +462,13 @@ fn u64_nanos_since(start: Instant) -> u64 {
 fn targets_reliable_stream(message: &ToConnection) -> bool {
     matches!(
         message,
-        ToConnection::BootstrapMessage(_) | ToConnection::AuthorityMessage(_)
+        ToConnection::BootstrapMessage { .. } | ToConnection::AuthorityMessage(_)
     )
 }
 
-/// Picks the [`ToConnection`] channel arm an [`OutboundMessage`] belongs on
-/// and encodes it (ADR-0005): `Pong` is a control-fast datagram; `Authority`
-/// travels on the dedicated authority-events stream so a bulk/bootstrap
-/// transfer can never head-of-line-block a lease/override event; every other
-/// arm is bootstrap/lease/handshake reply traffic on the bootstrap stream.
+/// Encodes an [`OutboundMessage`] on its [`ToConnection`] arm (ADR-0005); `Pong`
+/// is a datagram; `Authority` uses the dedicated event stream so bootstrap
+/// traffic cannot block it; every other arm uses the bootstrap stream.
 fn to_connection_message(envelope: &pilotage_session::OutboundMessage) -> ToConnection {
     match envelope {
         pilotage_session::OutboundMessage::Pong(pong) => ToConnection::Datagram {
@@ -488,9 +486,10 @@ fn to_connection_message(envelope: &pilotage_session::OutboundMessage) -> ToConn
         | pilotage_session::OutboundMessage::LeaseResponse(_)
         | pilotage_session::OutboundMessage::LeaseReleased(_)
         | pilotage_session::OutboundMessage::ControlActionResult(_)
-        | pilotage_session::OutboundMessage::FrameRejected(_) => {
-            ToConnection::BootstrapMessage(encode_envelope_message(envelope))
-        }
+        | pilotage_session::OutboundMessage::FrameRejected(_) => ToConnection::BootstrapMessage {
+            bytes: encode_envelope_message(envelope),
+            opens_media: matches!(envelope, pilotage_session::OutboundMessage::Welcome(_)),
+        },
     }
 }
 

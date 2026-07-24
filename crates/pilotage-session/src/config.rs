@@ -15,7 +15,7 @@ use pilotage_protocol::VehicleId;
 /// Immutable knobs the engine reads while deciding actions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionConfig {
-    /// Lowest `pilotage.v1` schema version the host will serve. A
+    /// Lowest session capability version the host will serve. A
     /// `ClientHello` advertising a lower `protocol_version` is closed with
     /// [`CloseReason::UnsupportedProtocolVersion`].
     ///

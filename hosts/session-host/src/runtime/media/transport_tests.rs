@@ -21,12 +21,33 @@ use wtransport::{ClientConfig, Connection, Endpoint, Identity, ServerConfig, Var
 
 use super::budget::{MAX_BYTES_PER_SECOND, MIN_BYTES_PER_SECOND};
 use super::encoding::encode_jpeg;
-use super::spawn_media_task;
+use super::{MediaCommand, apply_command, spawn_media_task};
 
 const IO_BOUND: Duration = Duration::from_secs(8);
 const FRAME_PERIOD: Duration = Duration::from_micros(11_111);
 const TELEMETRY_PERIOD: Duration = Duration::from_millis(5);
 const TELEMETRY_SAMPLES: u32 = 100;
+
+#[tokio::test]
+async fn reattach_before_negotiation_cannot_register_media() {
+    let (server, _client) = connected_pair().await;
+    let client = ClientKey::new(19);
+    let mut clients = std::collections::BTreeMap::new();
+
+    apply_command(
+        MediaCommand::Reattach {
+            client,
+            connection: server,
+        },
+        &mut clients,
+        0,
+    );
+
+    assert!(
+        clients.is_empty(),
+        "a media attach cannot create a client before an accepted welcome"
+    );
+}
 
 async fn connected_pair() -> (Connection, Connection) {
     let identity =

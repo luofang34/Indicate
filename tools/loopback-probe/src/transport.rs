@@ -12,9 +12,6 @@ use wtransport::{ClientConfig, Connection, Endpoint, endpoint::endpoint_side};
 use crate::error::ProbeError;
 use crate::wire_session::{StreamMessage, decode_one, encode_client_hello, encode_lease_request};
 
-/// The `pilotage.v1` schema version this client claims support for in its
-/// `ClientHello`.
-const CLIENT_PROTOCOL_VERSION: u32 = pilotage_protocol::SCHEMA_VERSION;
 /// Human-readable client identity for diagnostics only (ADR-0005).
 const CLIENT_NAME: &str = "loopback-probe";
 /// Read-buffer size for one `recv_stream.read` call on the bidi stream;
@@ -146,7 +143,7 @@ pub async fn handshake(
     let mut buf = Vec::new();
 
     let hello = ClientHello {
-        protocol_version: CLIENT_PROTOCOL_VERSION,
+        protocol_version: pilotage_protocol::SESSION_PROTOCOL_VERSION,
         client_name: CLIENT_NAME.to_string(),
         join_token: Vec::new(),
     };

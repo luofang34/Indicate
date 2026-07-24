@@ -73,6 +73,9 @@ fn gazebo_frames_already_taken() -> pilotage_adapter_gazebo::GazeboAdapterError 
 fn build_engine(adapter: &GazeboAdapter, max_control_age: Duration) -> SessionEngine {
     let capabilities = adapter.capabilities();
     let staleness = StalenessPolicy::new(max_control_age);
-    let config = SessionConfig::new(pilotage_protocol::SCHEMA_VERSION, env!("CARGO_PKG_VERSION"));
+    let config = SessionConfig::new(
+        pilotage_protocol::SESSION_PROTOCOL_VERSION,
+        env!("CARGO_PKG_VERSION"),
+    );
     SessionEngine::new(capabilities, staleness, config)
 }

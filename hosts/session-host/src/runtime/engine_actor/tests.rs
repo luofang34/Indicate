@@ -36,6 +36,25 @@ mod reliable_actions;
 use fixtures::*;
 
 #[test]
+fn an_accepted_welcome_is_the_media_registration_gate() {
+    let mut actor = actor();
+    let mut receiver = register_client(&mut actor);
+
+    actor.on_client_message(ClientKey::new(1), hello(), MonoTimestamp::from_nanos(0));
+
+    assert!(
+        matches!(
+            receiver.try_recv(),
+            Ok(ToConnection::BootstrapMessage {
+                opens_media: true,
+                ..
+            })
+        ),
+        "only the accepted welcome variant authorizes connection-layer media registration"
+    );
+}
+
+#[test]
 fn engage_link_loss_neutralizes_the_adapter() {
     let mut actor = actor();
     actor.enact(SessionOutcome {

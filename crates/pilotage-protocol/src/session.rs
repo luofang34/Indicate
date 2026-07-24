@@ -7,11 +7,17 @@ use pilotage_timing::MonoTimestamp;
 use crate::ids::{Generation, PrincipalId, ScopeId, SequenceNum, VehicleId};
 use crate::wire;
 
+/// Current session capability version advertised by first-party clients.
+///
+/// Version 2 adds the long-lived multiplexed video stream. This is independent
+/// of [`crate::SCHEMA_VERSION`], which versions protobuf envelope encoding.
+pub const SESSION_PROTOCOL_VERSION: u32 = 2;
+
 /// The first message a client sends after the WebTransport session is
 /// established (ADR-0005).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClientHello {
-    /// Highest `pilotage.v1` schema version the client can interpret.
+    /// Highest session capability version the client can interpret.
     pub protocol_version: u32,
     /// Human-readable client identification, for diagnostics only.
     pub client_name: String,
