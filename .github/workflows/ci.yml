@@ -180,6 +180,9 @@ jobs:
       - name: viewer incoming-uni-stream accept-loop lifecycle (stream isolation + terminal collection)
         run: node clients/web/uni-stream-accept.test.mjs
 
+      - name: multiplexed video stream framing (live records, split boundaries, copied bodies)
+        run: node clients/web/video-stream.test.mjs
+
       - name: viewer bootstrap reader (no LeaseRequest on auto-reconnect, pre-welcome rejection signal)
         run: node clients/web/bootstrap.test.mjs
 

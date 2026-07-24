@@ -20,7 +20,7 @@ pub const SESSION_EVENTS: u8 = 0x01;
 /// `source_id` names the video source (0 = onboard FPV, 1 = chase) so a client
 /// with several sources routes each frame to the right one.
 ///
-/// This framing carries no capture identity; [`VIDEO_FRAME_V2`] supersedes it
+/// This framing carries no capture identity; the v2 body layout supersedes it
 /// as the emitted format. The tag and its builder are kept only to pin the
 /// stable meaning of `0x02` in the compat tests.
 #[cfg(test)]
@@ -29,11 +29,30 @@ pub const VIDEO_FRAME: u8 = 0x02;
 /// Tag prefixing a per-frame video stream that leads with a capture-identity
 /// header before the codec-tagged, length-prefixed payload (ADR-0020).
 ///
-/// A reader that does not recognize this tag skips the stream, exactly as it
-/// would an unknown FourCC, so a host emitting v2 frames degrades gracefully
-/// against an older client. The body layout is built by
-/// [`frame_video_payload_v2`].
+/// The body layout is built by [`frame_video_payload_v2`] and is still what
+/// every emitted frame carries — but as a RECORD inside a
+/// [`VIDEO_STREAM_V3`] stream rather than as its own stream. The tag is kept
+/// only to pin the stable meaning of `0x03` in the compat tests.
+#[cfg(test)]
 pub const VIDEO_FRAME_V2: u8 = 0x03;
+
+/// Tag prefixing a LONG-LIVED per-source video stream carrying a sequence of
+/// length-delimited capture-identity frame bodies (the v2 layout built by
+/// [`frame_video_payload_v2`]), each preceded by a big-endian `u32` byte
+/// count.
+///
+/// One stream per source for the session's life, rather than one per frame:
+/// a receiver that never returns the connection-level flow-control window
+/// consumed by CLOSED streams (WebKit) exhausts its whole session budget
+/// after a fixed volume of video and wedges permanently. Bytes carried on a
+/// live stream are credited normally, so multiplexing keeps the window
+/// circulating. Frame droppability moves from the frame to the stream: the
+/// host sheds frames before the transport, and a write that outlives its
+/// deadline resets the stream so the next frame opens a fresh one.
+pub const VIDEO_STREAM_V3: u8 = 0x04;
+
+/// Byte count prefixing each frame body inside a [`VIDEO_STREAM_V3`] stream.
+pub const VIDEO_RECORD_PREFIX_LEN: usize = 4;
 
 /// Wire code for a [`MeasurementClock`], matching the `pilotage.v1`
 /// `MeasurementClock` enum the browser already decodes: 1 vehicle-boot, 2
@@ -48,7 +67,7 @@ fn measurement_clock_code(clock: MeasurementClock) -> u8 {
 }
 
 /// Serializes one encoded frame as the on-wire body that follows the
-/// [`VIDEO_FRAME_V2`] tag: the fixed capture-identity header (source identity,
+/// record length: the fixed capture-identity header (source identity,
 /// attachment epoch and incarnation, wrapping sequence, sim capture time and
 /// clock, the clock mapping to the flight-state clock, host receive and
 /// publication times, and camera/calibration identities), then the codec

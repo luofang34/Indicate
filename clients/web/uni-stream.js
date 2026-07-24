@@ -11,6 +11,35 @@
 
 import { drainAuthorityEnvelopes } from "./authority-stream.js";
 import { streamCancellationReason } from "./stream-cancellation.js";
+/** Kind tag of a LONG-LIVED per-source video stream: the tag once, then a
+ *  sequence of length-delimited frame bodies. One stream per source keeps the
+ *  connection's flow-control window circulating — an engine that never returns
+ *  the window consumed by CLOSED streams (WebKit) wedges permanently after a
+ *  fixed volume of stream-per-frame video. */
+export const STREAM_KIND_VIDEO_STREAM = 0x04;
+
+/** Byte count prefixing each frame record inside a video stream. */
+export const VIDEO_RECORD_PREFIX_LEN = 4;
+
+/**
+ * Hands every COMPLETE `[u32 BE length][body]` record in `buf` to
+ * `onRecord`, returning the leftover partial tail for the next chunk. A
+ * record whose length has arrived but whose body has not is left intact:
+ * length-delimited framing means a short read is never a parse failure.
+ */
+export async function drainVideoRecords(buf, onRecord) {
+  for (;;) {
+    if (buf.length < VIDEO_RECORD_PREFIX_LEN) return buf;
+    const view = new DataView(buf.buffer, buf.byteOffset, VIDEO_RECORD_PREFIX_LEN);
+    const length = view.getUint32(0, false);
+    const end = VIDEO_RECORD_PREFIX_LEN + length;
+    if (buf.length < end) return buf;
+    // Copy the record out: the caller keeps it across awaits while later
+    // chunks reuse the underlying buffer.
+    await onRecord(buf.slice(VIDEO_RECORD_PREFIX_LEN, end));
+    buf = buf.subarray(end);
+  }
+}
 
 /** Appends `incoming` after `existing`. */
 function appendBytes(existing, incoming) {
@@ -35,7 +64,15 @@ function appendBytes(existing, incoming) {
  */
 export async function readUniStream(
   reader,
-  { authorityKind, decode, onAuthorityEnvelope, shouldContinue, onCancelFailure },
+  {
+    authorityKind,
+    decode,
+    onAuthorityEnvelope,
+    videoStreamKind,
+    onVideoRecord,
+    shouldContinue,
+    onCancelFailure,
+  },
 ) {
   async function cancel(kind, cause = null) {
     const reason = streamCancellationReason(kind, cause);
@@ -66,6 +103,12 @@ export async function readUniStream(
       // never comes.
       if (kind === authorityKind) {
         buf = drainAuthorityEnvelopes(buf, decode, onAuthorityEnvelope);
+      }
+      // A video stream is long-lived too: every complete record is one frame
+      // and must paint as it arrives, never buffered to a close that only
+      // comes at session end.
+      if (kind === videoStreamKind) {
+        buf = await drainVideoRecords(buf, onVideoRecord);
       }
       if (done) break;
     }

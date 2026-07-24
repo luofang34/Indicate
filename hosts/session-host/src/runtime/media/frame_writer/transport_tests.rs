@@ -158,8 +158,10 @@ async fn repeated_mid_open_deadlines_recycle_real_quic_credit() {
     };
     let mut reapers = OpenReapers::new(ClientKey::new(21), 4, Arc::new(PressureSignals::default()));
 
+    let mut slot = None;
     for _ in 0..SOAK_CYCLES {
         let outcome = deliver_frame(
+            &mut slot,
             &channel,
             &mut reapers,
             IO_BOUND,
@@ -189,6 +191,7 @@ async fn repeated_mid_open_deadlines_recycle_real_quic_credit() {
 
     header_gates.add_permits(1);
     let outcome = deliver_frame(
+        &mut slot,
         &channel,
         &mut reapers,
         IO_BOUND,
@@ -203,18 +206,40 @@ async fn repeated_mid_open_deadlines_recycle_real_quic_credit() {
         .await
         .expect("healthy stream is surfaced")
         .expect("connection remains healthy");
-    let mut body = [0_u8; 14];
-    timeout(IO_BOUND, healthy.read_exact(&mut body))
+    // Tag once, then a length-delimited record.
+    let mut framed = [0_u8; 18];
+    timeout(IO_BOUND, healthy.read_exact(&mut framed))
         .await
         .expect("healthy frame arrives")
         .expect("healthy frame is complete");
-    assert_eq!(&body, b"\x02healthy-frame");
-    assert_eq!(
-        timeout(IO_BOUND, healthy.read(&mut [0_u8; 1]))
-            .await
-            .expect("healthy FIN arrives")
-            .expect("healthy stream has no read error"),
-        None,
-        "the healthy frame finishes cleanly"
-    );
+    assert_eq!(&framed, b"\x02\x00\x00\x00\x0dhealthy-frame");
+
+    expect_second_frame_on_same_stream(&mut slot, &channel, &mut reapers, &mut healthy).await;
+}
+
+/// The SAME stream carries the next frame: no second open, no close. This is
+/// what keeps a receiver's connection window circulating.
+async fn expect_second_frame_on_same_stream(
+    slot: &mut Option<ObservedSendStream>,
+    channel: &GatedConnection,
+    reapers: &mut OpenReapers,
+    healthy: &mut wtransport::RecvStream,
+) {
+    let outcome = deliver_frame(
+        slot,
+        channel,
+        reapers,
+        IO_BOUND,
+        IO_BOUND,
+        0x02,
+        b"second-frame",
+    )
+    .await;
+    assert!(matches!(outcome, FrameOutcome::Sent));
+    let mut second = [0_u8; 16];
+    timeout(IO_BOUND, healthy.read_exact(&mut second))
+        .await
+        .expect("the second frame rides the same stream")
+        .expect("the multiplexed stream stays open");
+    assert_eq!(&second, b"\x00\x00\x00\x0csecond-frame");
 }

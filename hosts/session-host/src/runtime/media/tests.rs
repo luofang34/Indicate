@@ -1,6 +1,8 @@
 #![allow(clippy::expect_used, clippy::panic)]
 use super::encode_jpeg;
-use crate::runtime::stream_tag::{FOURCC_MJPEG, VIDEO_FRAME_V2, frame_video_payload_v2};
+use crate::runtime::stream_tag::{
+    FOURCC_MJPEG, VIDEO_RECORD_PREFIX_LEN, VIDEO_STREAM_V3, frame_video_payload_v2,
+};
 use pilotage_adapter_api::{
     CalibrationId, CameraId, CaptureClockMapping, MeasurementClock, MeasurementStamp,
     SourceIncarnation, SourceIntegrity, SourceRole, VideoCaptureStamp,
@@ -69,9 +71,18 @@ fn encodes_frame_and_v2_body_carries_the_jpeg() {
         "JPEG trails intact"
     );
 
-    let mut wire = vec![VIDEO_FRAME_V2];
+    // On the wire the body rides a long-lived source stream: the kind tag
+    // once, then one length-delimited record per frame.
+    let mut wire = vec![VIDEO_STREAM_V3];
+    let length = u32::try_from(body.len()).expect("a test body fits a u32 length");
+    wire.extend_from_slice(&length.to_be_bytes());
     wire.extend_from_slice(&body);
-    assert_eq!(wire[0], VIDEO_FRAME_V2, "leads with the v2 video kind tag");
+    assert_eq!(wire[0], VIDEO_STREAM_V3, "leads with the video stream tag");
+    assert_eq!(
+        &wire[1..1 + VIDEO_RECORD_PREFIX_LEN],
+        &length.to_be_bytes(),
+        "each record declares its byte count"
+    );
 }
 
 #[test]

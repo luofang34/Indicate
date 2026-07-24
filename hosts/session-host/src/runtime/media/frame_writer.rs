@@ -1,6 +1,13 @@
-//! Per-(client, source) video frame writer: one host-initiated uni
-//! stream per frame, written under a deadline so a stalled consumer
-//! costs one frame rather than wedging its source permanently.
+//! Per-(client, source) video frame writer: ONE long-lived host-initiated
+//! uni stream per source carrying length-delimited frames, each write under
+//! a deadline so a stalled consumer costs a frame (and its stream) rather
+//! than wedging its source permanently.
+//!
+//! Multiplexing rather than a stream per frame is load-bearing for
+//! interoperability: a receiver that never returns the connection-level
+//! flow-control window consumed by CLOSED streams exhausts its whole session
+//! budget after a fixed volume of video and stops consuming forever, while
+//! bytes on a live stream are credited normally.
 
 use std::future::Future;
 use std::sync::Arc;
@@ -10,16 +17,19 @@ use pilotage_session::ClientKey;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 use tracing::{error, warn};
-use wtransport::error::{ConnectionError, StreamOpeningError, StreamWriteError};
 use wtransport::stream::OpeningUniStream;
 use wtransport::{Connection, SendStream, VarInt};
 
 use super::budget::PressureSignals;
 use super::{EncodedFrame, now_ns};
-use crate::runtime::stream_tag::{FOURCC_MJPEG, VIDEO_FRAME_V2, frame_video_payload_v2};
+use crate::runtime::stream_tag::{
+    FOURCC_MJPEG, VIDEO_RECORD_PREFIX_LEN, VIDEO_STREAM_V3, frame_video_payload_v2,
+};
 
+use classify::{FatalKind, StreamError, classify_open, classify_open_request, classify_write};
 use reaper::OpenReapers;
 
+mod classify;
 mod reaper;
 
 /// Longest a single frame's uni-stream write may take before the stream
@@ -46,94 +56,6 @@ const STALL_RESET_CODE: u32 = 1;
 /// connection. DATAGRAM frames already precede stream frames in Quinn's packet
 /// assembly, while this negative priority keeps bulk video behind control.
 const VIDEO_STREAM_PRIORITY: i32 = -10;
-
-/// Preserves the concrete cause behind a connection-fatal stream failure.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-enum FatalKind {
-    /// The connection has been dropped.
-    #[error("not connected")]
-    NotConnected,
-    /// A QUIC protocol error.
-    #[error("QUIC protocol error")]
-    QuicProto,
-    /// The uni-stream open request itself failed.
-    #[error("uni stream request failed: {0}")]
-    OpenRequest(#[source] ConnectionError),
-}
-
-/// Separates frame-local loss from connection-fatal loss.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-enum StreamError {
-    /// The peer stopped or refused this stream alone (`Stopped`,
-    /// `Refused`): a peer-attributed one-frame loss; the connection and
-    /// every other source are unaffected.
-    #[error("peer stopped or refused the stream at {phase}")]
-    PeerStop {
-        /// The phase that surfaced it (`open`, `write`, `finish`).
-        phase: &'static str,
-        /// The peer's application error code, when it carried one.
-        code: Option<u64>,
-    },
-    /// The stream was already closed locally (`Closed`): a frame-local
-    /// anomaly, recoverable like a peer stop but NOT a peer stop/refusal.
-    #[error("stream already closed locally at {phase}")]
-    LocalClose {
-        /// The phase that surfaced it.
-        phase: &'static str,
-    },
-    /// Connection-level loss or a protocol failure: the writer must
-    /// retire — no further frame can be delivered on this connection.
-    #[error("connection-fatal at {phase}: {kind}")]
-    ConnectionFatal {
-        /// The phase that surfaced it.
-        phase: &'static str,
-        /// The preserved underlying kind (its own `#[source]` chain).
-        #[source]
-        kind: FatalKind,
-    },
-}
-
-fn classify_write(error: &StreamWriteError, phase: &'static str) -> StreamError {
-    match error {
-        StreamWriteError::Stopped(code) => StreamError::PeerStop {
-            phase,
-            code: Some(code.into_inner()),
-        },
-        StreamWriteError::Closed => StreamError::LocalClose { phase },
-        StreamWriteError::NotConnected => StreamError::ConnectionFatal {
-            phase,
-            kind: FatalKind::NotConnected,
-        },
-        StreamWriteError::QuicProto => StreamError::ConnectionFatal {
-            phase,
-            kind: FatalKind::QuicProto,
-        },
-    }
-}
-
-/// Classifies a refused stream as frame-local and a lost connection as fatal.
-fn classify_open(error: &StreamOpeningError) -> StreamError {
-    match error {
-        StreamOpeningError::Refused => StreamError::PeerStop {
-            phase: "open",
-            code: None,
-        },
-        StreamOpeningError::NotConnected => StreamError::ConnectionFatal {
-            phase: "open",
-            kind: FatalKind::NotConnected,
-        },
-    }
-}
-
-/// Classifies an open-request [`ConnectionError`] (the first `open_uni`
-/// await): always connection-fatal, but the concrete cause is retained
-/// rather than discarded to a static string.
-fn classify_open_request(error: ConnectionError) -> StreamError {
-    StreamError::ConnectionFatal {
-        phase: "open",
-        kind: FatalKind::OpenRequest(error),
-    }
-}
 
 /// One per-frame outbound stream. `write_all`/`finish` are the clean send
 /// path; `reset` is the explicit RESET_STREAM a deadline-exceeded frame
@@ -297,6 +219,10 @@ async fn drain_frames<C: FrameChannel>(
 ) {
     let mut counters = LossCounters::default();
     let mut reapers = OpenReapers::new(client, source_id, Arc::clone(&pressure));
+    // One stream carries every frame for this source: a receiver that leaks
+    // the connection window of CLOSED streams would otherwise wedge after a
+    // fixed volume of video.
+    let mut stream: Option<C::Stream> = None;
     while let Some(frame) = frames.recv().await {
         // Stamp publication at the moment of write, distinct from the receive
         // stamp taken at dequeue, so a consumer can separate host queueing
@@ -316,17 +242,23 @@ async fn drain_frames<C: FrameChannel>(
             continue;
         };
         let outcome = deliver_frame(
+            &mut stream,
             channel,
             &mut reapers,
             STREAM_CREDIT_STARVATION_BOUND,
             FRAME_WRITE_DEADLINE,
-            VIDEO_FRAME_V2,
+            VIDEO_STREAM_V3,
             &body,
         )
         .await;
         if !record_outcome(client, source_id, outcome, &mut counters, &pressure) {
             return;
         }
+    }
+    // Deregistration or shutdown: end the source's stream cleanly so the
+    // client sees a close rather than a reset it would treat as loss.
+    if let Some(mut stream) = stream {
+        stream.finish().await.ok();
     }
 }
 
@@ -404,12 +336,12 @@ fn record_outcome(
     true
 }
 
-/// Opens a stream and writes the tag then the framed body. Stream-credit wait
-/// has its own allocation-free bound. Once allocated, the header flush and
-/// body write share the frame budget; an expired header flush transfers its
-/// still-live future to the reaper, while an expired body write resets the
-/// stream immediately.
+/// Writes one frame onto the source's long-lived stream, opening that stream
+/// first when there is none. A write that fails or outlives its deadline
+/// resets the stream and clears the slot, so the next frame starts a fresh
+/// one and the loss costs a frame rather than the source.
 async fn deliver_frame<C: FrameChannel>(
+    slot: &mut Option<C::Stream>,
     channel: &C,
     reapers: &mut OpenReapers,
     credit_bound: Duration,
@@ -417,50 +349,96 @@ async fn deliver_frame<C: FrameChannel>(
     tag: u8,
     body: &[u8],
 ) -> FrameOutcome {
+    let stream = match slot {
+        Some(stream) => stream,
+        None => match open_frame_stream(channel, reapers, credit_bound, frame_budget, tag).await {
+            Ok(opened) => slot.insert(opened),
+            Err(outcome) => return outcome,
+        },
+    };
+    let deadline = Instant::now() + frame_budget;
+    match tokio::time::timeout_at(deadline, write_record(stream, body)).await {
+        Ok(Ok(())) => FrameOutcome::Sent,
+        Ok(Err(error)) => {
+            reset_slot(slot);
+            error.into_outcome()
+        }
+        Err(_elapsed) => {
+            reset_slot(slot);
+            FrameOutcome::Stalled {
+                phase: DeadlinePhase::Write,
+                reset: true,
+                reaper_owned: false,
+            }
+        }
+    }
+}
+
+/// Resets and discards the current stream so the next frame opens a fresh one.
+fn reset_slot<S: FrameStream>(slot: &mut Option<S>) {
+    if let Some(mut stream) = slot.take() {
+        stream.reset();
+    }
+}
+
+/// Opens one source's video stream and writes its leading kind tag. The
+/// stream-credit wait has its own allocation-free bound; once allocated, the
+/// header flush runs under the frame budget and an expired flush transfers
+/// its still-live future to the reaper.
+async fn open_frame_stream<C: FrameChannel>(
+    channel: &C,
+    reapers: &mut OpenReapers,
+    credit_bound: Duration,
+    frame_budget: Duration,
+    tag: u8,
+) -> Result<C::Stream, FrameOutcome> {
     let Some(reaper_permit) = reapers.reserve().await else {
         error!("video open reaper semaphore closed; retiring writer");
-        return FrameOutcome::ConnectionFatal {
+        return Err(FrameOutcome::ConnectionFatal {
             phase: "open_header",
             kind: FatalKind::NotConnected,
-        };
+        });
     };
     let opening = match tokio::time::timeout(credit_bound, channel.request_open()).await {
         Ok(Ok(opening)) => opening,
-        Ok(Err(error)) => return error.into_outcome(),
+        Ok(Err(error)) => return Err(error.into_outcome()),
         Err(_elapsed) => {
-            return FrameOutcome::Stalled {
+            return Err(FrameOutcome::Stalled {
                 phase: DeadlinePhase::CreditWait,
                 reset: false,
                 reaper_owned: false,
-            };
+            });
         }
     };
     let deadline = Instant::now() + frame_budget;
     let mut completion = Box::pin(C::finish_open(opening));
     let mut stream = match tokio::time::timeout_at(deadline, &mut completion).await {
         Ok(Ok(stream)) => stream,
-        Ok(Err(error)) => return error.into_outcome(),
+        Ok(Err(error)) => return Err(error.into_outcome()),
         Err(_elapsed) => {
             reapers.own(completion, reaper_permit);
-            return FrameOutcome::Stalled {
+            return Err(FrameOutcome::Stalled {
                 phase: DeadlinePhase::HeaderFlush,
                 reset: false,
                 reaper_owned: true,
-            };
+            });
         }
     };
     drop(reaper_permit);
     stream.set_priority(VIDEO_STREAM_PRIORITY);
-    match tokio::time::timeout_at(deadline, write_body(&mut stream, tag, body)).await {
-        Ok(Ok(())) => FrameOutcome::Sent,
-        Ok(Err(error)) => error.into_outcome(),
+    match tokio::time::timeout_at(deadline, stream.write_all(&[tag])).await {
+        Ok(Ok(())) => Ok(stream),
+        Ok(Err(error)) => {
+            stream.reset();
+            Err(error.into_outcome())
+        }
         Err(_elapsed) => {
             stream.reset();
-            FrameOutcome::Stalled {
-                phase: DeadlinePhase::Write,
+            Err(FrameOutcome::Stalled {
+                phase: DeadlinePhase::HeaderFlush,
                 reset: true,
                 reaper_owned: false,
-            }
+            })
         }
     }
 }
@@ -479,15 +457,15 @@ impl StreamError {
     }
 }
 
-/// Writes the one-byte tag, then the body, then finishes the stream.
-async fn write_body<S: FrameStream>(
-    stream: &mut S,
-    tag: u8,
-    body: &[u8],
-) -> Result<(), StreamError> {
-    stream.write_all(&[tag]).await?;
-    stream.write_all(body).await?;
-    stream.finish().await
+/// Writes one length-delimited frame record into the source's live stream.
+/// The stream is NOT finished: it carries every later frame too.
+async fn write_record<S: FrameStream>(stream: &mut S, body: &[u8]) -> Result<(), StreamError> {
+    let len = u32::try_from(body.len()).unwrap_or(u32::MAX);
+    // Typed against the constant so the wire contract and the prefix width
+    // cannot drift apart.
+    let prefix: [u8; VIDEO_RECORD_PREFIX_LEN] = len.to_be_bytes();
+    stream.write_all(&prefix).await?;
+    stream.write_all(body).await
 }
 
 #[cfg(test)]

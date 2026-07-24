@@ -43,6 +43,12 @@ async fn connected_pair() -> (Connection, Connection) {
         .build();
     let mut transport = QuicTransportConfig::default();
     transport.max_concurrent_uni_streams(QuinnVarInt::from_u32(4));
+    // A slow consumer must backpressure PROMPTLY: with long-lived streams the
+    // default multi-megabyte windows would absorb seconds of video before the
+    // writer ever felt the client, and the fixture would measure buffering
+    // rather than shedding.
+    transport.stream_receive_window(QuinnVarInt::from_u32(64 * 1024));
+    transport.receive_window(QuinnVarInt::from_u32(256 * 1024));
     client_config
         .quic_config_mut()
         .transport_config(Arc::new(transport));
@@ -129,8 +135,6 @@ async fn produce_video(mut stop: watch::Receiver<bool>, frames: mpsc::Sender<Raw
 }
 
 async fn drain_video_slowly(connection: Connection, mut stop: watch::Receiver<bool>) {
-    let mut ticker = tokio::time::interval(sustainable_drain_period());
-    ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
     loop {
         let stream = tokio::select! {
             changed = stop.changed() => {
@@ -144,10 +148,47 @@ async fn drain_video_slowly(connection: Connection, mut stop: watch::Receiver<bo
         let Ok(mut stream) = stream else {
             return;
         };
-        ticker.tick().await;
-        let mut buf = [0_u8; 16 * 1024];
-        while let Ok(Some(_)) = stream.read(&mut buf).await {}
+        // Each source's stream is long-lived, so a sequential drain would
+        // read the first one forever and starve the rest: give every stream
+        // its own rate-limited reader.
+        let mut stop_rx = stop.clone();
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(sustainable_drain_period());
+            ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+            let mut buf = vec![0_u8; slow_drain_chunk()];
+            loop {
+                tokio::select! {
+                    changed = stop_rx.changed() => {
+                        if changed.is_err() || *stop_rx.borrow() {
+                            return;
+                        }
+                    }
+                    _ = ticker.tick() => {
+                        if !matches!(stream.read(&mut buf).await, Ok(Some(_))) {
+                            return;
+                        }
+                    }
+                }
+            }
+        });
     }
+}
+
+/// Bytes a slow reader consumes per tick, sized so `chunk / period` is the
+/// intended drain RATE: with long-lived streams the reader is rate-limited by
+/// bytes, not by frames, so the chunk must carry the rate explicitly.
+fn slow_drain_chunk() -> usize {
+    const SOURCES: usize = 3;
+    let templates = [video_frame(0), video_frame(1), video_frame(2)];
+    let encoded_bytes: usize = templates
+        .iter()
+        .filter_map(encode_jpeg)
+        .map(|jpeg| jpeg.len())
+        .sum();
+    // Every source stream now has its OWN reader, so each must take a third
+    // of the intended aggregate drain rate; giving each the full rate would
+    // make the fixture's "slow" client faster than the producer.
+    (encoded_bytes / (SOURCES * SOURCES)).max(1)
 }
 
 fn sustainable_drain_period() -> Duration {
