@@ -31,7 +31,7 @@ delivery and a media pipeline) no longer holds.
   | `telemetry-fast` | Datagrams | Unordered, best effort |
   | `authority-events` | Reliable ordered stream (dedicated) | Lease grants, handover, override, revocation, acknowledgements |
   | `bulk` | One stream per transfer | Profiles, capabilities, configuration, log fragments; no head-of-line contention with authority events |
-  | `media` | Unidirectional stream per frame or GOP | Encoded video units with bounded lifetime; late units abandoned, not awaited |
+  | `media` | Unidirectional stream per source, amended from per frame or GOP — see Amendments below | Encoded video units with bounded lifetime; late units abandoned, not awaited |
 
 - **Video** is encoded on the host (low-latency H.264 first; AV1/HEVC as adapters
   and hardware allow), carried as media-class streams, decoded in the browser with
@@ -84,3 +84,47 @@ system floor governs.
 - **WebTransport for data + WebRTC for media only:** doubles the transport surface
   for one feature (built-in CC) that we intend to own anyway; worst of both worlds
   for a small team.
+
+## Amendments
+
+### 2026-07-24 — Media units are multiplexed on one long-lived stream per source
+
+The original media row specified a unidirectional stream per frame or GOP. That
+framing is not portable across browser engines.
+
+WebKit grants a WebTransport session a one-shot connection-level flow-control
+window (~16 MiB) and never returns the window consumed by streams that have
+CLOSED. A stream-per-frame producer therefore spends the connection's entire
+byte budget after a fixed VOLUME of media and the peer stops consuming
+permanently — while datagrams continue to flow, because they are not
+connection-flow-controlled. Measured against a minimal server and page, with
+Chrome as the control (the reproducer and full measurements are recorded under
+VID-09):
+
+| Variant (Safari 27.0) | Streams at wedge | Bytes at wedge | `MAX_DATA` received |
+|---|---|---|---|
+| stream-per-unit, 16 KiB units | 1,023 | 16,774,110 | 0 |
+| stream-per-unit, 4 KiB units | 4,092 | 16,764,903 | 0 |
+| stream-per-unit + explicit reader cancel | 1,023 | 16,774,110 | 0 |
+| one long-lived stream, same byte rate | — | 51.9 MB, still climbing | rising |
+
+Two unit sizes separate a byte ceiling from a stream-count ceiling: four times
+the streams reach the same ~16 MiB wall. Stream-count credit is extended
+normally throughout, and the congestion counters stay clean, so this is neither
+stream exhaustion nor congestion. An explicit client-side cancel reclaims
+nothing, so the receiver has no workaround available to it.
+
+The media class is therefore **one long-lived unidirectional stream per source**
+carrying length-delimited encoded units. The properties the original row bought
+are preserved by moving where they are enforced:
+
+- **Late units are abandoned, not awaited.** Admission control sheds whole units
+  before the transport, so at most one unit per source is ever in flight, and a
+  write that outlives its deadline RESETs the stream and the next unit opens a
+  fresh one. Droppability moves from the unit to the stream.
+- **Head-of-line blocking stays bounded** by that same one-unit depth; a slow
+  consumer costs the stream, not the source.
+- **Sources stay independent**: one source's stream reset cannot delay another's.
+
+A receiver distinguishes the framings by the stream's kind tag, so the unit body
+layout (ADR-0020 capture identity, ADR-0016 codec tag) is unchanged.
