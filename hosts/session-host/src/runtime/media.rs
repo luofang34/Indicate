@@ -46,6 +46,11 @@ struct MediaClient {
 enum MediaCommand {
     /// Register a client so the next encoded frame is sent to it.
     Register(MediaClient),
+    /// Re-open source streams for an already-negotiated media client.
+    Reattach {
+        client: ClientKey,
+        connection: Connection,
+    },
     /// Deregister a client whose connection task has exited.
     Deregister(ClientKey),
 }
@@ -88,6 +93,22 @@ impl MediaHandle {
             );
         }
         receiver
+    }
+
+    /// Re-opens video streams only for a client whose accepted welcome already
+    /// registered media. Requests before negotiation are refused rather than
+    /// turning an unversioned connection into a V3 consumer.
+    pub fn reattach(&self, client: ClientKey, connection: Connection) {
+        if self
+            .commands
+            .try_send(MediaCommand::Reattach { client, connection })
+            .is_err()
+        {
+            warn!(
+                client = client.as_u64(),
+                "media re-attach dropped (queue full or task gone)"
+            );
+        }
     }
 
     /// Deregisters `client` on disconnect. Best-effort for the same reason as
@@ -217,6 +238,7 @@ fn apply_command(
             if let Some(entry) = clients.get_mut(&client) {
                 entry.connection = connection;
                 entry.sources.clear();
+                entry.status = status;
             } else {
                 let transport = transport_snapshot(&connection);
                 clients.insert(
@@ -231,6 +253,17 @@ fn apply_command(
                     },
                 );
             }
+        }
+        MediaCommand::Reattach { client, connection } => {
+            let Some(entry) = clients.get_mut(&client) else {
+                warn!(
+                    client = client.as_u64(),
+                    "media re-attach refused before protocol negotiation"
+                );
+                return;
+            };
+            entry.connection = connection;
+            entry.sources.clear();
         }
         MediaCommand::Deregister(client) => {
             clients.remove(&client);

@@ -23,7 +23,7 @@ fn arm_frame(action_id: u32) -> ScopedControlFrame {
 fn bootstrap_messages(receiver: &mut mpsc::Receiver<ToConnection>) -> usize {
     let mut count = 0;
     while let Ok(message) = receiver.try_recv() {
-        if matches!(message, ToConnection::BootstrapMessage(_)) {
+        if matches!(message, ToConnection::BootstrapMessage { .. }) {
             count += 1;
         }
     }
@@ -140,7 +140,7 @@ fn a_correlation_id_reused_with_different_content_is_refused() {
 fn drain_result_ids(receiver: &mut mpsc::Receiver<ToConnection>) -> Vec<u32> {
     let mut ids = Vec::new();
     while let Ok(message) = receiver.try_recv() {
-        let ToConnection::BootstrapMessage(bytes) = message else {
+        let ToConnection::BootstrapMessage { bytes, .. } = message else {
             continue;
         };
         let Ok(envelope) =

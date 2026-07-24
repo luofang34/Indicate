@@ -19,6 +19,7 @@ use tokio::time::timeout;
 use wtransport::{ClientConfig, Connection, Endpoint};
 
 const SCHEMA_VERSION: u32 = 1;
+const SESSION_PROTOCOL_VERSION: u32 = pilotage_protocol::SESSION_PROTOCOL_VERSION;
 const TEST_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Connects a `wtransport` client to `addr`, skipping certificate
@@ -132,11 +133,11 @@ async fn send_envelope(send: &mut wtransport::SendStream, envelope: &wire::Envel
         .expect("bootstrap write succeeds");
 }
 
-fn hello_envelope() -> wire::Envelope {
+fn hello_envelope(protocol_version: u32) -> wire::Envelope {
     wire::Envelope {
         schema_version: SCHEMA_VERSION,
         payload: Some(wire::envelope::Payload::ClientHello(wire::ClientHello {
-            protocol_version: SCHEMA_VERSION,
+            protocol_version,
             client_name: "loopback-test".to_owned(),
             join_token: Vec::new(),
         })),
@@ -265,6 +266,30 @@ async fn start_sim_compat_host() -> runtime::RunningHost {
 }
 
 #[tokio::test]
+async fn stale_session_protocol_is_closed_before_welcome() {
+    let host = start_sim_compat_host().await;
+    let connection = connect_client(host.local_addr).await;
+    let (mut send, mut recv) = timeout(TEST_TIMEOUT, connection.open_bi())
+        .await
+        .expect("open_bi does not time out")
+        .expect("bootstrap stream opens")
+        .await
+        .expect("bootstrap stream finishes opening");
+
+    send_envelope(&mut send, &hello_envelope(SESSION_PROTOCOL_VERSION - 1)).await;
+    let mut buf = [0_u8; 1024];
+    let read = timeout(TEST_TIMEOUT, recv.read(&mut buf))
+        .await
+        .expect("stale client is closed promptly");
+    assert!(
+        !matches!(read, Ok(Some(_))),
+        "an unsupported client receives no welcome that could authorize V3 media"
+    );
+
+    host.shutdown().await;
+}
+
+#[tokio::test]
 async fn hello_lease_frame_and_stale_generation_rejection() {
     let host = start_sim_compat_host().await;
     let addr = host.local_addr;
@@ -288,7 +313,7 @@ async fn hello_lease_frame_and_stale_generation_rejection() {
     // (ADR-0005); consume it before parsing length-delimited envelopes.
     read_authority_tag(&mut authority_recv, &mut authority_pending).await;
 
-    send_envelope(&mut send, &hello_envelope()).await;
+    send_envelope(&mut send, &hello_envelope(SESSION_PROTOCOL_VERSION)).await;
     let welcome_envelope = read_one_envelope(&mut recv, &mut pending).await;
     let welcome = match welcome_envelope.payload {
         Some(wire::envelope::Payload::ServerWelcome(welcome)) => welcome,

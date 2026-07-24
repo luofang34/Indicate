@@ -18,6 +18,7 @@ import {
   parseVideoFrameV2,
   BUTTON_EDGE_PRESSED,
   SCHEMA_VERSION,
+  SESSION_PROTOCOL_VERSION,
 } from "./wire.js";
 
 let failures = 0;
@@ -29,6 +30,11 @@ function check(name, cond) {
     failures += 1;
   }
 }
+
+check(
+  "current clients advertise the multiplexed-video session capability",
+  SESSION_PROTOCOL_VERSION === 2,
+);
 
 // Minimal protobuf field walker: returns a Map of field number -> the raw bytes
 // (length-delimited fields) or numeric value (varint), enough to assert field

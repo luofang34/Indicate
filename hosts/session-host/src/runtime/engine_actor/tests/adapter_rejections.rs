@@ -8,7 +8,7 @@ fn drain_rejections(
 ) -> Vec<pilotage_protocol::FrameRejected> {
     let mut rejections = Vec::new();
     while let Ok(message) = receiver.try_recv() {
-        let ToConnection::BootstrapMessage(bytes) = message else {
+        let ToConnection::BootstrapMessage { bytes, .. } = message else {
             continue;
         };
         let Ok(envelope) =

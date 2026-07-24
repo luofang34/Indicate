@@ -97,8 +97,11 @@ fn build_engine<A: VehicleAdapter>(adapter: &A, options: RuntimeOptions) -> Sess
             "SIMULATION legacy-compatibility mode enabled: numeric payload frames are admitted"
         );
     }
-    let config = SessionConfig::new(pilotage_protocol::SCHEMA_VERSION, env!("CARGO_PKG_VERSION"))
-        .with_legacy_compatibility(options.legacy_compatibility);
+    let config = SessionConfig::new(
+        pilotage_protocol::SESSION_PROTOCOL_VERSION,
+        env!("CARGO_PKG_VERSION"),
+    )
+    .with_legacy_compatibility(options.legacy_compatibility);
     SessionEngine::new(capabilities, staleness, config)
 }
 

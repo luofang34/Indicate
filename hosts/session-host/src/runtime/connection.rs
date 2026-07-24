@@ -63,7 +63,12 @@ pub enum ToConnection {
     /// Bytes to write, length-delimited, on the reliable session stream
     /// (handshake, lease, action, and adapter-enactment replies — never
     /// authority events, which use ADR-0005's session-events stream).
-    BootstrapMessage(Vec<u8>),
+    BootstrapMessage {
+        /// Encoded length-delimited envelope.
+        bytes: Vec<u8>,
+        /// Whether a successful write proves media capability negotiation.
+        opens_media: bool,
+    },
     /// Bytes to write, length-delimited, on the reliable session-events stream.
     AuthorityMessage(Vec<u8>),
     /// Bytes to send as a single datagram, tagged with the ADR-0011 class a
@@ -120,13 +125,6 @@ pub async fn run_connection(
     send.set_priority(CONTROL_STREAM_PRIORITY);
     event_send.set_priority(CONTROL_STREAM_PRIORITY);
 
-    // Video is served only when a media task is running (the Gazebo adapter
-    // path); the reference path passes `None` and serves no video, unchanged
-    // from 1a.
-    let media_status = media
-        .as_ref()
-        .map(|media| media.register(client, connection.clone()));
-
     let (outbound_tx, outbound_rx) = mpsc::channel(OUTBOUND_QUEUE_CAPACITY);
     if to_engine
         .send(ToEngine::ClientConnected {
@@ -144,7 +142,14 @@ pub async fn run_connection(
 
     tokio::select! {
         () = run_reader(&connection, recv, client, start, &to_engine, media.as_ref()) => {}
-        () = run_writer(&connection, send, event_send, outbound_rx, media_status) => {}
+        () = run_writer(
+            &connection,
+            client,
+            send,
+            event_send,
+            outbound_rx,
+            media.as_ref(),
+        ) => {}
         () = send_blocked::run_send_blocked_watch(&connection, client.as_u64()) => {}
     }
 
@@ -255,12 +260,15 @@ impl ClientClock {
 /// write never delays servicing the read side.
 async fn run_writer(
     connection: &Connection,
+    client: ClientKey,
     mut send: SendStream,
     mut event_send: SendStream,
     mut outbound_rx: mpsc::Receiver<ToConnection>,
-    mut media_status: Option<watch::Receiver<pilotage_protocol::wire::VideoDeliveryState>>,
+    media: Option<&MediaHandle>,
 ) {
     let mut datagram_drops = DatagramDropCounters::default();
+    let mut media_status: Option<watch::Receiver<pilotage_protocol::wire::VideoDeliveryState>> =
+        None;
     loop {
         let message = if let Some(status) = media_status.as_mut() {
             tokio::select! {
@@ -284,9 +292,12 @@ async fn run_writer(
             break;
         };
         match message {
-            ToConnection::BootstrapMessage(bytes) => {
+            ToConnection::BootstrapMessage { bytes, opens_media } => {
                 if send.write_all(&bytes).await.is_err() {
                     break;
+                }
+                if opens_media && let Some(media) = media {
+                    media_status = Some(media.register(client, connection.clone()));
                 }
             }
             ToConnection::AuthorityMessage(bytes) => {
@@ -430,7 +441,7 @@ async fn drain_bootstrap_frames(
             }
             Ok((InboundBootstrap::MediaAttach, _rest)) => {
                 if let Some(media) = media {
-                    drop(media.register(client, connection.clone()));
+                    media.reattach(client, connection.clone());
                     debug!(
                         client = client.as_u64(),
                         "media attachment requested on live session"

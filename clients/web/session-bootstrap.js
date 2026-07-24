@@ -1,7 +1,7 @@
 import {
   encodeClientHelloEnvelope,
   encodeMediaAttachRequestEnvelope,
-  encodeProfileActivationEnvelope,
+  encodeProfileActivationEnvelope, SESSION_PROTOCOL_VERSION,
 } from "./wire.js";
 import { createActionTracker } from "./action-tracker.js";
 
@@ -41,7 +41,7 @@ export function createSessionBootstrap({
   async function sendClientHello(writer, token) {
     if (!transportSessions.isActive(token)) return false;
     const hello = encodeClientHelloEnvelope({
-      protocolVersion: 1,
+      protocolVersion: SESSION_PROTOCOL_VERSION,
       clientName: "pilotage-web-viewer",
       joinToken: new Uint8Array(0),
     });
