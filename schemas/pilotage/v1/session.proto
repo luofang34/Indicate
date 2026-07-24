@@ -43,8 +43,12 @@ message VideoDeliveryState {
 // bootstrap uses plain HTTPS for admission, then this message begins the
 // in-session handshake).
 message ClientHello {
-  // Highest `pilotage.v1` schema version the client can interpret; the host
-  // may reject or downgrade based on this (ADR-0014).
+  // Highest SESSION CAPABILITY version the client can interpret; the host
+  // rejects a client below its required version before Welcome
+  // (`UnsupportedProtocolVersion`), so a client is never exposed to a media
+  // framing it cannot decode. Deliberately independent of the envelope
+  // schema version (ADR-0014): capabilities move when the session's stream
+  // formats change, which the protobuf encoding does not track.
   uint32 protocol_version = 1;
   // Human-readable client identification (application name/version), for
   // diagnostics only; never used for authorization decisions.
