@@ -42,6 +42,9 @@ mod reaper;
 /// milliseconds on the deployment link).
 const FRAME_WRITE_DEADLINE: Duration = Duration::from_secs(2);
 
+/// Graceful source-stream shutdown bound for stalled clients.
+const STREAM_FINISH_DEADLINE: Duration = Duration::from_secs(2);
+
 /// A peer that withholds uni-stream credit for this long is starving the
 /// connection, not merely delaying one frame. This stage allocates no stream,
 /// so cancellation is safe and later frames may retry loudly.
@@ -257,8 +260,29 @@ async fn drain_frames<C: FrameChannel>(
     }
     // Deregistration or shutdown: end the source's stream cleanly so the
     // client sees a close rather than a reset it would treat as loss.
-    if let Some(mut stream) = stream {
-        stream.finish().await.ok();
+    if let Some(stream) = stream {
+        finish_stream(client, source_id, stream).await;
+    }
+}
+
+async fn finish_stream<S: FrameStream>(client: ClientKey, source_id: u8, mut stream: S) {
+    match tokio::time::timeout(STREAM_FINISH_DEADLINE, stream.finish()).await {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => warn!(
+            client = client.as_u64(),
+            source_id,
+            source = %error,
+            "video stream finish failed"
+        ),
+        Err(_elapsed) => {
+            stream.reset();
+            warn!(
+                client = client.as_u64(),
+                source_id,
+                deadline_ms = STREAM_FINISH_DEADLINE.as_millis(),
+                "video stream finish timed out; stream reset"
+            );
+        }
     }
 }
 

@@ -4,6 +4,7 @@
 
 #![allow(clippy::expect_used, clippy::panic)]
 
+mod finish;
 mod multiplex;
 
 use std::sync::Arc;
@@ -101,6 +102,8 @@ enum Write {
     ConnFatal,
     /// Writes and finishes normally.
     Ok,
+    /// Writes normally, but graceful finish never completes.
+    FinishStall,
 }
 
 /// How a mock `open()` behaves; the failure cases route real
@@ -141,12 +144,15 @@ impl FrameStream for MockStream {
             )),
             Write::Closed => Err(classify_write(&StreamWriteError::Closed, "write")),
             Write::ConnFatal => Err(classify_write(&StreamWriteError::NotConnected, "write")),
-            Write::Ok => Ok(()),
+            Write::Ok | Write::FinishStall => Ok(()),
         }
     }
 
     async fn finish(&mut self) -> Result<(), StreamError> {
         self.tally.finished.fetch_add(1, Ordering::SeqCst);
+        if matches!(self.write, Write::FinishStall) {
+            std::future::pending::<()>().await;
+        }
         Ok(())
     }
 
