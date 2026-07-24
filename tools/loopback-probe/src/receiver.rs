@@ -2,13 +2,11 @@
 //! Telemetry, `Pong`, and `FrameRejected` all arrive as datagrams (the host's
 //! control-fast/telemetry class mapping) and are routed by envelope arm.
 //!
-//! Host-initiated uni streams carry two kinds of traffic (ADR-0005): the
-//! dedicated authority-events stream, opened once per connection, and one
-//! fresh stream per video frame (media = one uni stream per frame). Every
-//! host-initiated uni stream leads with a 1-byte kind tag; this module accepts
-//! every such stream in a loop and dispatches each on that tag, spawning a
-//! short-lived reader task per video-frame stream so a slow video decode never
-//! blocks accepting the next stream.
+//! Host-initiated uni streams carry authority events and video (ADR-0005).
+//! Every stream leads with a 1-byte kind tag; authority and per-source video
+//! streams remain open and dispatch complete records as they arrive. Each
+//! accepted stream gets its own reader task so a slow video decode never
+//! blocks accepting another source.
 //!
 //! Every hand-off to the run loop's bounded event channel uses `try_send`,
 //! never the blocking `send().await`: the channel's consumer (`handle_event`)
@@ -57,9 +55,8 @@ pub enum ReceiverEvent {
     /// An authority/mode event read from the host's dedicated authority-events
     /// stream (ADR-0005). Counted only, to prove the stream is live.
     Authority,
-    /// One raw JPEG frame body read off a per-frame video uni stream
-    /// (ADR-0005 media = one uni stream per frame). Inter-arrival latency is
-    /// measured by the run loop's own wall clock at the point it receives
+    /// One raw JPEG frame body read from a video stream. Inter-arrival latency
+    /// is measured by the run loop's own wall clock at the point it receives
     /// this event, not by a timestamp carried on the event itself.
     VideoFrame {
         /// Video source this frame came from: 0 = onboard FPV, 1 = chase.
@@ -72,9 +69,8 @@ pub enum ReceiverEvent {
 /// Spawns the receiver task: branches poll datagrams (telemetry, `Pong`,
 /// `FrameRejected`), the bootstrap bidi stream's `recv` half (to observe a
 /// post-handshake stream close), and every host-initiated uni stream accepted
-/// over the connection's lifetime (the dedicated authority-events stream plus
-/// one fresh stream per video frame, ADR-0005). Named so an aborted-task audit
-/// can identify it (ADR-0015).
+/// over the connection's lifetime. Named so an aborted-task audit can identify
+/// it (ADR-0015).
 ///
 /// Takes only `recv_stream`; the bidi stream's send half stays in the run
 /// loop, kept open but unwritten after the handshake.
