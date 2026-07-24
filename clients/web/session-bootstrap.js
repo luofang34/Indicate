@@ -1,8 +1,7 @@
 import {
   encodeClientHelloEnvelope,
   encodeMediaAttachRequestEnvelope,
-  encodeProfileActivationEnvelope,
-  SESSION_PROTOCOL_VERSION,
+  encodeProfileActivationEnvelope, SESSION_PROTOCOL_VERSION,
 } from "./wire.js";
 import { createActionTracker } from "./action-tracker.js";
 
