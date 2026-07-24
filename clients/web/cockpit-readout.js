@@ -28,7 +28,7 @@ import {
   newlyStalledSources,
   noteVideoFrame,
 } from "./video-stall.js";
-import { readUniStream } from "./uni-stream.js";
+import { STREAM_KIND_VIDEO_STREAM, readUniStream } from "./uni-stream.js";
 import { streamCancellationReason } from "./stream-cancellation.js";
 import {
   bandwidthBannerText,
@@ -273,6 +273,8 @@ export function createCockpitReadout({
         authorityKind: STREAM_KIND_AUTHORITY,
         decode: decodeLengthDelimitedEnvelope,
         onAuthorityEnvelope: (decoded) => dispatchAuthorityEnvelope(decoded, token),
+        videoStreamKind: STREAM_KIND_VIDEO_STREAM,
+        onVideoRecord: (record) => renderVideoFrameV2(record, token),
         shouldContinue: () => transportSessions.isActive(token),
         onCancelFailure: (error, reason) =>
           log(`uni stream cancellation failed (${reason.kind}): ${error}`),
@@ -282,7 +284,11 @@ export function createCockpitReadout({
         await renderVideoFrameV2(tail, token);
       } else if (kind === STREAM_KIND_VIDEO) {
         await renderVideoFrame(tail, token);
-      } else if (kind !== null && kind !== STREAM_KIND_AUTHORITY) {
+      } else if (
+        kind !== null &&
+        kind !== STREAM_KIND_AUTHORITY &&
+        kind !== STREAM_KIND_VIDEO_STREAM
+      ) {
         log(`unrecognized uni stream kind tag 0x${kind.toString(16)}`);
       }
     } finally {

@@ -4,6 +4,8 @@
 
 #![allow(clippy::expect_used, clippy::panic)]
 
+mod multiplex;
+
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 
@@ -454,9 +456,10 @@ async fn a_connection_fatal_open_retires_the_writer() {
     );
 }
 
-/// A local `Closed` is recoverable frame-local loss: the next frame opens
-/// and finishes, the writer survives, and no stream reset is issued (the
-/// stream was already closed, not deadline-abandoned).
+/// A local `Closed` is recoverable frame-local loss: the broken stream is
+/// discarded, the next frame opens a fresh one, and the writer survives.
+/// Every write failure discards its stream — continuing to write frames into
+/// a stream the peer has stopped reading would strand the source.
 #[tokio::test(start_paused = true)]
 async fn a_local_close_loses_one_frame_and_the_writer_survives() {
     let mut rx = queue(2).await;
@@ -480,7 +483,7 @@ async fn a_local_close_loses_one_frame_and_the_writer_survives() {
     );
     assert_eq!(
         tally.reset.load(Ordering::SeqCst),
-        0,
-        "a local close does not reset a stream"
+        1,
+        "the closed stream is discarded so the next frame opens a fresh one"
     );
 }
