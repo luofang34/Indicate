@@ -144,12 +144,21 @@
     gap: 0.5rem;
   }
   /* The G5 stack must never become the page's tallest element: both
-     instruments share the same viewport budget as the main view. */
+     instruments share the same viewport budget as the main view.
+     The 4:3 size belongs to the STAGE, not to the canvas alone: height-capping
+     only the canvas leaves the figure and its frame at full column width, so
+     the frame's black background shows as a strip beside the instrument and
+     the panel reads as left-shifted. Sizing the stage from the smaller of the
+     column width and the height budget (converted through 4:3) lets the
+     canvas fill its frame exactly, and centres the leftover space OUTSIDE the
+     instrument border. */
+  .g5-column figure.stage {
+    width: min(100%, calc((100vh - 26rem) / 2 * 4 / 3));
+    margin-inline: auto;
+  }
   .g5-column figure.stage canvas {
-    width: auto;
+    width: 100%;
     height: auto;
-    max-width: 100%;
-    max-height: calc((100vh - 26rem) / 2);
   }
   /* Off-slot figures stay mounted (their canvases keep rendering) but
      hidden; the stream-activation work decides when to stop their feeds. */
