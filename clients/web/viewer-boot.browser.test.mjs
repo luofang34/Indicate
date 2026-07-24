@@ -91,6 +91,89 @@ try {
 let framePositioned = false;
 let presenterIsFrameChild = false;
 let logInFlow = false;
+// Canvas-vs-frame geometry (#175). Height-capping only the canvas leaves the
+// frame at full column width and its black background bleeds beside the
+// instrument, so the contract is that every small panel's rendered canvas box
+// EQUALS its frame box, stays 4:3, and that the fault presenter surface
+// (inset:0) covers exactly that canvas — in the stack and in the main slot.
+const near = (a, b, tolerance = 1) => Math.abs(a - b) <= tolerance;
+function panelGeometry(id) {
+  const canvas = document.getElementById(id);
+  const frame = canvas?.parentElement;
+  if (!canvas || !frame) return null;
+  const canvasBox = canvas.getBoundingClientRect();
+  const frameBox = frame.getBoundingClientRect();
+  const presenter = frame.querySelector('div[role="alert"]');
+  // The presenter is display:none until a panel faults, so a hidden one has
+  // no box to compare. Measure it as it would appear instead: its inset:0
+  // surface is the positioned frame's padding box.
+  const presenterShown = Boolean(presenter && getComputedStyle(presenter).display !== "none");
+  const presenterBox = presenter
+    ? presenterShown
+      ? presenter.getBoundingClientRect()
+      : { width: frame.clientWidth, height: frame.clientHeight }
+    : null;
+  return {
+    // clientWidth/Height exclude the frame border, which is exactly the box
+    // the canvas fills; a bleed strip shows up as frame content wider than
+    // the painted canvas.
+    fillsFrameWidth: near(frame.clientWidth, canvasBox.width),
+    fillsFrameHeight: near(frame.clientHeight, canvasBox.height),
+    aspectOk: canvasBox.height > 0 && near(canvasBox.width / canvasBox.height, 4 / 3, 0.02),
+    presenterShown,
+    presenterCoversCanvas: Boolean(
+      presenterBox &&
+        near(presenterBox.width, canvasBox.width) &&
+        near(presenterBox.height, canvasBox.height),
+    ),
+    visible: canvasBox.width > 0 && canvasBox.height > 0,
+    frameWidth: frameBox.width,
+  };
+}
+function stackGeometry() {
+  const column = document.getElementById("g5Column");
+  const stage = document.getElementById("pfd")?.closest("figure.stage");
+  if (!column || !stage) return null;
+  const columnBox = column.getBoundingClientRect();
+  const stageBox = stage.getBoundingClientRect();
+  return {
+    // Leftover column space must sit OUTSIDE the instrument border, so the
+    // stage is centred rather than start-aligned.
+    centred: near(
+      stageBox.left - columnBox.left,
+      columnBox.right - stageBox.right,
+      1.5,
+    ),
+    withinColumn: stageBox.width <= columnBox.width + 1,
+  };
+}
+function selectMainView(value) {
+  const select = document.getElementById("mainView");
+  if (!select) return false;
+  select.value = value;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+  return true;
+}
+let geometry = null;
+try {
+  geometry = {
+    pfd: panelGeometry("pfd"),
+    hsi: panelGeometry("hsi"),
+    stack: stackGeometry(),
+  };
+  // The panel-move path: PFD into the main slot, then back to the stack.
+  // Its frame must hug the canvas in both homes.
+  if (selectMainView("stage-pfd")) {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    geometry.pfdInMain = panelGeometry("pfd");
+    selectMainView("stage-video");
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    geometry.pfdReturned = panelGeometry("pfd");
+    geometry.stackAfterReturn = stackGeometry();
+  }
+} catch (error) {
+  geometry = { error: String(error) };
+}
 let gimbalRouteRegistered = false;
 let gimbalOptionPresent = false;
 try {
@@ -121,6 +204,8 @@ await fetch("/boot-result", {
     logInFlow,
     gimbalRouteRegistered,
     gimbalOptionPresent,
+    geometry,
+    viewport: { width: window.innerWidth, height: window.innerHeight },
   }),
 });
 </script>`;
@@ -142,7 +227,7 @@ function instrumentedIndex() {
 /** Boots the real viewer against a static server and reports the probe's
  *  observation. `serveWasm: false` answers the wasm fetch with 404 to drive
  *  the wasm-load-failure path. */
-async function bootScenario({ label, serveWasm }) {
+async function bootScenario({ label, serveWasm, windowSize = "1280,900" }) {
   let resolveResult;
   const result = new Promise((resolve) => {
     resolveResult = resolve;
@@ -199,6 +284,7 @@ async function bootScenario({ label, serveWasm }) {
       "--disable-extensions",
       "--mute-audio",
       `--user-data-dir=${profile}`,
+      `--window-size=${windowSize}`,
       url,
     ],
     // Chrome is a process tree (browser, renderers, crashpad); detach it into
@@ -259,6 +345,7 @@ async function bootScenario({ label, serveWasm }) {
     "layout: instrument frame is positioned so the fault presenter anchors to it",
     observed.framePositioned === true,
   );
+  reportGeometry("normal boot", observed);
   check(
     "layout: the fault presenter is a child of the positioned frame (scoped to it, not the viewport)",
     observed.framePositioned === true && observed.presenterIsFrameChild === true,
@@ -288,6 +375,79 @@ async function bootScenario({ label, serveWasm }) {
   check("wasm failure: panels report unavailable", observed.unavailable === true);
   check("wasm failure: panels did not claim ready", observed.ready !== true);
   check("wasm failure: MJPEG canvas still usable", observed.canvasUsable === true);
+}
+
+/** Asserts the canvas-vs-frame geometry contract for one booted viewport. */
+function reportGeometry(label, observed) {
+  const geometry = observed.geometry;
+  const size = observed.viewport
+    ? `${observed.viewport.width}x${observed.viewport.height}`
+    : "unknown";
+  if (!geometry || geometry.error) {
+    check(`${label} [${size}]: geometry probe ran (${geometry?.error ?? "absent"})`, false);
+    return;
+  }
+  for (const panel of ["pfd", "hsi"]) {
+    const box = geometry[panel];
+    if (!box?.visible) {
+      check(`${label} [${size}]: ${panel} is laid out`, false);
+      continue;
+    }
+    check(
+      `${label} [${size}]: ${panel} canvas fills its frame width (no black bleed strip)`,
+      box.fillsFrameWidth,
+    );
+    check(`${label} [${size}]: ${panel} canvas fills its frame height`, box.fillsFrameHeight);
+    check(`${label} [${size}]: ${panel} keeps 4:3 geometry`, box.aspectOk);
+    check(
+      `${label} [${size}]: ${panel} fault presenter surface covers exactly the canvas` +
+        `${box.presenterShown ? " (showing)" : ""}`,
+      box.presenterCoversCanvas,
+    );
+  }
+  check(`${label} [${size}]: the G5 stack is centred in its column`, geometry.stack?.centred === true);
+  check(
+    `${label} [${size}]: the G5 stack stays within the column`,
+    geometry.stack?.withinColumn === true,
+  );
+  if (geometry.pfdInMain) {
+    check(
+      `${label} [${size}]: PFD in the main slot keeps frame == canvas`,
+      geometry.pfdInMain.fillsFrameWidth && geometry.pfdInMain.fillsFrameHeight,
+    );
+    check(
+      `${label} [${size}]: PFD returned to the stack keeps frame == canvas`,
+      Boolean(geometry.pfdReturned?.fillsFrameWidth && geometry.pfdReturned?.fillsFrameHeight),
+    );
+    check(
+      `${label} [${size}]: the stack stays centred after the panel returns`,
+      geometry.stackAfterReturn?.centred === true,
+    );
+  }
+}
+
+// Scenario 3: a wide, SHORT viewport where the per-panel height budget binds
+// before the column width does — the geometry that exposed the bleed.
+{
+  const observed = await bootScenario({
+    label: "height-capped viewport",
+    serveWasm: true,
+    windowSize: "1600,700",
+  });
+  check("height-capped viewport: no uncaught boot errors", observed.bootErrors.length === 0);
+  reportGeometry("height-capped", observed);
+}
+
+// Scenario 4: a tall, narrow viewport where the COLUMN width binds instead —
+// proves the fix does not regress the case that already worked.
+{
+  const observed = await bootScenario({
+    label: "width-bound viewport",
+    serveWasm: true,
+    windowSize: "1024,1400",
+  });
+  check("width-bound viewport: no uncaught boot errors", observed.bootErrors.length === 0);
+  reportGeometry("width-bound", observed);
 }
 
 if (failures > 0) {

@@ -1,7 +1,6 @@
-//! Decodes MJPEG video frames received on host-initiated uni streams
-//! (ADR-0005 media = one uni stream per frame) and tracks the run's video
-//! statistics: frame count, decoded dimensions, and arrival-to-display
-//! latency.
+//! Decodes MJPEG video frames received on host-initiated uni streams and
+//! tracks the run's video statistics: frame count, decoded dimensions, and
+//! arrival-to-display latency.
 //!
 //! Decode uses the `image` crate's JPEG decoder; this binary owns I/O and
 //! decode work (ADR-0002 sans-IO applies only to `crates/`).
@@ -61,9 +60,9 @@ pub struct VideoStats {
     /// Frames that failed to decode.
     pub frames_decode_failed: u64,
     /// Arrival-to-decoded-display latency, measured from the client's own
-    /// clock: the gap between this frame's uni stream finishing and the
-    /// previous frame's, i.e. inter-arrival time, folded into a histogram so
-    /// p50/p95/max frame cadence is reportable alongside true fps.
+    /// clock: the gap between this frame and the previous frame, folded into a
+    /// histogram so p50/p95/max frame cadence is reportable alongside true
+    /// fps.
     pub inter_arrival: Histogram,
     /// Decoded width/height of the most recently decoded frame, if any.
     pub last_dims: Option<(u32, u32)>,
