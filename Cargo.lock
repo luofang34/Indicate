@@ -1590,6 +1590,7 @@ dependencies = [
  "pilotage-alerts",
  "pilotage-instrument-scene",
  "pilotage-instrument-state",
+ "thiserror",
 ]
 
 [[package]]
