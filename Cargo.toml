@@ -21,6 +21,7 @@ members = [
     "crates/pilotage-instrument-scene",
     "crates/pilotage-instrument-state",
     "crates/pilotage-instrument-glyphs",
+    "crates/pilotage-instrument-symbology",
     "crates/pilotage-instrument-panels",
     "crates/pilotage-instrument-raster",
     "crates/pilotage-evidence",
@@ -93,6 +94,7 @@ pilotage-sha256 = { path = "crates/pilotage-sha256" }
 pilotage-instrument-scene = { path = "crates/pilotage-instrument-scene" }
 pilotage-instrument-state = { path = "crates/pilotage-instrument-state" }
 pilotage-instrument-glyphs = { path = "crates/pilotage-instrument-glyphs" }
+pilotage-instrument-symbology = { path = "crates/pilotage-instrument-symbology" }
 pilotage-instrument-panels = { path = "crates/pilotage-instrument-panels" }
 pilotage-instrument-raster = { path = "crates/pilotage-instrument-raster" }
 pilotage-adapter-reference = { path = "adapters/reference-headless" }
