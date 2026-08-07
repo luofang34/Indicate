@@ -18,7 +18,7 @@ pub fn render_gate(report: &GateReport, graph: &Graph) -> String {
     let mut out = String::new();
     line(
         &mut out,
-        &format!("=== Pilotage evidence gate — scope {} ===", report.scope_id),
+        &format!("=== Indicate evidence gate — scope {} ===", report.scope_id),
     );
     line(
         &mut out,

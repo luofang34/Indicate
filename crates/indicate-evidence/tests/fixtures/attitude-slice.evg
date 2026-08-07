@@ -17,12 +17,12 @@ attr test band_matches_reference
 
 node RESULT-BAND verification-result
 attr command cargo test -p indicate-instrument-raster
-attr config-digest 339eec92812c375aa46d55fec7c0367a5ced6b27
+attr config-digest 458e3d29dd03ebb37777585459452288e50698e9
 attr tool-version rustc 1.95.0
-attr source-digest git-blob:c86e9a44ffd131b9bc0e610985ff447628288ed6
+attr source-digest git-blob:f399b5de714ad59fc3c75ba830354c8e95e958fd
 attr artifact tests/fixtures/att01-run-output-baselined.txt
-attr output-digest sha256:2a409a4795c9756bc68d4b7d39c33fcddf609770c4fff2aee83ec879a3179566
-attr run-id local:339eec92812c375aa46d55fec7c0367a5ced6b27
+attr output-digest sha256:d311930a432cde5ffc753498435850d559924f6f073ddb1ae6acbdd73ac864ed
+attr run-id local:458e3d29dd03ebb37777585459452288e50698e9
 attr outcome pass
 node CFG-BASE configuration-item
 node TOOL-CARGO tool

@@ -1,4 +1,4 @@
-# Pilotage lifecycle evidence graph — ATT-01 vertical slice
+# Indicate lifecycle evidence graph — ATT-01 vertical slice
 # format: indicate-evidence graph v1 (see crates/indicate-evidence)
 #
 # SIM / NOT FOR FLIGHT. This is the maintained engineering trace record for the
@@ -157,34 +157,34 @@ locator docs/instruments/fha.md
 node RESULT-RASTER verification-result
 title raster extreme-attitude behavior — recorded pass
 attr command cargo test -p indicate-instrument-raster
-attr config-digest c6a9e8aa6e36ba38e30dbfea9dc5303fc1b63cc6
+attr config-digest 458e3d29dd03ebb37777585459452288e50698e9
 attr tool-version rustc 1.95.0 (59807616e 2026-04-14)
-attr source-digest git-blob:68630e48c7285cd5e2f73f433a66f1644c185a95
+attr source-digest git-blob:39567de102031c44439f4fce57661b565cf63ce8
 attr artifact docs/instruments/evidence-artifacts/att01/raster.run.txt
-attr output-digest sha256:d67db8c785cb09362a7ecf100dc6ef4bb0d90360033028092752928fdff9520d
-attr run-id local:c6a9e8aa6e36ba38e30dbfea9dc5303fc1b63cc6
+attr output-digest sha256:db661e4ed715c5f7d431541d2fc5581ac756f8427f79d48e8af8bfab777f70b8
+attr run-id local:458e3d29dd03ebb37777585459452288e50698e9
 attr outcome pass
 
 node RESULT-PRESENTATION verification-result
 title SO(3) presentation unit suite — recorded pass
 attr command cargo test -p indicate-instrument-state
-attr config-digest c6a9e8aa6e36ba38e30dbfea9dc5303fc1b63cc6
+attr config-digest 458e3d29dd03ebb37777585459452288e50698e9
 attr tool-version rustc 1.95.0 (59807616e 2026-04-14)
-attr source-digest git-blob:4e4b9d1da1c6dfb7b7d1077d96155e6a79ff961b
+attr source-digest git-blob:d11595580cab8264e75e9e82ab9994de6d8bdeac
 attr artifact docs/instruments/evidence-artifacts/att01/presentation.run.txt
-attr output-digest sha256:ccd6335bc34d8d59088b160f6cd4df6d3ff2c12644cd693baadb406da1f36ed9
-attr run-id local:c6a9e8aa6e36ba38e30dbfea9dc5303fc1b63cc6
+attr output-digest sha256:a3417406282da0b168c0be153d5c6bc3b783d3691b65be7e67a2610bc48bbe7e
+attr run-id local:458e3d29dd03ebb37777585459452288e50698e9
 attr outcome pass
 
 node RESULT-PFD verification-result
 title PFD attitude panel suite — recorded pass
 attr command cargo test -p indicate-instrument-panels
-attr config-digest c6a9e8aa6e36ba38e30dbfea9dc5303fc1b63cc6
+attr config-digest 458e3d29dd03ebb37777585459452288e50698e9
 attr tool-version rustc 1.95.0 (59807616e 2026-04-14)
-attr source-digest git-blob:fbd04a43041666fbb7419aa4d96ac652c0ab6565
+attr source-digest git-blob:015edf11e26fa840cb410c086262cf4ed2621413
 attr artifact docs/instruments/evidence-artifacts/att01/panel.run.txt
-attr output-digest sha256:64c2826c48b62e8d99e19f6036b628e07dff621f1de71489d817e0efe77d40e9
-attr run-id local:c6a9e8aa6e36ba38e30dbfea9dc5303fc1b63cc6
+attr output-digest sha256:ad0c540fcacc5b0e190e2e7705e1f9216cc2c1c5ead80e6487b2030431b5a34c
+attr run-id local:458e3d29dd03ebb37777585459452288e50698e9
 attr outcome pass
 
 # --- Configuration and tool identity ---
@@ -192,8 +192,8 @@ attr outcome pass
 node CFG-WORKTREE configuration-item
 title engineering worktree baseline — the git working tree the recorded results were produced against (not certified SCM)
 attr scm git-worktree
-attr commit c6a9e8aa6e36ba38e30dbfea9dc5303fc1b63cc6
-attr tree d4e71b5380b9363f9b1f9b64ad2566708678acab
+attr commit 458e3d29dd03ebb37777585459452288e50698e9
+attr tree 2b18878ed34d6313891ce2aea786ff55f047d9f8
 
 node TOOL-CARGO-TEST tool
 title cargo test on Rust stable — not DO-330 tool-qualified
