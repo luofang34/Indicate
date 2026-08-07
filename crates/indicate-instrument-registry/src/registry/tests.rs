@@ -4,12 +4,15 @@ use indicate_alerts::AlertOutput;
 use indicate_instrument_scene::{LAYER_COUNT, SceneWriter};
 use indicate_instrument_state::{AircraftState, GroupId, PanelData};
 
+use std::vec::Vec;
+
 use super::{Registry, RegistryError};
 use crate::config::ConfigBlob;
 use crate::descriptor::{
     BackgroundCapability, DesignFrame, ExtremeState, PanelDescriptor, PanelDrawError, Region,
 };
 use crate::group_set::GroupSet;
+use crate::set::PanelSet;
 
 fn draw_nothing(
     _data: &PanelData,
@@ -47,7 +50,7 @@ const fn panel(id: &'static str) -> PanelDescriptor {
 fn a_valid_composition_is_accepted_and_queryable() {
     static PANELS: [PanelDescriptor; 2] = [panel("alpha"), panel("beta-2")];
     let registry = Registry::new(&PANELS).expect("two well-formed panels");
-    assert_eq!(registry.panels().len(), 2);
+    assert_eq!(registry.panels().count(), 2);
     assert_eq!(registry.by_id("beta-2").expect("registered").id, "beta-2");
     assert!(registry.by_id("gamma").is_none());
 }
@@ -193,4 +196,112 @@ fn extreme_state_ids_must_be_unique_and_well_formed() {
             position: 1,
         })
     );
+}
+
+// --- Composition across provider crates (#6) ---
+
+static ALPHA: PanelSet = PanelSet {
+    id: "alpha-set",
+    panels: &[panel("alpha")],
+};
+static BETA: PanelSet = PanelSet {
+    id: "beta-set",
+    panels: &[panel("beta")],
+};
+
+#[test]
+fn sets_compose_in_shell_order_and_stay_queryable() {
+    static SETS: [&PanelSet; 2] = [&ALPHA, &BETA];
+    let registry = Registry::from_sets(&SETS).expect("two well-formed sets");
+    let ids: Vec<&str> = registry.panels().map(|panel| panel.id).collect();
+    assert_eq!(ids, ["alpha", "beta"], "set order is composition order");
+    assert_eq!(registry.by_id("beta").expect("registered").id, "beta");
+    assert_eq!(registry.sets().len(), 2);
+}
+
+/// The property this mechanism exists for: a shell that composes two
+/// sets claiming the same panel gets a refusal at init, not whichever
+/// panel happened to be listed first.
+#[test]
+fn a_panel_id_claimed_by_two_sets_is_refused() {
+    static CLASH: PanelSet = PanelSet {
+        id: "clash-set",
+        panels: &[panel("alpha")],
+    };
+    static SETS: [&PanelSet; 2] = [&ALPHA, &CLASH];
+    assert_eq!(
+        Registry::from_sets(&SETS).map(|_| ()),
+        Err(RegistryError::DuplicateId { index: 1 }),
+    );
+}
+
+#[test]
+fn per_panel_rules_still_run_over_a_composition_of_sets() {
+    static UPPER: PanelSet = PanelSet {
+        id: "upper-set",
+        panels: &[panel("Alpha")],
+    };
+    static SETS: [&PanelSet; 2] = [&ALPHA, &UPPER];
+    assert_eq!(
+        Registry::from_sets(&SETS).map(|_| ()),
+        Err(RegistryError::BadId { index: 1 }),
+        "a malformed id must not ride in unchecked because it arrived in a set",
+    );
+}
+
+#[test]
+fn two_sets_sharing_an_id_are_refused() {
+    static TWIN: PanelSet = PanelSet {
+        id: "alpha-set",
+        panels: &[panel("other")],
+    };
+    static SETS: [&PanelSet; 2] = [&ALPHA, &TWIN];
+    assert_eq!(
+        Registry::from_sets(&SETS).map(|_| ()),
+        Err(RegistryError::DuplicateSetId { set: 1 }),
+    );
+}
+
+#[test]
+fn a_set_contributing_no_panels_is_refused() {
+    static HOLLOW: PanelSet = PanelSet {
+        id: "hollow-set",
+        panels: &[],
+    };
+    static SETS: [&PanelSet; 2] = [&ALPHA, &HOLLOW];
+    assert_eq!(
+        Registry::from_sets(&SETS).map(|_| ()),
+        Err(RegistryError::EmptySet { set: 1 }),
+    );
+}
+
+#[test]
+fn a_malformed_set_id_is_refused() {
+    static SHOUTY: PanelSet = PanelSet {
+        id: "Alpha_Set",
+        panels: &[panel("gamma")],
+    };
+    static SETS: [&PanelSet; 1] = [&SHOUTY];
+    assert_eq!(
+        Registry::from_sets(&SETS).map(|_| ()),
+        Err(RegistryError::BadSetId { set: 0 }),
+    );
+}
+
+#[test]
+fn a_composition_naming_no_sets_is_refused() {
+    assert_eq!(
+        Registry::from_sets(&[]).map(|_| ()),
+        Err(RegistryError::NoSets),
+    );
+}
+
+/// A bare slice still composes: a single-provider shell never learns
+/// that sets exist.
+#[test]
+fn an_anonymous_composition_names_no_sets() {
+    static PANELS: [PanelDescriptor; 1] = [panel("alpha")];
+    let registry = Registry::new(&PANELS).expect("composes");
+    assert!(registry.sets().is_empty());
+    assert_eq!(registry.panels().count(), 1);
 }

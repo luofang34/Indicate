@@ -9,7 +9,7 @@
 use indicate_alerts::AlertOutput;
 use indicate_instrument_registry::{
     BackgroundCapability, ConfigBlob, DesignFrame, GroupSet, PanelDescriptor, PanelDrawError,
-    Region,
+    PanelSet, Region,
 };
 use indicate_instrument_scene::{LayerId, SceneWriter};
 use indicate_instrument_state::{
@@ -447,6 +447,17 @@ fn monitor_full_channel() -> AircraftState {
 /// The panels this crate ships, in shell display order.
 pub const BUILTIN_PANELS: &[PanelDescriptor] =
     &[PFD_DESCRIPTOR, HSI_DESCRIPTOR, MONITOR_DESCRIPTOR];
+
+/// The panels this crate ships, as the set a shell names.
+///
+/// A shell composing this crate alongside another provider names sets
+/// rather than panels, so gaining a panel here does not edit any
+/// shell. Set identity stays out of the scene digest, so this composes
+/// to the same digest as the bare slice.
+pub const BUILTIN_SET: PanelSet = PanelSet {
+    id: "builtin",
+    panels: BUILTIN_PANELS,
+};
 
 /// The pinned scene digest over [`BUILTIN_PANELS`] and the canonical
 /// corpus (ADR-0033): the composition contract every build target must
