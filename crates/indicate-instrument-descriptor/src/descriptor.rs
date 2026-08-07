@@ -8,11 +8,19 @@ use crate::config::{ConfigBlob, ConfigError, ConfigKey};
 use crate::group_set::GroupSet;
 
 /// A panel's draw entry point: pure resolved-state → scene, with its
-/// configuration delivered as the validated blob the shell accepted.
+/// configuration delivered as the validated blob the shell accepted and
+/// the logical frame it must lay out against.
+///
+/// The frame is an input, not a configuration key. Configuration is an
+/// optional schema-gated wire blob and the admission harness draws the
+/// empty one deliberately, so a size-adaptive panel that read its frame
+/// from configuration would be unadmittable by construction. It sits
+/// before the writer because it is an input and the writer is the sink.
 pub type DrawFn = fn(
     &PanelData,
     &ConfigBlob<'_>,
     Option<&AlertOutput>,
+    DesignFrame,
     &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError>;
 
@@ -48,6 +56,11 @@ pub enum BackgroundCapability {
 
 /// The logical space a panel draws against; backends scale, panels
 /// never see viewport pixels.
+///
+/// One frame is one draw. A panel declares the *range* of frames it can
+/// lay out against ([`PanelDescriptor::frame_min`] through
+/// [`PanelDescriptor::frame_max`]) and receives the chosen one as a
+/// [`DrawFn`] argument.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DesignFrame {
     /// Logical width.
@@ -96,8 +109,29 @@ pub struct PanelDescriptor {
     /// State groups this panel consumes — the withholding matrix the
     /// admission harness drives honest-status checks from.
     pub required_groups: GroupSet,
-    /// The logical space this panel draws against.
-    pub design_frame: DesignFrame,
+    /// The smallest frame this panel lays out against: the readability
+    /// floor, where conspicuity must still hold (AIR-OUT-004). Group
+    /// regions are validated against it, because the floor is where a
+    /// region has to fit.
+    pub frame_min: DesignFrame,
+    /// The largest frame this panel lays out against.
+    pub frame_max: DesignFrame,
+    /// Per-axis quantization step: admissible dimensions are
+    /// `frame_min + k * step`, which keeps the behaviour space and the
+    /// evidence matrix finite. A degenerate range declares any positive
+    /// step, since the only admissible `k` is zero.
+    pub frame_step: (f32, f32),
+    /// Smallest width/height ratio the layout supports. Per-axis bounds
+    /// alone would admit shapes the layout was never designed for, so
+    /// the ratio is bounded separately.
+    pub aspect_min: f32,
+    /// Largest width/height ratio the layout supports.
+    pub aspect_max: f32,
+    /// The pinned evidence sizes: the frames the digest, the admission
+    /// matrix, and the raster baselines are taken at. Must include both
+    /// [`PanelDescriptor::frame_min`] and [`PanelDescriptor::frame_max`],
+    /// and every entry must itself be admissible.
+    pub canonical_frames: &'static [DesignFrame],
     /// What the panel does with the `Background` band.
     pub background: BackgroundCapability,
     /// Configuration keys this panel understands; a shell refuses a
@@ -111,10 +145,12 @@ pub struct PanelDescriptor {
     pub group_regions: &'static [(GroupId, Region)],
     /// Panel-contributed stress fixtures beyond the canonical states.
     pub extreme_states: &'static [ExtremeState],
-    /// Pinned raster baseline: SHA-256 hex of the reference
-    /// rasterizer's render of the shared "typical" corpus state, or
-    /// `None` until the baseline travels into the descriptor.
-    pub raster_baseline: Option<&'static str>,
+    /// Pinned raster baselines: per canonical frame, the SHA-256 hex of
+    /// the reference rasterizer's render of the shared "typical" corpus
+    /// state at that frame. Every entry must name a frame in
+    /// [`PanelDescriptor::canonical_frames`]; an empty slice is the
+    /// honest declaration for a panel with no baseline pinned yet.
+    pub raster_baselines: &'static [(DesignFrame, &'static str)],
     /// The draw entry point.
     pub draw: DrawFn,
 }

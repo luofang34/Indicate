@@ -11,6 +11,7 @@ use indicate_instrument_state::{
 
 pub(crate) use super::PfdConfig;
 use super::{VSpeeds, draw_pfd};
+use crate::BUILTIN_FRAME;
 
 pub(crate) fn flying() -> PanelData {
     let state = AircraftState {
@@ -51,7 +52,7 @@ pub(crate) fn flying() -> PanelData {
 pub(crate) fn render(data: &PanelData, cfg: &PfdConfig) -> Vec<u8> {
     let mut buf = std::vec![0u8; 32 * 1024];
     let mut w = SceneWriter::new(&mut buf).expect("fits");
-    draw_pfd(data, cfg, None, &mut w).expect("panel fits buffer");
+    draw_pfd(data, cfg, None, BUILTIN_FRAME, &mut w).expect("panel fits buffer");
     let len = w.finish();
     buf.truncate(len);
     buf

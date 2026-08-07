@@ -56,7 +56,7 @@ fn frame(
 fn texts(data: &PanelData) -> Vec<String> {
     let mut buf = std::vec![0u8; 32 * 1024];
     let mut writer = SceneWriter::new(&mut buf).expect("buffer fits");
-    super::draw_hsi(data, None, &mut writer).expect("panel fits buffer");
+    super::draw_hsi(data, None, crate::BUILTIN_FRAME, &mut writer).expect("panel fits buffer");
     let len = writer.finish();
     SceneCmds::new(&buf[..len])
         .expect("valid scene")

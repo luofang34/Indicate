@@ -1,5 +1,10 @@
 //! The admission matrix and its five check families.
 //!
+//! The matrix runs at every canonical frame a panel pins, and every
+//! geometry check is expressed against the frame being drawn rather
+//! than a descriptor constant — a panel that lays out differently at a
+//! different size is judged at each size it declares.
+//!
 //! All geometry tests happen in DESIGN-FRAME space: text runs are
 //! reduced to conservative ink rectangles (nominal metrics around the
 //! anchor) and mapped through the scene's transform state, exactly as
@@ -17,7 +22,7 @@
 
 use indicate_instrument_glyphs::PANEL_VOCABULARY;
 use indicate_instrument_registry::{
-    CANONICAL_STATES, EMPTY_CONFIG, PanelDescriptor, PanelDrawError, Registry,
+    CANONICAL_STATES, DesignFrame, EMPTY_CONFIG, PanelDescriptor, PanelDrawError, Registry,
 };
 use indicate_instrument_scene::{
     Cmd, LayerError, MAX_SCENE_BYTES, SceneCmds, SceneWriter, validate_layers,
@@ -47,13 +52,17 @@ pub struct AdmissionReport {
 /// A tolerated observation, counted so growth is visible.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AdmissionWarning {
-    /// A text run whose ink extends outside the panel's design frame
-    /// without a bounding clip.
+    /// A text run whose ink extends outside the frame it was drawn in
+    /// without a bounding clip. The frame is part of the observation:
+    /// a run that fits at one canonical size and overhangs at another
+    /// is two different facts, and the ratchet counts them separately.
     FrameOverflow {
         /// The drawing panel.
         panel: &'static str,
         /// The corpus state.
         state: &'static str,
+        /// The frame the panel was drawn at.
+        frame: DesignFrame,
         /// The text run's content.
         text: String,
     },
@@ -231,16 +240,27 @@ fn admit_panel(
     panel: &'static PanelDescriptor,
     report: &mut AdmissionReport,
 ) -> Result<(), AdmissionError> {
+    for frame in panel.canonical_frames {
+        admit_panel_at_frame(panel, *frame, report)?;
+    }
+    Ok(())
+}
+
+fn admit_panel_at_frame(
+    panel: &'static PanelDescriptor,
+    frame: DesignFrame,
+    report: &mut AdmissionReport,
+) -> Result<(), AdmissionError> {
     let states = CANONICAL_STATES
         .iter()
         .map(|s| (s.id, s.build))
         .chain(panel.extreme_states.iter().map(|e| (e.id, e.build)));
     for (state_id, build) in states {
-        check_case(panel, state_id, None, build(), report)?;
+        check_case(panel, state_id, None, build(), frame, report)?;
         for group in GroupId::ALL {
             if panel.required_groups.contains(group) {
                 let withheld = withhold_group(&build(), group);
-                check_case(panel, state_id, Some(group), withheld, report)?;
+                check_case(panel, state_id, Some(group), withheld, frame, report)?;
             }
         }
     }
@@ -252,16 +272,17 @@ fn check_case(
     state_id: &'static str,
     withheld: Option<GroupId>,
     state: AircraftState,
+    frame: DesignFrame,
     report: &mut AdmissionReport,
 ) -> Result<(), AdmissionError> {
     let data = resolve(&state, &FreshnessPolicy::default());
-    let runs = draw_runs(panel, state_id, withheld, &data)?;
+    let runs = draw_runs(panel, state_id, withheld, &data, frame)?;
     check_provenance(panel, state_id, withheld, &runs)?;
-    let frame = Rect {
+    let bounds = Rect {
         min_x: 0.0,
         min_y: 0.0,
-        max_x: panel.design_frame.width,
-        max_y: panel.design_frame.height,
+        max_x: frame.width,
+        max_y: frame.height,
     };
     for run in &runs {
         for ch in run.text.chars() {
@@ -273,10 +294,11 @@ fn check_case(
                 });
             }
         }
-        if !frame.contains(&run.rect) && !run.clipped {
+        if !bounds.contains(&run.rect) && !run.clipped {
             report.warnings.push(AdmissionWarning::FrameOverflow {
                 panel: panel.id,
                 state: state_id,
+                frame,
                 text: run.text.clone(),
             });
         }
@@ -290,14 +312,16 @@ fn draw_runs(
     state_id: &'static str,
     withheld: Option<GroupId>,
     data: &PanelData,
+    frame: DesignFrame,
 ) -> Result<Vec<TextRun>, AdmissionError> {
     let mut buf = vec![0u8; MAX_SCENE_BYTES];
-    let scene = draw_scene(panel, data, &mut buf).map_err(|source| AdmissionError::Draw {
-        panel: panel.id,
-        state: state_id,
-        withheld,
-        source,
-    })?;
+    let scene =
+        draw_scene(panel, data, frame, &mut buf).map_err(|source| AdmissionError::Draw {
+            panel: panel.id,
+            state: state_id,
+            withheld,
+            source,
+        })?;
     let layers = validate_layers(scene).map_err(|error| match error {
         LayerError::Decode(_) => AdmissionError::Decode {
             panel: panel.id,
@@ -318,7 +342,7 @@ fn draw_runs(
             missing,
         });
     }
-    check_background(panel, state_id, scene)?;
+    check_background(panel, state_id, frame, scene)?;
     match collect_runs(scene) {
         Ok(runs) => Ok(runs),
         Err(RunsDefect::Decode) => Err(AdmissionError::Decode {
@@ -341,10 +365,11 @@ enum RunsDefect {
 fn draw_scene<'b>(
     panel: &PanelDescriptor,
     data: &PanelData,
+    frame: DesignFrame,
     buf: &'b mut [u8],
 ) -> Result<&'b [u8], PanelDrawError> {
     let mut writer = SceneWriter::new(buf)?;
-    (panel.draw)(data, &EMPTY_CONFIG, None, &mut writer)?;
+    (panel.draw)(data, &EMPTY_CONFIG, None, frame, &mut writer)?;
     let used = writer.finish();
     Ok(buf.get(..used).unwrap_or(&[]))
 }

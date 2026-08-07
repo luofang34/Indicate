@@ -10,7 +10,7 @@
 //! the f32 `libm` presentation under test — so a sign or rotation error in
 //! the draw layer surfaces as a misclassified pixel, not a plausible frame.
 
-use indicate_instrument_panels::{PANEL_H, PANEL_W, PfdConfig, draw_pfd};
+use indicate_instrument_panels::{BUILTIN_FRAME, PANEL_H, PANEL_W, PfdConfig, draw_pfd};
 use indicate_instrument_scene::{MAX_SCENE_BYTES, SceneWriter};
 use indicate_instrument_state::{
     AirData, AircraftState, Attitude, EstimateQuality, FreshnessPolicy, Kinematics, Quat, Stamped,
@@ -166,7 +166,14 @@ fn render_quat(quat: Quat) -> Vec<u8> {
     let data = resolve(&state_from_quat(quat), &FreshnessPolicy::default());
     let mut buf = std::vec![0u8; MAX_SCENE_BYTES];
     let mut writer = SceneWriter::new(&mut buf).expect("writer");
-    draw_pfd(&data, &PfdConfig::default(), None, &mut writer).expect("pfd");
+    draw_pfd(
+        &data,
+        &PfdConfig::default(),
+        None,
+        BUILTIN_FRAME,
+        &mut writer,
+    )
+    .expect("pfd");
     let n = writer.finish();
     buf.truncate(n);
 

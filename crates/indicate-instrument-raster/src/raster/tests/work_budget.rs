@@ -4,7 +4,7 @@
 //! fit inside [`RenderWork::BUDGET`], and the counters must be a pure
 //! function of scene bytes and dimensions.
 
-use indicate_instrument_panels::{PANEL_H, PANEL_W, PfdConfig, draw_hsi, draw_pfd};
+use indicate_instrument_panels::{BUILTIN_FRAME, PANEL_H, PANEL_W, PfdConfig, draw_hsi, draw_pfd};
 use indicate_instrument_state::{FreshnessPolicy, resolve};
 use std::vec::Vec;
 
@@ -29,9 +29,14 @@ fn panel_scenes() -> Vec<(&'static str, Vec<u8>)> {
     std::vec![
         (
             "PFD",
-            encode(|w| draw_pfd(&data, &PfdConfig::default(), None, w).expect("pfd")),
+            encode(
+                |w| draw_pfd(&data, &PfdConfig::default(), None, BUILTIN_FRAME, w).expect("pfd")
+            ),
         ),
-        ("HSI", encode(|w| draw_hsi(&data, None, w).expect("hsi"))),
+        (
+            "HSI",
+            encode(|w| draw_hsi(&data, None, BUILTIN_FRAME, w).expect("hsi"))
+        ),
     ]
 }
 

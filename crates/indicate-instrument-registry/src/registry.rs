@@ -4,6 +4,11 @@ use indicate_instrument_scene::LAYER_COUNT;
 
 use indicate_instrument_descriptor::{PanelDescriptor, PanelSet};
 
+mod error;
+mod frame_range;
+
+pub use error::RegistryError;
+
 /// How a shell named the panels it composed.
 ///
 /// A shell with one provider crate passes a slice and never sees sets;
@@ -70,116 +75,6 @@ impl Iterator for Panels {
             },
         }
     }
-}
-
-/// Why a composition was refused.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum RegistryError {
-    /// A shell with no panels has nothing to display.
-    #[error("a registry must contain at least one panel")]
-    Empty,
-    /// A composition naming no sets has nothing to display, and would
-    /// pass the per-panel checks vacuously.
-    #[error("a registry must contain at least one set")]
-    NoSets,
-    /// A set id violates the lowercase/digits/dashes charset.
-    #[error("set {set} has a malformed id")]
-    BadSetId {
-        /// Position in the composed set list.
-        set: usize,
-    },
-    /// Two sets share an id, so neither can be named unambiguously.
-    #[error("set {set} repeats an earlier set's id")]
-    DuplicateSetId {
-        /// Position of the second occurrence.
-        set: usize,
-    },
-    /// A set contributing no panels is a provider wired up wrongly, not
-    /// a shell that wanted nothing.
-    #[error("set {set} contributes no panels")]
-    EmptySet {
-        /// Position in the composed set list.
-        set: usize,
-    },
-    /// A panel id violates the lowercase/digits/dashes charset.
-    #[error("panel {index} has a malformed id")]
-    BadId {
-        /// Position in the flattened composition.
-        index: usize,
-    },
-    /// Two panels share an id.
-    #[error("panel {index} repeats an earlier panel's id")]
-    DuplicateId {
-        /// Position of the second occurrence.
-        index: usize,
-    },
-    /// An empty title cannot label health or layout surfaces.
-    #[error("panel {index} has an empty title")]
-    EmptyTitle {
-        /// Position in the flattened composition.
-        index: usize,
-    },
-    /// A panel that requires no layers would pass every completeness
-    /// check vacuously.
-    #[error("panel {index} declares no required layers")]
-    NoRequiredLayers {
-        /// Position in the flattened composition.
-        index: usize,
-    },
-    /// Required-layer bits beyond the defined scene layers.
-    #[error("panel {index} requires undefined layer bits {bits:#04x}")]
-    UndefinedLayerBits {
-        /// Position in the flattened composition.
-        index: usize,
-        /// The offending mask.
-        bits: u8,
-    },
-    /// A non-finite or non-positive design frame.
-    #[error("panel {index} has a degenerate design frame")]
-    BadDesignFrame {
-        /// Position in the flattened composition.
-        index: usize,
-    },
-    /// Schema keys must be strictly ascending (unique by construction).
-    #[error("panel {index} schema key {key} repeats or descends")]
-    SchemaKeysNotAscending {
-        /// Position in the flattened composition.
-        index: usize,
-        /// The out-of-order key.
-        key: u16,
-    },
-    /// A group region for a group the panel does not consume.
-    #[error("panel {index} declares a region for group {group} it does not require")]
-    RegionGroupNotRequired {
-        /// Position in the flattened composition.
-        index: usize,
-        /// The wire tag of the unrequired group.
-        group: u8,
-    },
-    /// A group region outside the design frame (or degenerate).
-    #[error("panel {index} declares a region for group {group} outside its design frame")]
-    RegionOutsideFrame {
-        /// Position in the flattened composition.
-        index: usize,
-        /// The wire tag of the group.
-        group: u8,
-    },
-    /// Two extreme states of one panel share an id.
-    #[error("panel {index} repeats the extreme-state id at position {position}")]
-    DuplicateExtremeId {
-        /// Position in the flattened composition.
-        index: usize,
-        /// Position of the second occurrence within the panel.
-        position: usize,
-    },
-    /// An extreme-state id violates the lowercase/digits/dashes charset.
-    #[error("panel {index} extreme state {position} has a malformed id")]
-    BadExtremeId {
-        /// Position in the flattened composition.
-        index: usize,
-        /// Position of the offending extreme state within the panel.
-        position: usize,
-    },
 }
 
 /// Bits a required-layer mask may set: one per defined scene layer.
@@ -296,14 +191,7 @@ fn validate_panel(index: usize, panel: &PanelDescriptor) -> Result<(), RegistryE
             bits: panel.required_layers,
         });
     }
-    let frame = panel.design_frame;
-    if !(frame.width.is_finite()
-        && frame.height.is_finite()
-        && frame.width > 0.0
-        && frame.height > 0.0)
-    {
-        return Err(RegistryError::BadDesignFrame { index });
-    }
+    frame_range::validate(index, panel)?;
     let mut previous: Option<u16> = None;
     for key in panel.config_schema {
         if previous.is_some_and(|previous| key.0 <= previous) {
@@ -318,12 +206,16 @@ fn validate_panel(index: usize, panel: &PanelDescriptor) -> Result<(), RegistryE
                 group: *group as u8,
             });
         }
+        // The floor is where a readout surface has to fit: a region
+        // that only fits at a larger frame does not describe the panel
+        // a shell may ask for at its smallest.
+        let floor = panel.frame_min;
         let inside = region.x >= 0.0
             && region.y >= 0.0
             && region.width > 0.0
             && region.height > 0.0
-            && region.x + region.width <= frame.width
-            && region.y + region.height <= frame.height;
+            && region.x + region.width <= floor.width
+            && region.y + region.height <= floor.height;
         if !inside {
             return Err(RegistryError::RegionOutsideFrame {
                 index,

@@ -9,6 +9,7 @@ use indicate_instrument_state::{
 };
 
 use super::draw_hsi;
+use crate::BUILTIN_FRAME;
 
 /// Heading comes from the explicit SIM-declared independent sample —
 /// the attitude quaternion still describes the same yaw, but nothing
@@ -53,7 +54,7 @@ fn quat_yaw(yaw: f32) -> indicate_instrument_state::Quat {
 fn render(data: &PanelData) -> Vec<u8> {
     let mut buf = std::vec![0u8; 32 * 1024];
     let mut w = SceneWriter::new(&mut buf).expect("fits");
-    draw_hsi(data, None, &mut w).expect("panel fits buffer");
+    draw_hsi(data, None, BUILTIN_FRAME, &mut w).expect("panel fits buffer");
     let len = w.finish();
     buf.truncate(len);
     buf

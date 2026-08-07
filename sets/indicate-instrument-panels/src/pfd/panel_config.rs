@@ -1,9 +1,8 @@
 //! PFD configuration decoding from the shell-delivered blob (ADR-0033).
 
-use indicate_instrument_descriptor::{ConfigBlob, ConfigError, ConfigKey, keys};
+use indicate_instrument_descriptor::{ConfigBlob, ConfigError, ConfigKey, DesignFrame, keys};
 
 use super::{BackgroundMode, PfdConfig, SvsViewport, VSpeeds};
-use crate::{PANEL_H, PANEL_W};
 
 /// Every key the PFD understands; a shell refuses anything else before
 /// the blob reaches this decoder, and the decoder refuses it again.
@@ -22,12 +21,19 @@ impl PfdConfig {
     /// background is refused as inert: silently ignoring an option a
     /// caller believes is set would misstate what the panel displays
     /// (ADR-0033).
-    pub fn from_config(config: &ConfigBlob<'_>) -> Result<PfdConfig, ConfigError> {
+    ///
+    /// The viewport is bounded by `frame`, the frame the panel is being
+    /// drawn at: imagery cannot be requested where the panel does not
+    /// draw, and where that is depends on the frame it was given.
+    pub fn from_config(
+        config: &ConfigBlob<'_>,
+        frame: DesignFrame,
+    ) -> Result<PfdConfig, ConfigError> {
         config.require_schema(PFD_CONFIG_SCHEMA)?;
-        let viewport = decode_viewport(config)?;
+        let viewport = decode_viewport(config, frame)?;
         let quality = decode_quality(config)?;
         Ok(PfdConfig {
-            background: decode_background(config, viewport, quality)?,
+            background: decode_background(config, frame, viewport, quality)?,
             v_speeds: decode_v_speeds(config)?,
         })
     }
@@ -35,6 +41,7 @@ impl PfdConfig {
 
 fn decode_background(
     config: &ConfigBlob<'_>,
+    frame: DesignFrame,
     viewport: Option<SvsViewport>,
     quality: Option<u8>,
 ) -> Result<BackgroundMode, ConfigError> {
@@ -58,8 +65,8 @@ fn decode_background(
             viewport: viewport.unwrap_or(SvsViewport {
                 x: 0.0,
                 y: 0.0,
-                width: PANEL_W,
-                height: PANEL_H,
+                width: frame.width,
+                height: frame.height,
             }),
             quality: quality.unwrap_or(0),
         }),
@@ -70,7 +77,10 @@ fn decode_background(
     }
 }
 
-fn decode_viewport(config: &ConfigBlob<'_>) -> Result<Option<SvsViewport>, ConfigError> {
+fn decode_viewport(
+    config: &ConfigBlob<'_>,
+    frame: DesignFrame,
+) -> Result<Option<SvsViewport>, ConfigError> {
     let Some(bytes) = config.get(keys::SVS_VIEWPORT) else {
         return Ok(None);
     };
@@ -79,14 +89,14 @@ fn decode_viewport(config: &ConfigBlob<'_>) -> Result<Option<SvsViewport>, Confi
         len: bytes.len(),
     };
     let [x, y, width, height] = decode_f32s::<4>(bytes).ok_or_else(bad)?;
-    // Within the design frame, as the descriptor field documents —
-    // imagery cannot be requested where the panel does not draw.
+    // Inside the frame being drawn — imagery cannot be requested where
+    // the panel does not draw.
     let sane = x >= 0.0
         && y >= 0.0
         && width > 0.0
         && height > 0.0
-        && x + width <= PANEL_W
-        && y + height <= PANEL_H;
+        && x + width <= frame.width
+        && y + height <= frame.height;
     if sane {
         Ok(Some(SvsViewport {
             x,

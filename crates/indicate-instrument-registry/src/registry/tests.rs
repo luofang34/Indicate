@@ -17,6 +17,7 @@ fn draw_nothing(
     _data: &PanelData,
     _config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
+    _frame: DesignFrame,
     _scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     Ok(())
@@ -26,23 +27,47 @@ fn nothing_fed() -> AircraftState {
     AircraftState::default()
 }
 
-const fn panel(id: &'static str) -> PanelDescriptor {
+pub(super) const FRAME: DesignFrame = DesignFrame {
+    width: 480.0,
+    height: 360.0,
+};
+const CANONICAL: &[DesignFrame] = &[FRAME];
+
+pub(super) const fn panel(id: &'static str) -> PanelDescriptor {
     PanelDescriptor {
         id,
         title: "Panel",
         required_layers: 0b0000_0110,
         required_groups: GroupSet::of(&[GroupId::Attitude, GroupId::Air]),
-        design_frame: DesignFrame {
-            width: 480.0,
-            height: 360.0,
-        },
+        frame_min: FRAME,
+        frame_max: FRAME,
+        frame_step: (1.0, 1.0),
+        aspect_min: 1.30,
+        aspect_max: 1.37,
+        canonical_frames: CANONICAL,
         background: BackgroundCapability::NotUsed,
         config_schema: &[],
         group_regions: &[],
         extreme_states: &[],
-        raster_baseline: None,
+        raster_baselines: &[],
         draw: draw_nothing,
     }
+}
+
+/// A panel with a real range: 480×360 up to 600×450, both 4:3, on a
+/// 40×30 grid. The fixtures below need a range wide enough that a
+/// constraint can be violated inside it.
+pub(super) const RANGED_MAX: DesignFrame = DesignFrame {
+    width: 600.0,
+    height: 450.0,
+};
+
+pub(super) const fn ranged(id: &'static str) -> PanelDescriptor {
+    let mut p = panel(id);
+    p.frame_max = RANGED_MAX;
+    p.frame_step = (40.0, 30.0);
+    p.canonical_frames = &[FRAME, RANGED_MAX];
+    p
 }
 
 #[test]
@@ -99,22 +124,6 @@ fn layer_mask_abuse_is_refused() {
 }
 
 #[test]
-fn a_degenerate_design_frame_is_refused() {
-    static FLAT: [PanelDescriptor; 1] = [{
-        let mut p = panel("pfd");
-        p.design_frame = DesignFrame {
-            width: 480.0,
-            height: 0.0,
-        };
-        p
-    }];
-    assert_eq!(
-        Registry::new(&FLAT).map(|_| ()),
-        Err(RegistryError::BadDesignFrame { index: 0 })
-    );
-}
-
-#[test]
 fn schema_key_order_is_enforced() {
     use indicate_instrument_descriptor::ConfigKey;
     static UNSORTED: [PanelDescriptor; 1] = [{
@@ -165,6 +174,28 @@ fn group_regions_must_stay_honest() {
     }];
     assert_eq!(
         Registry::new(&OUTSIDE).map(|_| ()),
+        Err(RegistryError::RegionOutsideFrame {
+            index: 0,
+            group: GroupId::Attitude as u8,
+        })
+    );
+    // The floor is the frame a region must fit in: this one fits the
+    // ceiling comfortably and hangs off the bottom of the minimum.
+    static ONLY_FITS_THE_CEILING: [PanelDescriptor; 1] = [{
+        let mut p = ranged("pfd");
+        p.group_regions = &[(
+            GroupId::Attitude,
+            Region {
+                x: 0.0,
+                y: 0.0,
+                width: 480.0,
+                height: 400.0,
+            },
+        )];
+        p
+    }];
+    assert_eq!(
+        Registry::new(&ONLY_FITS_THE_CEILING).map(|_| ()),
         Err(RegistryError::RegionOutsideFrame {
             index: 0,
             group: GroupId::Attitude as u8,

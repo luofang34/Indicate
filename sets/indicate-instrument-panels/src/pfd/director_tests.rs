@@ -13,7 +13,7 @@ use indicate_instrument_state::{
     Stamped, resolve,
 };
 
-use crate::{PfdConfig, draw_pfd};
+use crate::{BUILTIN_FRAME, PfdConfig, draw_pfd};
 
 fn with_director(engagement: FdEngagement, age_ms: Option<f32>) -> PanelData {
     let state = AircraftState {
@@ -47,7 +47,14 @@ fn with_director(engagement: FdEngagement, age_ms: Option<f32>) -> PanelData {
 fn render(data: &PanelData) -> Vec<u8> {
     let mut buf = vec![0u8; 64 * 1024];
     let mut writer = SceneWriter::new(&mut buf).expect("fits");
-    draw_pfd(data, &PfdConfig::default(), None, &mut writer).expect("draws");
+    draw_pfd(
+        data,
+        &PfdConfig::default(),
+        None,
+        BUILTIN_FRAME,
+        &mut writer,
+    )
+    .expect("draws");
     let used = writer.finish();
     buf[..used].to_vec()
 }

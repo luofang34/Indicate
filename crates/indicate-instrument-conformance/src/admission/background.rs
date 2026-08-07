@@ -1,7 +1,7 @@
 //! The background-contract family: the declared capability must be the
 //! Background band's actual behavior in every corpus case.
 
-use indicate_instrument_registry::{BackgroundCapability, PanelDescriptor};
+use indicate_instrument_registry::{BackgroundCapability, DesignFrame, PanelDescriptor};
 use indicate_instrument_scene::{Cmd, LayerId, PaintMode, SceneCmds};
 
 use super::AdmissionError;
@@ -21,15 +21,14 @@ use super::geometry::{Ctm, Rect};
 pub(super) fn check_background(
     panel: &'static PanelDescriptor,
     state_id: &'static str,
+    frame: DesignFrame,
     scene: &[u8],
 ) -> Result<(), AdmissionError> {
     let (painted, covered) =
-        scan_background(scene, panel.design_frame.width, panel.design_frame.height).ok_or(
-            AdmissionError::Decode {
-                panel: panel.id,
-                state: state_id,
-            },
-        )?;
+        scan_background(scene, frame.width, frame.height).ok_or(AdmissionError::Decode {
+            panel: panel.id,
+            state: state_id,
+        })?;
     let (declared, defect) = match panel.background {
         BackgroundCapability::NotUsed if painted => ("NotUsed", "paints"),
         BackgroundCapability::Opaque if !covered => (

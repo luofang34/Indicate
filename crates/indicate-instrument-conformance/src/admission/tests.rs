@@ -32,6 +32,14 @@ fn builtin_panels_pass_admission() {
 mod background_checks;
 mod provenance_checks;
 
+/// The one frame every fixture panel below declares: a degenerate
+/// range, so each fixture is drawn exactly once per case and the counts
+/// asserted above stay readable.
+const FIXTURE_FRAME: DesignFrame = DesignFrame {
+    width: 480.0,
+    height: 360.0,
+};
+
 /// One-panel descriptor around a draw fixture, shared by the
 /// background and provenance fixture suites.
 fn opaque_panel(draw: indicate_instrument_registry::DrawFn) -> [PanelDescriptor; 1] {
@@ -40,15 +48,17 @@ fn opaque_panel(draw: indicate_instrument_registry::DrawFn) -> [PanelDescriptor;
         title: "Probe",
         required_layers: 1 << 2, // Tapes
         required_groups: GroupSet::EMPTY,
-        design_frame: DesignFrame {
-            width: 480.0,
-            height: 360.0,
-        },
+        frame_min: FIXTURE_FRAME,
+        frame_max: FIXTURE_FRAME,
+        frame_step: (1.0, 1.0),
+        aspect_min: 1.30,
+        aspect_max: 1.37,
+        canonical_frames: &[FIXTURE_FRAME],
         background: BackgroundCapability::Opaque,
         config_schema: &[],
         group_regions: &[],
         extreme_states: &[],
-        raster_baseline: None,
+        raster_baselines: &[],
         draw,
     }]
 }

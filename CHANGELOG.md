@@ -24,6 +24,47 @@ from a rewritten one. Entries are newest first, and the tag's message
 repeats the same five values so `git show <tag>` answers the question
 without a checkout. `CONTRIBUTING.md` has the release steps.
 
+## [0.2.0] — 2026-08-07
+
+The design frame becomes an emission input. `DrawFn` gains a
+`DesignFrame` parameter, and `PanelDescriptor` declares the range of
+frames a shell may ask for — `frame_min`, `frame_max`, `frame_step`,
+aspect bounds, and the `canonical_frames` the evidence is pinned at —
+in place of the single `design_frame` constant. `raster_baseline`
+becomes `raster_baselines`, one per canonical frame.
+
+| Value | This release |
+|---|---|
+| State ABI | 6 |
+| Scene format | 1 |
+| Corpus | 4 |
+| Composition digest | `3efb08c55eadadc2b006ee6b006b29e4b3a3f8d4ec3ce1324f401dbc16dc85ca` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no.
+
+### Notes for anyone re-pinning
+
+- The composition digest **moved**, and this is the deliberate move: the
+  digest's per-panel contract block now carries the frame constraints,
+  and scenes are drawn per canonical state × canonical frame. It was
+  `bd85b853…` and is now `3efb08c5…`. No paint changed — the reference
+  rasterizer's REN-03 frame hashes are byte-identical, which is what
+  proves the move is format and not regression.
+- Every shipped panel declares a degenerate range: `frame_min` equals
+  `frame_max` equals 480×360, with one canonical frame. The only frame a
+  conforming shell may ask them for is that one, and behaviour there is
+  unchanged. What the registry refuses is a *declaration* whose bounds,
+  step, aspect, or canonical frames break its rules; deriving a frame
+  for a placement and clamping it into the declared range stays the
+  shell's job.
+- A shell calling `(panel.draw)(…)` passes the frame it chose, between
+  the alerts and the scene writer. A shell that wants exactly today's
+  behaviour asks for `frame_min` and scales, as before.
+- Out-of-repo panel sets must add the new descriptor fields; the
+  registry refuses a composition whose canonical frames do not include
+  both ends of its declared range.
+
 ## [0.1.0] — 2026-08-07
 
 First tagged revision. The contract surfaces already versioned

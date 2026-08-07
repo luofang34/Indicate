@@ -12,7 +12,7 @@
 //! fitting and the backend-side painting cannot diverge silently.
 
 use indicate_instrument_glyphs::{ADVANCE, CELL_H, CELL_W};
-use indicate_instrument_panels::{PANEL_W, PfdConfig, draw_pfd};
+use indicate_instrument_panels::{BUILTIN_FRAME, PANEL_W, PfdConfig, draw_pfd};
 use indicate_instrument_scene::{
     Anchor, Cmd, MAX_SCENE_BYTES, SceneCmds, SceneWriter, nominal_text_ink_width,
     nominal_text_width,
@@ -73,7 +73,14 @@ fn pfd_scene(alt_ft: f32, ias_kt: f32) -> Vec<u8> {
     let data = resolve(&state_at(alt_ft, ias_kt), &FreshnessPolicy::default());
     let mut buf = std::vec![0u8; MAX_SCENE_BYTES];
     let mut writer = SceneWriter::new(&mut buf).expect("writer");
-    draw_pfd(&data, &PfdConfig::default(), None, &mut writer).expect("pfd");
+    draw_pfd(
+        &data,
+        &PfdConfig::default(),
+        None,
+        BUILTIN_FRAME,
+        &mut writer,
+    )
+    .expect("pfd");
     let n = writer.finish();
     buf.truncate(n);
     buf

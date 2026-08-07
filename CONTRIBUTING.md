@@ -101,6 +101,7 @@ the tag is what a human owes it.
   sources by content digest and its baseline by commit: editing a
   recorded source file requires re-recording that evidence, and history
   rewrites that orphan the baseline commit are forbidden.
-- Panels are authored in the design frame their descriptor declares;
-  unclipped ink past the frame edge is counted and ratcheted by the
-  admission harness — growth is a deliberate decision, not drift.
+- Panels are authored against the frame range their descriptor declares
+  and receive the chosen frame as a draw argument; unclipped ink past
+  that frame's edge is counted and ratcheted per frame by the admission
+  harness — growth is a deliberate decision, not drift.
