@@ -200,3 +200,51 @@ fn a_raster_baseline_at_an_unrendered_frame_is_refused() {
         })
     );
 }
+
+/// A repeated canonical frame would digest the same scene twice and run
+/// the admission matrix again for it, inflating both counts for nothing.
+#[test]
+fn a_repeated_canonical_frame_is_refused() {
+    const MIN: DesignFrame = DesignFrame {
+        width: 480.0,
+        height: 360.0,
+    };
+    const MAX: DesignFrame = DesignFrame {
+        width: 600.0,
+        height: 450.0,
+    };
+    static TWICE: [PanelDescriptor; 1] = [{
+        let mut p = panel("pfd");
+        p.frame_min = MIN;
+        p.frame_max = MAX;
+        p.frame_step = (40.0, 30.0);
+        p.canonical_frames = &[MIN, MAX, MIN];
+        p.raster_baselines = &[];
+        p
+    }];
+    assert_eq!(
+        Registry::new(&TWICE).map(|_| ()),
+        Err(RegistryError::DuplicateCanonicalFrame {
+            index: 0,
+            position: 2,
+        })
+    );
+}
+
+/// The lookup takes the first match, so a second baseline at one frame
+/// is dead code that disagrees with the live one about what is pinned.
+#[test]
+fn two_raster_baselines_at_one_frame_are_refused() {
+    static CONFLICT: [PanelDescriptor; 1] = [{
+        let mut p = panel("pfd");
+        p.raster_baselines = &[(FRAME, "aa"), (FRAME, "bb")];
+        p
+    }];
+    assert_eq!(
+        Registry::new(&CONFLICT).map(|_| ()),
+        Err(RegistryError::DuplicateRasterBaseline {
+            index: 0,
+            position: 1,
+        })
+    );
+}

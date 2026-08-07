@@ -56,6 +56,12 @@ fn validate_canonical(index: usize, panel: &PanelDescriptor) -> Result<(), Regis
         return Err(RegistryError::CanonicalFramesMissingMax { index });
     }
     for (position, frame) in panel.canonical_frames.iter().enumerate() {
+        // A repeated frame draws and digests the same scene twice and
+        // runs the whole admission matrix again for it, inflating the
+        // case count and the warning ratchet for no coverage.
+        if panel.canonical_frames[..position].contains(frame) {
+            return Err(RegistryError::DuplicateCanonicalFrame { index, position });
+        }
         if !in_range(*frame, panel) {
             return Err(RegistryError::CanonicalFrameOutOfRange { index, position });
         }
@@ -75,6 +81,15 @@ fn validate_baselines(index: usize, panel: &PanelDescriptor) -> Result<(), Regis
     for (position, (frame, _)) in panel.raster_baselines.iter().enumerate() {
         if !panel.canonical_frames.contains(frame) {
             return Err(RegistryError::RasterBaselineNotCanonical { index, position });
+        }
+        // One baseline per canonical frame: a second entry for the same
+        // frame is dead, because the lookup takes the first match, and
+        // two hashes for one rendering disagree about what is pinned.
+        if panel.raster_baselines[..position]
+            .iter()
+            .any(|(earlier, _)| earlier == frame)
+        {
+            return Err(RegistryError::DuplicateRasterBaseline { index, position });
         }
     }
     Ok(())

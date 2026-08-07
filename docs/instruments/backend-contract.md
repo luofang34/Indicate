@@ -45,16 +45,21 @@ The descriptor declares what a shell may ask for:
 
 | Field | What it says |
 |---|---|
-| `frame_min` | The readability floor. Conspicuity must hold here (AIR-OUT-004), and group regions are validated against it. |
+| `frame_min` | The readability floor. Conspicuity must hold here ([`AIR-OUT-004`](requirements.md#air-out-004)), and group regions are validated against it. |
 | `frame_max` | The ceiling the work budget allows. |
 | `frame_step` | Per-axis quantization: admissible dimensions are `frame_min + k * step`. |
 | `aspect_min`, `aspect_max` | The width/height ratios the layout supports. The per-axis corners alone admit shapes no layout declared. |
 | `canonical_frames` | The pinned evidence sizes. Must include both ends of the range, and every entry must satisfy every rule above. |
 
-`Registry::new` refuses a *declaration* that breaks any of them, so a
-range naming frames its own panel could not lay out against never
-reaches a shell. Choosing a frame inside a valid range, and clamping to
-it, is the shell's job: nothing in the draw path re-checks the argument.
+`Registry::new` refuses a *declaration* that breaks any of them, and
+checks every canonical frame against all of them, so the sizes the
+evidence is pinned at are shapes the panel really declared.
+
+Note how far that reaches, and how far it does not: a valid range may
+still *contain* an in-range, on-grid frame that violates the aspect
+bounds. Choosing a frame inside the range, and clamping to what the
+panel supports, is the shell's job — nothing in the draw path re-checks
+the argument.
 Every shipped panel currently declares a degenerate range —
 `frame_min == frame_max == 480×360`, one canonical frame — so the only
 frame a conforming shell may ask any of them for is 480×360.

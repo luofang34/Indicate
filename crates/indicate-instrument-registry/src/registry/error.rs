@@ -144,6 +144,22 @@ pub enum RegistryError {
         /// Position of the offending baseline within the panel.
         position: usize,
     },
+    /// The same frame is pinned twice in `canonical_frames`.
+    #[error("panel {index} repeats canonical frame {position}")]
+    DuplicateCanonicalFrame {
+        /// Position in the flattened composition.
+        index: usize,
+        /// Position of the second occurrence within the panel.
+        position: usize,
+    },
+    /// Two raster baselines name the same canonical frame.
+    #[error("panel {index} pins raster baseline {position} at an already-pinned frame")]
+    DuplicateRasterBaseline {
+        /// Position in the flattened composition.
+        index: usize,
+        /// Position of the second occurrence within the panel.
+        position: usize,
+    },
     /// Schema keys must be strictly ascending (unique by construction).
     #[error("panel {index} schema key {key} repeats or descends")]
     SchemaKeysNotAscending {
