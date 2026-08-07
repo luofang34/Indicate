@@ -49,6 +49,14 @@ jobs:
       - name: check-structure
         run: bash scripts/check-structure.sh
 
+      - name: release marker drift guard
+        # Consumers pin a revision and read the changelog to learn what it
+        # carries. An entry that disagrees with the tree answers the
+        # question wrongly, which is worse than not answering it, so the
+        # five contract values are checked against their definitions.
+        # Tag existence is not checked: CI clones without tags.
+        run: bash scripts/check-release-markers.sh
+
       - name: instrument requirement references
         run: bash scripts/check-instrument-requirements.sh
 

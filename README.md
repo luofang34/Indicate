@@ -41,7 +41,13 @@ for the contract every backend author must read.
 ## Pinning and advancing
 
 Consumers pin an exact rev (the same discipline this ecosystem uses for
-Aviate and Navigate). The pilot of a change that moves the cross-shell
+Aviate and Navigate). A bare rev says nothing about what it contains, so
+every rev meant to be pinned carries an annotated tag and an entry in
+[`CHANGELOG.md`](CHANGELOG.md) naming the five values that decide
+whether it is the rev you want: state ABI, scene format, corpus,
+composition digest, and the panel set. `git show <tag>` answers
+"which rev has ABI v6 and corpus v4?" without a checkout, and CI fails
+when the newest entry disagrees with the tree it describes. The pilot of a change that moves the cross-shell
 scene digest advances the pin in the consuming repositories as part of
 that change; the advance is complete exactly when every consumer
 reproduces the new digest. The scene-conformance corpus
