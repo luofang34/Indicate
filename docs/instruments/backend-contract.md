@@ -48,6 +48,44 @@ A panel is authored in the logical frame its descriptor declares
   drift. Fixing overflowing paint moves frame hashes and is its own
   change, at which point the ratchet steps down.
 
+## Where the vocabulary deliberately stops
+
+Two limits in the opcode set are contract, not oversight. A backend
+author reading the vocabulary and finding them missing should stop
+looking for the version that adds them.
+
+**There is no `SCALE`, and there will not be one.** The transform ops
+are translate and rotate. A panel is authored in the frame its
+descriptor declares and a backend maps that whole frame to the viewport,
+so an instrument cannot be drawn at a different size *within* a scene.
+That is the contract: panels compose, instruments inside them do not.
+
+The limitation this looks like is answered a layer up rather than by a
+transform. An instrument wanted at two-thirds size beside another is a
+finer-grained *panel*, placed at its own frame by the composition layer
+— reuse by decomposition, not by rescaling a replay. Which finer-grained
+panels exist is a decision about what a set exports, and costs no
+vocabulary change. A compositor therefore never resizes a scene by
+rewriting its commands, and `panel-contract.md` tells authors the same
+thing from the other side.
+
+**`ARC` is stroke-only, and that one is genuinely open.** `LINE`,
+`POLYLINE`, `RECT`, `CIRCLE`, and `POLYGON` carry a paint mode; `ARC`
+does not. A thick stroked arc reproduces a coloured band, so an engine
+dial's green/yellow/red sweeps are expressible today, but the band's
+inner and outer radii end up coupled to the stroke width — the geometry
+expressed sideways. Whether that is sufficient cannot be decided without
+the instrument set that needs it, so it stays open.
+
+What it would cost, recorded now so the price is known when that day
+comes: a *new* filled annular-band opcode is **not** a scene-format
+version bump, because an unknown ordinary opcode inside a layer is
+counted and skipped, so older backends degrade gracefully. It is a
+corpus bump, an implementation in every backend, and new admission
+geometry. Changing the existing `ARC` payload, by contrast, is a hard
+break for every pinned interpreter and is off the table. The cheap path
+exists; take it only with the set in hand.
+
 ## Two disciplines every backend must follow
 
 1. **Never rebuild path objects per frame.** Glyph outlines and reusable
