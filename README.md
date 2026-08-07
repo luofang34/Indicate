@@ -35,8 +35,10 @@ repository by git rev and integrate through three published surfaces:
 
 CI enforces the direction: a step fails if the closure ever reaches a
 consumer crate. See [`crates/README.md`](crates/README.md) for the crate
-map and [`docs/instruments/backend-contract.md`](docs/instruments/backend-contract.md)
-for the contract every backend author must read.
+map, [`docs/instruments/backend-contract.md`](docs/instruments/backend-contract.md)
+for the contract every backend author must read, and
+[`docs/instruments/panel-contract.md`](docs/instruments/panel-contract.md)
+for its mirror: what a panel author must deliver.
 
 ## Pinning and advancing
 

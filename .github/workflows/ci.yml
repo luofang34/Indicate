@@ -96,7 +96,8 @@ jobs:
           known="indicate-frames indicate-alerts indicate-sha256 \
                  indicate-instrument-scene indicate-instrument-state \
                  indicate-instrument-glyphs indicate-instrument-symbology \
-                 indicate-instrument-panels indicate-instrument-raster \
+                 indicate-instrument-panels indicate-instrument-template \
+                 indicate-instrument-raster \
                  indicate-instrument-conformance indicate-instrument-feeder \
                  indicate-instrument-descriptor indicate-instrument-registry \
                  indicate-evidence instrument-bench"
@@ -150,6 +151,7 @@ jobs:
           -p indicate-instrument-symbology
           -p indicate-instrument-descriptor
           -p indicate-instrument-panels
+          -p indicate-instrument-template
           -p indicate-instrument-raster
           -p indicate-instrument-feeder
           -p indicate-instrument-registry

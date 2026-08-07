@@ -87,9 +87,14 @@ that judges it. The registry is allowed as a **dev**-dependency: that
 lets a set pin its own scene digest without standing up a shell, and a
 test-graph edge is not a shipping one.
 
+Writing one: `../docs/instruments/panel-contract.md` is what a set must
+honour, and `indicate-instrument-template` is the smallest panel that
+passes admission — copy it rather than starting from a shipped panel.
+
 | Crate | Role |
 |---|---|
 | `indicate-instrument-panels` | The shipped panels (PFD, HSI, monitor): immediate-mode scene emission per frame. |
+| `indicate-instrument-template` | The smallest set that passes admission, written to be read and copied; its own test admits it, so the worked example cannot drift from the contract. |
 
 ### Tools — `tools/`
 
