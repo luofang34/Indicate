@@ -24,6 +24,39 @@ from a rewritten one. Entries are newest first, and the tag's message
 repeats the same five values so `git show <tag>` answers the question
 without a checkout. `CONTRIBUTING.md` has the release steps.
 
+## [Unreleased]
+
+Screen composition ([`AIR-OUT-011`](docs/instruments/requirements.md)).
+None of the five values above moved, so this is not a release — but a
+consumer gains a sixth pinnable value and two new refusals, and both are
+worth knowing before the next one is cut.
+
+- **New pinnable value: the screen-composition digest.** Its own domain
+  string (`pilotage-screen-composition-digest-v1`), covering the screen
+  frame, the ordered slots (panel id, rect, `occludes`), and the scene
+  digest beneath. `tools/instrument-bench` composes a fixture screen and
+  reproduces `071bd35c…`. Per-slot configuration is shell-supplied at
+  draw time and is deliberately not in it.
+- **New ceiling: `MAX_COMPOSITION_SLOTS` = 8.** Every composed-frame
+  budget is a sum over slots, so this is what makes those sums finite.
+  The value is a declared ceiling, not a measured one: no full-screen
+  six-pack has been benched against it.
+- **`group_regions` became load-bearing.** Admission asserts
+  non-vacuity: every declared region must be populated by a visible run
+  claiming its group, somewhere in the panel's case matrix, at
+  `frame_min`. A region over blank space fails as `GroupRegionEmpty`.
+  What is deliberately *not* asserted is that all of a group's claimed
+  ink sits inside its regions — a numeral must carry a claim, so every
+  ladder rung and compass tick carries its group's, and those sit
+  outside the readout box by design. All three shipped panels satisfy
+  the rule as authored; no region and no panel changed.
+- **New pinned data: `BUILTIN_CRITICALITY_BANDS`.** The measured
+  `Annunciation`/`Failure` ink bound per panel × canonical frame, which
+  a composition validates obscuration against. The monitor's is `None`,
+  which is a measurement rather than an omission.
+- The scene digest, the corpus, and every REN-03 raster frame hash are
+  unchanged.
+
 ## [0.2.0] — 2026-08-07
 
 The design frame becomes an emission input. `DrawFn` gains a

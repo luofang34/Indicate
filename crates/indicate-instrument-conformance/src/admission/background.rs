@@ -4,8 +4,8 @@
 use indicate_instrument_registry::{BackgroundCapability, DesignFrame, PanelDescriptor};
 use indicate_instrument_scene::{Cmd, LayerId, PaintMode, SceneCmds};
 
-use super::AdmissionError;
-use super::geometry::{Ctm, Rect};
+use super::error::AdmissionError;
+use super::geometry::{Gs, Rect, track_state};
 
 /// The declared background capability must be the scene's actual
 /// behavior in every corpus case: `NotUsed` may not paint in the band
@@ -49,23 +49,6 @@ pub(super) fn check_background(
     })
 }
 
-/// Graphics state as the real state machine carries it: Save pushes
-/// transform, clip, and paint state together; Restore pops all three.
-#[derive(Clone, Copy)]
-struct Gs {
-    ctm: Ctm,
-    clip: Option<Rect>,
-    fill_alpha: u8,
-}
-
-impl Gs {
-    const DEFAULT: Self = Self {
-        ctm: Ctm::IDENTITY,
-        clip: None,
-        fill_alpha: 255,
-    };
-}
-
 /// Whether any paint lands in the Background band, and whether the
 /// band carries a proven full-frame opaque fill: an axis-aligned
 /// full-alpha `Rect` whose mapped bounds contain the frame and whose
@@ -102,54 +85,6 @@ fn scan_background(scene: &[u8], width: f32, height: f32) -> Option<(bool, bool)
         }
     }
     Some((painted, covered))
-}
-
-/// Applies a state command to the graphics-state stack, exactly as the
-/// real state machine would.
-fn track_state(stack: &mut Vec<Gs>, cmd: &Cmd<'_>) {
-    match *cmd {
-        Cmd::Save => {
-            if let Some(top) = stack.last().copied() {
-                stack.push(top);
-            }
-        }
-        Cmd::Restore => {
-            stack.pop();
-            if stack.is_empty() {
-                stack.push(Gs::DEFAULT);
-            }
-        }
-        Cmd::Translate { x, y } => {
-            if let Some(gs) = stack.last_mut() {
-                gs.ctm.translate(x, y);
-            }
-        }
-        Cmd::Rotate { radians } => {
-            if let Some(gs) = stack.last_mut() {
-                gs.ctm.rotate(radians);
-            }
-        }
-        Cmd::FillColor { color } => {
-            if let Some(gs) = stack.last_mut() {
-                gs.fill_alpha = color.a;
-            }
-        }
-        Cmd::ClipRect { x, y, w, h } => {
-            if let Some(gs) = stack.last_mut() {
-                let mapped = gs.ctm.map_rect(&Rect {
-                    min_x: x,
-                    min_y: y,
-                    max_x: x + w,
-                    max_y: y + h,
-                });
-                gs.clip = Some(match gs.clip {
-                    None => mapped,
-                    Some(previous) => previous.intersect(&mapped),
-                });
-            }
-        }
-        _ => {}
-    }
 }
 
 /// Whether this command is a proven full-frame opaque fill under the

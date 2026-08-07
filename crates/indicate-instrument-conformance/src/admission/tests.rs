@@ -1,11 +1,11 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_instrument_panels::BUILTIN_PANELS;
+use indicate_instrument_panels::{BUILTIN_CRITICALITY_BANDS, BUILTIN_PANELS};
 use indicate_instrument_registry::{
     BackgroundCapability, DesignFrame, GroupSet, PanelDescriptor, Registry,
 };
 
-use super::admit;
+use super::{admit, criticality_bands};
 
 #[test]
 fn builtin_panels_pass_admission() {
@@ -29,8 +29,20 @@ fn builtin_panels_pass_admission() {
             if text.starts_with("GS ") || text.starts_with("SET ")
     )));
 }
+
+/// The pinned bands must be what the emitted scenes actually measure:
+/// a composition validates obscuration against the pin, so a paint
+/// change that moves a warning has to move the pin in the same change.
+#[test]
+fn the_pinned_criticality_bands_are_the_measured_ones() {
+    let registry = Registry::new(BUILTIN_PANELS).expect("composes");
+    let measured = criticality_bands(&registry).expect("measures");
+    assert_eq!(measured, BUILTIN_CRITICALITY_BANDS.panels);
+}
+
 mod background_checks;
 mod provenance_checks;
+mod region_checks;
 
 /// The one frame every fixture panel below declares: a degenerate
 /// range, so each fixture is drawn exactly once per case and the counts

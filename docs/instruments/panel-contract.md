@@ -53,7 +53,7 @@ Three tiers of obligation, and the difference matters:
 | `extreme_states` | **Load-bearing.** Each one multiplies the case matrix. |
 | `id`, `title` | Validated at registry init: charset, non-empty. |
 | `config_schema` | Validated at init (keys strictly ascending). Admission always draws the empty config. |
-| `group_regions` | **Declared, not currently read by admission.** See below. |
+| `group_regions` | **Load-bearing.** Admission asserts every declared region is populated by claimed ink, and screen composition plans obscuration around them. |
 | `raster_baselines` | Inert unless the panel is in a set the raster tests cover. Each entry must name a canonical frame. |
 
 ### `required_layers` — declare what you always emit
@@ -156,25 +156,87 @@ Coverage is exact, not conservative.
 A panel that paints nothing in the background band declares `NotUsed`
 and composes as an overlay.
 
-### `group_regions` — declared, and not yet load-bearing
+### `group_regions` — a surface the readout really uses
 
-Regions say which surface of the panel a group's readout owns. They are
-validated for geometry at registry init — inside `frame_min`, non-
-degenerate, only for groups the panel requires — and **admission does
-not currently read them**. The conformance crate says so in its own
-module documentation, and this contract will not paper over it.
+Regions say which surface of the panel a group's *value* is drawn on,
+and they are asserted. Registry init still checks the geometry — inside
+`frame_min`, non-degenerate, only for groups the panel requires — and
+admission adds the assertion that gives the field teeth:
 
-What actually keeps a panel honest today is the provenance machinery
-above, which tests every claimed run wherever the ink lands. Declare
-regions accurately anyway: they are a shell's statement of readout
-ownership, and giving them teeth is the first phase of the screen
-composition work. A region drawn wrong will become a failure the day it
-is checked, and the person who has to fix it is the one who drew it.
+> **Every declared region must be populated: somewhere in the panel's
+> case matrix, a visible run claiming that group is drawn at it.**
+
+A region nothing populates fails as `GroupRegionEmpty`, naming the
+panel, the group, and the rectangle that caught nothing.
 
 Draw the boundary around the value's own ink and nothing else. Scale
 ladders, tick labels, and neighbouring boxes belong to other groups or
 to no group; a region generous enough to swallow them is the vacuous
-case the mechanism exists to prevent.
+case the mechanism exists to prevent. That guidance has not changed —
+what changed is that it is now enforced from the other side as well. A
+region must be **tight enough to be honest and populated enough to be
+real**, and the second half is what admission checks.
+
+Note what is deliberately *not* asserted: that all of a group's claimed
+ink sits inside its regions. It never could be. A numeral must carry a
+claim, so every ladder rung and every compass tick carries the claim of
+the group it measures, and those sit outside the readout box on purpose.
+A rule demanding they be inside would be unsatisfiable for every tape
+and every rose, and satisfiable only by inflating regions until they
+described nothing.
+
+The hazard the assertion does address is the opposite one. A region
+pointing at empty space is worse than no region, because the composition
+layer plans obscuration around regions: it would protect a surface the
+readout does not use and leave the surface it does use undeclared. A
+region is a claim that this is where the group's value appears, and
+admission makes the claim answerable.
+
+Four scoping rules, each a consequence of what a region means rather
+than a tolerance:
+
+- **A group that declares no region is not judged.** Some readouts share
+  a strip with a neighbouring group's ink and no geometry separates
+  them; silence is the honest declaration there, and the provenance
+  claim on the run is what keeps it honest. The PFD's selected-altitude
+  box is the shipped example.
+- **The witness may come from any case.** A readout that dashes out
+  under withholding paints no claimed run at all in that case, and it is
+  still the same readout. One case in the matrix is enough.
+- **The search runs at `frame_min`,** the frame regions are declared and
+  validated against. A panel laid out at a larger frame puts its
+  readouts somewhere else, and floor coordinates describe that layout no
+  better than they describe another panel's.
+- **A region holds a run when it holds the centre of that run's ink,**
+  which is neither whole-rectangle containment nor bare overlap. Run
+  rectangles here are conservative nominal metrics, deliberately wider
+  than the glyphs, so a readout centred in its own tightly-drawn box
+  overhangs it by a few units and containment would call it empty. Bare
+  overlap is too weak in the other direction: a rung grazing a region's
+  corner is not that region's readout. Clipped-away runs paint nothing
+  and are skipped, the same visibility rule the provenance family uses.
+
+### Criticality bands are measured, not declared
+
+A panel does not declare where its warnings go. The admission harness
+measures it: the union design-space ink of the `Annunciation` and
+`Failure` bands across the whole canonical × extreme × withheld matrix,
+per canonical frame, exposed on the admission report and pinned beside
+the raster baselines. A composition above uses that bound and no
+declaration, because a panel able to name its own warning surface could
+also understate it.
+
+Two things follow for an author:
+
+- **Paint your warnings in `Annunciation` or `Failure`.** A caution
+  drawn into `Tapes` is outside the measured band, and a composition
+  will be told it may be covered.
+- **A band measured empty is an honest empty, and a weak one.** If no
+  corpus or extreme state drives your failure cue, nothing is measured
+  and nothing is protected. The shipped monitor panel is in that
+  position: its `MON` flag is gated on a channel status no corpus state
+  produces, so its band is `None`. Contribute an extreme state that
+  drives the cue if you want the protection.
 
 ## What the admission harness actually asserts
 
@@ -189,7 +251,9 @@ states, each fully fed and then once per withheld group — the harness
 checks that the draw returns, that the scene decodes and satisfies the
 layer envelope, that every required layer is present, that the
 background claim holds, that every glyph is in the controlled
-vocabulary, and that the provenance rules above hold. Every geometry
+vocabulary, and that the provenance rules above hold. Once per panel it
+also checks that every declared region caught claimed ink somewhere in
+the matrix. Every geometry
 check uses the frame being drawn, not a constant. Ink outside that frame
 is **counted, not refused** —
 and the ratchet that keeps the count from growing is an assertion *you*
@@ -260,6 +324,44 @@ Contract values that a consumer pins — the state ABI, the scene format,
 the corpus, the composition digest, the shipped panel set — are named
 per release in `CHANGELOG.md`, and cutting that release is a step in
 `CONTRIBUTING.md`.
+
+## What composition asks of you
+
+A panel may be placed beside, inset into, or under another on one
+screen. `backend-contract.md` carries the compositor's side; this is
+what a composed panel owes.
+
+- **Lay out against the frame you are handed, every time.** A slot's
+  dimensions *are* the frame the panel is asked to emit — nothing
+  rescales a scene, because there is no `SCALE` opcode. A geometry
+  constant that should have read `frame.width` becomes visible the day
+  someone slots your panel at a size other than the one you tested.
+  `validate_composition` refuses a slot whose dimensions are not a frame
+  you declared, so the range in your descriptor is the whole of what a
+  screen may ask.
+- **Your `background` declaration decides whether you occlude.**
+  `Opaque` and `Cedeable` prove a full-frame opaque cover at admission,
+  so a composition treats your whole rect as covering what lies beneath;
+  `NotUsed` makes you an overlay lower slots show through. Declaring
+  `Opaque` because it seemed safer will bury the panel underneath you,
+  and the composition will be refused as a dead slot.
+- **Declare your readout regions accurately, and paint criticality in
+  the criticality bands.** Those two are what a composition may and may
+  not cover. Regions may be covered when the screen declares it;
+  measured `Annunciation`/`Failure` ink may not be covered at all. A
+  region drawn over blank space is worse than none: the screen would
+  protect it and cover the readout instead.
+- **Expect one snapshot and one alert state per composed frame.** Do not
+  cache a previous frame's data to smooth a readout: two panels showing
+  the same quantity from different snapshots is the disagreement the
+  single-resolve rule exists to prevent.
+- **Fail inside your own rect.** Your failure presentation is drawn in
+  your own scene, in your own frame's coordinates, and a compositor
+  clips it to your slot. A panel that tries to annunciate globally
+  annunciates nowhere.
+- **Configuration still arrives at draw time.** A composition declares
+  layout only, so being slotted changes nothing about how your config
+  blob reaches you.
 
 ## Where the vocabulary stops
 

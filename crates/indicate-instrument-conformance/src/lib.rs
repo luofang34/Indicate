@@ -3,19 +3,21 @@
 //!
 //! [`admit`] drives every registered panel through the shared canonical
 //! corpus plus the panel's own extreme states, and through every
-//! single-group withholding its descriptor declares, then checks five
+//! single-group withholding its descriptor declares, then checks six
 //! families: the layer contract (well-formed scenes with every required
 //! band present under every degradation), the background contract (the
 //! declared capability is the band's actual behavior — `NotUsed` never
 //! opens it, an owned band carries a full-frame opaque paint), budgets
 //! (a text run outside the design frame is a counted warning), glyph
 //! coverage (every text run resolves within the controlled
-//! vocabulary), and honest status as a provenance rule (every numeric
+//! vocabulary), honest status as a provenance rule (every numeric
 //! run must claim the state group its value derives from, the claim is
 //! bounded to the panel's required groups, and a run claiming the
-//! withheld group may not be visible — wherever it is drawn). A shell
-//! composes its registry and runs this once at integration time; a
-//! panel that fails does not join an operational layout.
+//! withheld group may not be visible — wherever it is drawn), and
+//! declared regions (a claimed run lands inside a region its group
+//! declares). A shell composes its registry and runs this once at
+//! integration time; a panel that fails does not join an operational
+//! layout.
 //!
 //! Scope, honestly stated: this is a regression net for cooperative
 //! panels, not a proof against adversarial ones. The numeral test is
@@ -33,6 +35,12 @@
 //! numeral legitimately derives from configuration is unadmittable by
 //! construction, not merely untested.
 
+//! Two families are positional, and they exist for the compositor
+//! above: `group_regions` now bounds where a group's readout ink may
+//! land, and the `Annunciation`/`Failure` ink bound is *measured* per
+//! panel × canonical frame ([`criticality_bands`]) rather than
+//! declared. A screen composition plans obscuration against both.
+
 mod admission;
 
-pub use admission::{AdmissionError, AdmissionReport, AdmissionWarning, admit};
+pub use admission::{AdmissionError, AdmissionReport, AdmissionWarning, admit, criticality_bands};

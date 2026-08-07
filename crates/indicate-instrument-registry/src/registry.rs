@@ -2,12 +2,13 @@
 
 use indicate_instrument_scene::LAYER_COUNT;
 
-use indicate_instrument_descriptor::{PanelDescriptor, PanelSet};
+use indicate_instrument_descriptor::{PanelDescriptor, PanelSet, Region};
 
 mod error;
 mod frame_range;
 
 pub use error::RegistryError;
+pub(crate) use frame_range::supports as frame_supported;
 
 /// How a shell named the panels it composed.
 ///
@@ -209,13 +210,7 @@ fn validate_panel(index: usize, panel: &PanelDescriptor) -> Result<(), RegistryE
         // The floor is where a readout surface has to fit: a region
         // that only fits at a larger frame does not describe the panel
         // a shell may ask for at its smallest.
-        let floor = panel.frame_min;
-        let inside = region.x >= 0.0
-            && region.y >= 0.0
-            && region.width > 0.0
-            && region.height > 0.0
-            && region.x + region.width <= floor.width
-            && region.y + region.height <= floor.height;
+        let inside = region.is_sound() && Region::of(panel.frame_min).contains(region);
         if !inside {
             return Err(RegistryError::RegionOutsideFrame {
                 index,

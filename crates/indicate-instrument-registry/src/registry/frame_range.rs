@@ -62,6 +62,9 @@ fn validate_canonical(index: usize, panel: &PanelDescriptor) -> Result<(), Regis
         if panel.canonical_frames[..position].contains(frame) {
             return Err(RegistryError::DuplicateCanonicalFrame { index, position });
         }
+        // Spelled out rather than routed through `supports`, because a
+        // canonical frame that fails names *which* rule it broke, and
+        // a declaration is fixed by knowing that.
         if !in_range(*frame, panel) {
             return Err(RegistryError::CanonicalFrameOutOfRange { index, position });
         }
@@ -93,6 +96,19 @@ fn validate_baselines(index: usize, panel: &PanelDescriptor) -> Result<(), Regis
         }
     }
     Ok(())
+}
+
+/// Whether `panel` declared that it can lay out against `frame`: in
+/// range, on the step grid, and inside the aspect bounds.
+///
+/// The composition layer asks this of a slot's dimensions, and a shell
+/// choosing a frame may ask it before drawing — the draw path itself
+/// re-checks nothing.
+pub(crate) fn supports(panel: &PanelDescriptor, frame: DesignFrame) -> bool {
+    in_range(frame, panel)
+        && on_grid(frame.width, panel.frame_min.width, panel.frame_step.0)
+        && on_grid(frame.height, panel.frame_min.height, panel.frame_step.1)
+        && aspect_ok(frame, panel)
 }
 
 fn in_range(frame: DesignFrame, panel: &PanelDescriptor) -> bool {
