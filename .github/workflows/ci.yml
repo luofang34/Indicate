@@ -54,7 +54,11 @@ jobs:
         # carries. An entry that disagrees with the tree answers the
         # question wrongly, which is worse than not answering it, so the
         # five contract values are checked against their definitions.
-        # Tag existence is not checked: CI clones without tags.
+        # Tag existence is not checked, and not because the tags are
+        # absent here — the checkout fetches them. A release tags its own
+        # merge commit, which does not exist while the pull request that
+        # writes the entry is open, so the check would fail every release
+        # on the run that matters. Tagging is a step in CONTRIBUTING.md.
         run: bash scripts/check-release-markers.sh
 
       - name: instrument requirement references

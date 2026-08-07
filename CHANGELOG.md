@@ -1,7 +1,7 @@
 # Changelog
 
 Consumers pin this repository by revision. A bare revision says nothing
-about what it contains, so every revision meant to be pinned gets an
+about what it contains, so a revision meant to be pinned is given an
 annotated tag and an entry here naming the contract versions it carries.
 
 Five values decide whether a given revision is the one a consumer wants.
@@ -18,9 +18,11 @@ it was written to remove.
 | Composition digest | `BUILTIN_SCENE_DIGEST` in `indicate-instrument-panels` |
 | Panel set | `BUILTIN_PANELS` in `indicate-instrument-panels` |
 
-A release is cut whenever any of the five moves. Entries are newest
-first, and the tag's message carries the same five values so
-`git show <tag>` answers the question without a checkout.
+A release is cut whenever any of the five moves — review's job, since a
+guard comparing the newest entry to the tree cannot tell an added entry
+from a rewritten one. Entries are newest first, and the tag's message
+repeats the same five values so `git show <tag>` answers the question
+without a checkout. `CONTRIBUTING.md` has the release steps.
 
 ## [0.1.0] — 2026-08-07
 
