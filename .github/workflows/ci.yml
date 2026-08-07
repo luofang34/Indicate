@@ -99,6 +99,15 @@ jobs:
             esac
           done < <(grep -oE '^name = "(pilotage|avionics|navigate|aviate|instrument)[a-z0-9-]*"' Cargo.lock \
                    | sed 's/^name = "//;s/"$//')
+          # Category sentinels the prefix filter cannot see: third-party
+          # wire-protocol and transport crates mean the boundary leaked
+          # regardless of what they are named.
+          for banned in prost tonic wtransport; do
+            if grep -qE "^name = \"$banned(-[a-z0-9]+)*\"" Cargo.lock; then
+              echo "Cargo.lock names $banned; wire-protocol and transport crates belong to consumers"
+              fail=1
+            fi
+          done
           exit $fail
 
       - name: instrument closure is no_std, standalone

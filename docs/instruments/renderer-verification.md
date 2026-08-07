@@ -233,10 +233,11 @@ failure page and an independent DOM fault surface.
 
 The reference-side tests run under the existing `cargo test -p
 pilotage-instrument-raster` step (they include the drift guard, coverage, budget,
-and fail-safe tests). The browser-side conformance test runs in the Pilotage
-repository's CI:
+and fail-safe tests). The browser-side conformance test is a step in the
+Pilotage repository's workflow, not this one:
 
 ```
+# Pilotage repository, .github/workflows/ci.yml
 - name: renderer backend conformance corpus
   run: node clients/web/scene-conformance.test.mjs
 ```

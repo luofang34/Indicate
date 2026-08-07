@@ -10,15 +10,21 @@ below keep them from eroding.
 A panel emits its **complete** command stream every frame, in immediate
 mode, into a caller-supplied buffer:
 
-- `SceneWriter::new(buf: &mut [u8])` borrows the caller's bytes;
-  `finish()` returns the encoded length. No allocation happens anywhere
-  on the emit path — the closure crates are `no_std` and CI compiles
-  them standalone for `thumbv7em-none-eabihf` to prove it.
+- `SceneWriter::new(buf: &mut [u8])` borrows the caller's bytes and
+  returns a typed error rather than an unusable writer; `finish()`
+  returns the encoded length. A command that does not fit rolls back
+  whole (`SceneError::BufferFull`), so the stream always ends at a
+  command boundary — never a truncated frame. No allocation happens
+  anywhere on the emit path — the closure crates are `no_std` and CI
+  compiles them standalone for `thumbv7em-none-eabihf` to prove it.
 - The stream is bounded by compile-time ceilings in
   `pilotage-instrument-scene::layer`: `MAX_LAYER_COMMANDS` (4096 per
   layer), `MAX_STACK_DEPTH` (32 save/restore levels), and
-  `MAX_SCENE_BYTES` (64 KiB per scene). A scene that would exceed them
-  is a typed encode error, never a truncated frame.
+  `MAX_SCENE_BYTES` (64 KiB per scene). `validate_layers` enforces them
+  as typed `LayerError`s (`OverCapacity`, `StackOverCapacity`,
+  `SceneTooLarge`): run it on every scene before the bytes reach a
+  backend — the encoder deliberately does not re-check the layer
+  ceilings.
 - Adding a panel adds commands — never a new mechanism. A backend that
   interprets the opcode vocabulary renders every current and future
   panel; the Swift SceneKit backend is frozen against the opcodes, not

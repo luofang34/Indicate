@@ -23,6 +23,7 @@ bash scripts/check-instrument-requirements.sh
 bash scripts/check-certification-claims.sh
 bash scripts/check-standards-registry.sh
 bash scripts/trace-report.sh
+bash scripts/detect-target.sh
 cargo check --locked -p pilotage-frames -p pilotage-alerts -p pilotage-sha256 \
   -p pilotage-instrument-state -p pilotage-instrument-scene \
   -p pilotage-instrument-glyphs -p pilotage-instrument-symbology \
@@ -40,6 +41,20 @@ The evidence gate binds recorded test sources by content digest: editing
 a recorded test file (the attitude-behavior and presentation suites
 among them) reddens the gate until that evidence is re-recorded, so run
 the two gate invocations locally after touching any recorded source.
+
+## PR discipline
+
+- One issue per PR. Break large refactors into independently revertible
+  steps.
+- Every PR lands the fix **and** the guardrail that prevents its
+  regression (a test, a lint, or a CI script change) in the same PR. A
+  fix without a guardrail is temporary.
+- Do not skip hooks, force-push shared branches, or bypass the gates to
+  land a PR faster; if a gate is wrong, fix the gate in its own PR
+  first.
+- `ADR-NNNN` identifiers cited in code, scripts, and docs are
+  architecture decision records living in the Pilotage repository's
+  `docs/adr/`.
 
 ## Discipline that is easy to miss
 
