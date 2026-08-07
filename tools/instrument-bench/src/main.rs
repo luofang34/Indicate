@@ -12,14 +12,14 @@ use std::io::Write;
 use output::print_line;
 use std::path::PathBuf;
 
-use pilotage_instrument_conformance::{AdmissionError, admit};
-use pilotage_instrument_panels::{BUILTIN_PANELS, BUILTIN_SCENE_DIGEST};
-use pilotage_instrument_raster::{FrameId, FramebufferDims, RenderStatus, render};
-use pilotage_instrument_registry::{
+use indicate_instrument_conformance::{AdmissionError, admit};
+use indicate_instrument_panels::{BUILTIN_PANELS, BUILTIN_SCENE_DIGEST};
+use indicate_instrument_raster::{FrameId, FramebufferDims, RenderStatus, render};
+use indicate_instrument_registry::{
     CANONICAL_STATES, EMPTY_CONFIG, PanelDrawError, Registry, RegistryError, scene_digest,
 };
-use pilotage_instrument_scene::{MAX_SCENE_BYTES, SceneWriter};
-use pilotage_instrument_state::{FreshnessPolicy, resolve};
+use indicate_instrument_scene::{MAX_SCENE_BYTES, SceneWriter};
+use indicate_instrument_state::{FreshnessPolicy, resolve};
 
 #[derive(Debug, thiserror::Error)]
 enum BenchError {
@@ -87,7 +87,7 @@ fn main() -> Result<(), BenchError> {
     let mut scratch = vec![0u8; MAX_SCENE_BYTES];
     let digest = hex(
         scene_digest(&registry, &mut scratch).map_err(|error| match error {
-            pilotage_instrument_registry::DigestError::Draw {
+            indicate_instrument_registry::DigestError::Draw {
                 panel,
                 state,
                 source,
@@ -96,7 +96,7 @@ fn main() -> Result<(), BenchError> {
                 state,
                 source,
             },
-            pilotage_instrument_registry::DigestError::Scratch { len } => {
+            indicate_instrument_registry::DigestError::Scratch { len } => {
                 BenchError::DigestScratch { len }
             }
         })?,
@@ -136,9 +136,9 @@ fn parse_out_dir() -> Option<PathBuf> {
 }
 
 fn rasterize(
-    panel: &'static pilotage_instrument_registry::PanelDescriptor,
+    panel: &'static indicate_instrument_registry::PanelDescriptor,
     state_id: &'static str,
-    state: pilotage_instrument_state::AircraftState,
+    state: indicate_instrument_state::AircraftState,
     scratch: &mut [u8],
 ) -> Result<Vec<u8>, BenchError> {
     let data = resolve(&state, &FreshnessPolicy::default());
@@ -180,7 +180,7 @@ fn write_ppm(
     dir: &PathBuf,
     panel_id: &str,
     state_id: &str,
-    frame: pilotage_instrument_registry::DesignFrame,
+    frame: indicate_instrument_registry::DesignFrame,
     rgba: &[u8],
 ) -> Result<(), BenchError> {
     let path = dir.join(format!("{panel_id}-{state_id}.ppm"));

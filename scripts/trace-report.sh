@@ -51,7 +51,7 @@ rust_tests="$(git ls-files '**/tests.rs' '**/tests/*.rs' | wc -l | tr -d ' ')"
 echo "Rust test modules (tests.rs + tests/*.rs): $rust_tests"
 echo "Downstream shell suites (browser, FFI) run in the consuming repositories."
 echo "Test artifacts the docs name (downstream shell suites included):"
-grep -rhoE '[A-Za-z0-9_-]+\.test\.mjs|pilotage-instrument-[a-z]+' \
+grep -rhoE '[A-Za-z0-9_-]+\.test\.mjs|indicate-instrument-[a-z]+' \
     "$document_dir" --include='*.md' \
     | LC_ALL=C sort -u \
     | sed 's/^/    /' || true

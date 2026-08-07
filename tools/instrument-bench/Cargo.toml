@@ -9,10 +9,10 @@ publish = false
 workspace = true
 
 [dependencies]
-pilotage-instrument-conformance = { workspace = true }
-pilotage-instrument-panels = { workspace = true }
-pilotage-instrument-raster = { workspace = true }
-pilotage-instrument-registry = { workspace = true }
-pilotage-instrument-scene = { workspace = true }
-pilotage-instrument-state = { workspace = true }
+indicate-instrument-conformance = { workspace = true }
+indicate-instrument-panels = { workspace = true }
+indicate-instrument-raster = { workspace = true }
+indicate-instrument-registry = { workspace = true }
+indicate-instrument-scene = { workspace = true }
+indicate-instrument-state = { workspace = true }
 thiserror = { workspace = true }

@@ -51,8 +51,8 @@ work performed, not of certification credit earned.
 
 ### Code baseline
 
-- The `pilotage-instrument-*` crate family (`-state`, `-scene`, `-glyphs`,
-  `-panels`, `-raster`) plus `pilotage-frames` and `pilotage-alerts`, compiled
+- The `indicate-instrument-*` crate family (`-state`, `-scene`, `-glyphs`,
+  `-panels`, `-raster`) plus `indicate-frames` and `indicate-alerts`, compiled
   for a bare-metal target in CI to substantiate the `no_std` claim (ADR-0017).
 - The WebAssembly instrument backend and the browser viewer with its
   wire/telemetry/transport paths (Pilotage repository, `clients/`).
@@ -62,9 +62,9 @@ work performed, not of certification credit earned.
 - The in-crate `tests.rs` and `tests/` modules across the workspace (unit and
   property tests with direct access to internals or public-API integration
   tests).
-- The reference-rasterizer frame-hash tests (`pilotage-instrument-raster`) that
+- The reference-rasterizer frame-hash tests (`indicate-instrument-raster`) that
   pin PFD/HSI output to SHA-256 hashes for bit-reproducibility (REN-03).
-- The glyph-pack integrity tests (`pilotage-instrument-glyphs`) for vocabulary
+- The glyph-pack integrity tests (`indicate-instrument-glyphs`) for vocabulary
   completeness and fail-closed corruption detection (REN-02).
 - The browser conformance suites run in CI: `wire.test.mjs`,
   `telemetry-ingress.test.mjs`, `telemetry-display.test.mjs`,
@@ -106,7 +106,7 @@ certified lifecycle data. Nothing here is marked satisfied.
 | EVP-03 | Software planning (DO-178C plans: PSAC/SDP/SVP/SCMP/SQAP) | none yet | deferred until level allocation (AIR-02, #27) |
 | EVP-04 | Software requirements (DO-178C) | `requirements.md` (`AIR-*`), intended-functions | engineering input; not level-allocated certified requirements |
 | EVP-05 | Software design (DO-178C) | ADR-0017/0018/0019, scene-layer/glyph-pack contracts | engineering input |
-| EVP-06 | Software coding (DO-178C) | `pilotage-instrument-*`, `pilotage-frames`, `pilotage-alerts`, downstream shells | engineering input; **not** certified source data |
+| EVP-06 | Software coding (DO-178C) | `indicate-instrument-*`, `indicate-frames`, `indicate-alerts`, downstream shells | engineering input; **not** certified source data |
 | EVP-07 | Verification — reviews and analyses (DO-178C) | code review in PR history, `renderer-verification.md` | engineering input; not DO-178C-conformant review records |
 | EVP-08 | Verification — testing (DO-178C) | workspace `tests.rs`/`tests/`, raster/glyph tests, downstream shell suites | engineering input; not requirements-based certified test evidence |
 | EVP-09 | Structural coverage (DO-178C) | none | **deferred** — see structural-coverage section |
@@ -118,7 +118,7 @@ certified lifecycle data. Nothing here is marked satisfied.
 | EVP-15 | Environmental qualification (DO-160G) | none | not applicable (no airborne equipment); DO-160H excluded |
 | EVP-16 | Aeronautical data (DO-200B / ED-76) | none (simulator/reference data only) | not applicable yet (no operational data chain) |
 | EVP-17 | Security (DO-326A / ED-202A airworthiness-security family) | [`system-boundary.md`](system-boundary.md) trust analysis | engineering input; not a security certification artifact — see [standards matrix](standards-applicability.md) STD-050..STD-052 |
-| EVP-18 | Display / alerting guidance (AC 25-11B; alert model) | PFD/HSI intended functions, `pilotage-alerts` crate | engineering input; no display submitted for approval |
+| EVP-18 | Display / alerting guidance (AC 25-11B; alert model) | PFD/HSI intended functions, `indicate-alerts` crate | engineering input; no display submitted for approval |
 | EVP-19 | Installation and flight-test evidence | none | not applicable (no installation; [`AIR-OUT-008`](requirements.md#air-out-008)) |
 | EVP-20 | Synthetic-vision performance (DO-407 / ED-326 and earlier DO-315 / ED-179; active FAA vision ACs AC 20-167B / AC 20-185A) | SVS is supplemental only ([`AIR-OUT-005`](requirements.md#air-out-005)); no operational-credit artifact | engineering input; DO-407 / ED-326 released MASPS with authority acceptance unresolved — see [standards matrix](standards-applicability.md) STD-066 and [`standards-registry.toml`](standards-registry.toml) |
 | EVP-21 | Source equipment — attitude/heading (AC 20-181, AHRS / TSO-C201) | attitude and heading inputs ([`AIR-IN-001`](requirements.md#air-in-001), [`AIR-IN-005`](requirements.md#air-in-005)) | not applicable yet (no airborne AHRS source selected) — see [standards matrix](standards-applicability.md) STD-065 |

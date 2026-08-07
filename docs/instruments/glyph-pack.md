@@ -2,7 +2,7 @@
 
 This document records the authorship, license, deterministic build inputs, and
 content hash of the instrument glyph pack in
-`crates/pilotage-instrument-glyphs`. It is a deterministic engineering contract
+`crates/indicate-instrument-glyphs`. It is a deterministic engineering contract
 for the simulator and reference backends; it does not claim certification
 credit.
 
@@ -14,7 +14,7 @@ from this controlled asset instead of an installed system font.
 
 Every glyph is an original 5×7 bitmap authored for this project directly in
 Rust source, as bit matrices in
-`crates/pilotage-instrument-glyphs/src/font/`. The pack embeds **no
+`crates/indicate-instrument-glyphs/src/font/`. The pack embeds **no
 third-party font data** — no downloaded, system, or externally licensed font
 contributes any pixel — so it carries no external font license obligation and
 is distributed under the repository's own terms. Selecting a licensed outline
@@ -24,7 +24,7 @@ font later is an upgrade path (see below), not a dependency today.
 
 The mandatory vocabulary is derived from what the panels actually draw, not
 guessed. Every `text(...)` literal and every `fmt_label!` template in
-`crates/pilotage-instrument-panels` was enumerated:
+`crates/indicate-instrument-panels` was enumerated:
 
 - **Digits `0`–`9`** — tape, rose, and readout numerals.
 - **`-`** — dash runs (`---`, `--.-`, `---°`) and negative readouts.
@@ -128,7 +128,7 @@ run `verify` and declare itself ready only after it passes.
 
 - **Browser and panels wiring** is deferred to a later integration change: the
   browser backend will load and verify this asset before declaring ready, and
-  a compile-time dependency from `pilotage-instrument-panels` onto this crate
+  a compile-time dependency from `indicate-instrument-panels` onto this crate
   will let the panel vocabulary be checked against the source strings directly.
   Until then the vocabulary is pinned by the static `PANEL_VOCABULARY` list.
 - **Richer outline font** is a separately-licensed upgrade behind this same

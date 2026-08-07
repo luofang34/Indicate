@@ -129,15 +129,140 @@ dependencies = [
 ]
 
 [[package]]
+name = "indicate-alerts"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "indicate-evidence"
+version = "0.1.0"
+dependencies = [
+ "sha1",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
+name = "indicate-frames"
+version = "0.1.0"
+dependencies = [
+ "libm",
+]
+
+[[package]]
+name = "indicate-instrument-conformance"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-instrument-glyphs",
+ "indicate-instrument-panels",
+ "indicate-instrument-registry",
+ "indicate-instrument-scene",
+ "indicate-instrument-state",
+ "thiserror",
+]
+
+[[package]]
+name = "indicate-instrument-feeder"
+version = "0.1.0"
+dependencies = [
+ "indicate-instrument-state",
+]
+
+[[package]]
+name = "indicate-instrument-glyphs"
+version = "0.1.0"
+dependencies = [
+ "indicate-sha256",
+ "thiserror",
+]
+
+[[package]]
+name = "indicate-instrument-panels"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-frames",
+ "indicate-instrument-glyphs",
+ "indicate-instrument-registry",
+ "indicate-instrument-scene",
+ "indicate-instrument-state",
+ "indicate-instrument-symbology",
+ "libm",
+]
+
+[[package]]
+name = "indicate-instrument-raster"
+version = "0.1.0"
+dependencies = [
+ "indicate-instrument-glyphs",
+ "indicate-instrument-panels",
+ "indicate-instrument-registry",
+ "indicate-instrument-scene",
+ "indicate-instrument-state",
+ "libm",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
+name = "indicate-instrument-registry"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-instrument-scene",
+ "indicate-instrument-state",
+ "indicate-sha256",
+ "thiserror",
+]
+
+[[package]]
+name = "indicate-instrument-scene"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "thiserror",
+]
+
+[[package]]
+name = "indicate-instrument-state"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-frames",
+ "libm",
+ "thiserror",
+]
+
+[[package]]
+name = "indicate-instrument-symbology"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-instrument-scene",
+ "indicate-instrument-state",
+ "thiserror",
+]
+
+[[package]]
+name = "indicate-sha256"
+version = "0.1.0"
+dependencies = [
+ "sha2",
+]
+
+[[package]]
 name = "instrument-bench"
 version = "0.1.0"
 dependencies = [
- "pilotage-instrument-conformance",
- "pilotage-instrument-panels",
- "pilotage-instrument-raster",
- "pilotage-instrument-registry",
- "pilotage-instrument-scene",
- "pilotage-instrument-state",
+ "indicate-instrument-conformance",
+ "indicate-instrument-panels",
+ "indicate-instrument-raster",
+ "indicate-instrument-registry",
+ "indicate-instrument-scene",
+ "indicate-instrument-state",
  "thiserror",
 ]
 
@@ -194,131 +319,6 @@ name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
-
-[[package]]
-name = "pilotage-alerts"
-version = "0.1.0"
-dependencies = [
- "thiserror",
-]
-
-[[package]]
-name = "pilotage-evidence"
-version = "0.1.0"
-dependencies = [
- "sha1",
- "sha2",
- "thiserror",
-]
-
-[[package]]
-name = "pilotage-frames"
-version = "0.1.0"
-dependencies = [
- "libm",
-]
-
-[[package]]
-name = "pilotage-instrument-conformance"
-version = "0.1.0"
-dependencies = [
- "pilotage-alerts",
- "pilotage-instrument-glyphs",
- "pilotage-instrument-panels",
- "pilotage-instrument-registry",
- "pilotage-instrument-scene",
- "pilotage-instrument-state",
- "thiserror",
-]
-
-[[package]]
-name = "pilotage-instrument-feeder"
-version = "0.1.0"
-dependencies = [
- "pilotage-instrument-state",
-]
-
-[[package]]
-name = "pilotage-instrument-glyphs"
-version = "0.1.0"
-dependencies = [
- "pilotage-sha256",
- "thiserror",
-]
-
-[[package]]
-name = "pilotage-instrument-panels"
-version = "0.1.0"
-dependencies = [
- "libm",
- "pilotage-alerts",
- "pilotage-frames",
- "pilotage-instrument-glyphs",
- "pilotage-instrument-registry",
- "pilotage-instrument-scene",
- "pilotage-instrument-state",
- "pilotage-instrument-symbology",
-]
-
-[[package]]
-name = "pilotage-instrument-raster"
-version = "0.1.0"
-dependencies = [
- "libm",
- "pilotage-instrument-glyphs",
- "pilotage-instrument-panels",
- "pilotage-instrument-registry",
- "pilotage-instrument-scene",
- "pilotage-instrument-state",
- "sha2",
- "thiserror",
-]
-
-[[package]]
-name = "pilotage-instrument-registry"
-version = "0.1.0"
-dependencies = [
- "pilotage-alerts",
- "pilotage-instrument-scene",
- "pilotage-instrument-state",
- "pilotage-sha256",
- "thiserror",
-]
-
-[[package]]
-name = "pilotage-instrument-scene"
-version = "0.1.0"
-dependencies = [
- "proptest",
- "thiserror",
-]
-
-[[package]]
-name = "pilotage-instrument-state"
-version = "0.1.0"
-dependencies = [
- "libm",
- "pilotage-alerts",
- "pilotage-frames",
- "thiserror",
-]
-
-[[package]]
-name = "pilotage-instrument-symbology"
-version = "0.1.0"
-dependencies = [
- "pilotage-alerts",
- "pilotage-instrument-scene",
- "pilotage-instrument-state",
- "thiserror",
-]
-
-[[package]]
-name = "pilotage-sha256"
-version = "0.1.0"
-dependencies = [
- "sha2",
-]
 
 [[package]]
 name = "pin-project-lite"
@@ -690,7 +690,7 @@ checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 name = "xtask"
 version = "0.1.0"
 dependencies = [
- "pilotage-instrument-state",
+ "indicate-instrument-state",
  "thiserror",
  "tracing",
  "tracing-subscriber",

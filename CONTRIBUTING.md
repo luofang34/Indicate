@@ -24,16 +24,16 @@ bash scripts/check-certification-claims.sh
 bash scripts/check-standards-registry.sh
 bash scripts/trace-report.sh
 bash scripts/detect-target.sh
-cargo check --locked -p pilotage-frames -p pilotage-alerts -p pilotage-sha256 \
-  -p pilotage-instrument-state -p pilotage-instrument-scene \
-  -p pilotage-instrument-glyphs -p pilotage-instrument-symbology \
-  -p pilotage-instrument-panels -p pilotage-instrument-raster \
-  -p pilotage-instrument-feeder -p pilotage-instrument-registry \
+cargo check --locked -p indicate-frames -p indicate-alerts -p indicate-sha256 \
+  -p indicate-instrument-state -p indicate-instrument-scene \
+  -p indicate-instrument-glyphs -p indicate-instrument-symbology \
+  -p indicate-instrument-panels -p indicate-instrument-raster \
+  -p indicate-instrument-feeder -p indicate-instrument-registry \
   --target thumbv7em-none-eabihf
 cargo run --locked -q -p instrument-bench
-cargo run --locked -q -p pilotage-evidence --bin evidence-gate -- \
+cargo run --locked -q -p indicate-evidence --bin evidence-gate -- \
   --graph docs/instruments/evidence-graph.evg --repo-root . --resolve-selectors
-cargo run --locked -q -p pilotage-evidence --bin evidence-gate -- \
+cargo run --locked -q -p indicate-evidence --bin evidence-gate -- \
   --graph docs/instruments/evidence-graph.evg --repo-root . --require-resolvable
 ```
 

@@ -77,7 +77,7 @@ The byte-exact empty `Background` layer corpus is:
 ## Resource bounds
 
 The conforming engineering profile is fixed by constants exported from
-`pilotage-instrument-scene`:
+`indicate-instrument-scene`:
 
 | Resource | Bound |
 |---|---:|
@@ -120,7 +120,7 @@ This table is the `required_layers` mask of each shipped descriptor, not an
 independent statement of intent: the required column is the mask, the optional
 column is its complement over the defined layers, and both are listed in
 ascending layer order. `layer_profile_doc_tests` in
-`pilotage-instrument-panels` parses this table and fails the build if either
+`indicate-instrument-panels` parses this table and fails the build if either
 column disagrees with the descriptor it describes, so a mask change must
 arrive with its row. The section holds this one table and no other.
 

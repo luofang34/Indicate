@@ -161,10 +161,10 @@ check_safety_palette_aliases() {
     while IFS= read -r file; do
         is_excluded_path "$file" && continue
         case "$file" in
-            ./crates/pilotage-instrument-symbology/*) continue ;;
+            ./crates/indicate-instrument-symbology/*) continue ;;
         esac
         if grep -Eq 'palette::(RED|AMBER|YELLOW|BAND_YELLOW)\b' "$file"; then
-            echo "FORBIDDEN: $file references a safety palette alias; use the safety:: constants outside pilotage-instrument-symbology" >&2
+            echo "FORBIDDEN: $file references a safety palette alias; use the safety:: constants outside indicate-instrument-symbology" >&2
             status=1
         fi
     done < <(collect_rs_files)
@@ -174,11 +174,39 @@ check_safety_palette_aliases() {
 # hand-maintained; a new safety constant must visit them deliberately.
 check_safety_constant_count() {
     local expected=5 actual
-    actual=$(grep -c '^pub const' ./crates/pilotage-instrument-symbology/src/safety.rs)
+    actual=$(grep -c '^pub const' ./crates/indicate-instrument-symbology/src/safety.rs)
     if [ "$actual" -ne "$expected" ]; then
         echo "FORBIDDEN: safety.rs public constant count moved ($actual, pinned $expected); add the new constant to theme.rs SAFETY_HUES or its documented exemption, then update this pin" >&2
         status=1
     fi
+}
+
+# The family is named after this repository, not after a consumer of it
+# (#9). This checks NAMES ONLY — crate directories and package names.
+# Identifiers keep whatever string they were minted with: the scene
+# digest domain, the corpus provenance record, and the recorded evidence
+# artifacts are hashed or pinned by consumers, so rewriting one to match
+# a rename would move a digest for zero paint change.
+check_crate_naming() {
+    local dir base manifest name
+    for dir in crates/*/; do
+        base="$(basename "$dir")"
+        case "$base" in
+            pilotage-*)
+                echo "FORBIDDEN: $dir is named after a downstream consumer; crates are indicate-*" >&2
+                status=1
+                ;;
+        esac
+    done
+    while IFS= read -r manifest; do
+        name="$(grep -m1 '^name = ' "$manifest" | sed 's/^name = "//;s/"$//')"
+        case "$name" in
+            pilotage-*)
+                echo "FORBIDDEN: $manifest declares package $name; crates are indicate-*" >&2
+                status=1
+                ;;
+        esac
+    done < <(find crates tools -name Cargo.toml -not -path '*/target/*')
 }
 
 check_forbidden_filenames
@@ -186,6 +214,7 @@ check_file_length
 check_function_length
 check_safety_palette_aliases
 check_safety_constant_count
+check_crate_naming
 
 if [ "$status" -ne 0 ]; then
     echo "check-structure: FAILED" >&2

@@ -18,7 +18,7 @@ mode, into a caller-supplied buffer:
   anywhere on the emit path — the closure crates are `no_std` and CI
   compiles them standalone for `thumbv7em-none-eabihf` to prove it.
 - The stream is bounded by compile-time ceilings in
-  `pilotage-instrument-scene::layer`: `MAX_LAYER_COMMANDS` (4096 per
+  `indicate-instrument-scene::layer`: `MAX_LAYER_COMMANDS` (4096 per
   layer), `MAX_STACK_DEPTH` (32 save/restore levels), and
   `MAX_SCENE_BYTES` (64 KiB per scene). `validate_layers` enforces them
   as typed `LayerError`s (`OverCapacity`, `StackOverCapacity`,
@@ -67,7 +67,7 @@ A panel is authored in the logical frame its descriptor declares
 
 An interpreter is correct only **relative to a corpus version**. The
 scene-conformance corpus lives at
-`crates/pilotage-instrument-scene/corpus/scene-conformance-corpus.json`,
+`crates/indicate-instrument-scene/corpus/scene-conformance-corpus.json`,
 authored by the reference rasterizer and replayed by every backend.
 Every interpreter pins `corpusVersion` + `corpusSha256`; a corpus edit
 here reddens each pinned consumer at its next pin advance. That red is
@@ -87,7 +87,7 @@ requires. An unfed group renders `Missing` by construction, not because
 a producer remembered to flag it. Sources with different group sets — a
 flight controller posture and a data-gateway posture, neither a subset
 of the other — drive the same panels; the posture tests in
-`pilotage-instrument-state` pin exactly that.
+`indicate-instrument-state` pin exactly that.
 
 ## Pin advance
 

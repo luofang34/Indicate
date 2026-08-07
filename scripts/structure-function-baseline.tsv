@@ -1,2 +1,2 @@
 # path	function	exact_body_lines
-./crates/pilotage-instrument-scene/src/decode.rs	decode_payload	100
+./crates/indicate-instrument-scene/src/decode.rs	decode_payload	100
