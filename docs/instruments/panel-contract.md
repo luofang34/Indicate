@@ -47,14 +47,14 @@ Three tiers of obligation, and the difference matters:
 |---|---|
 | `required_layers` | **Load-bearing.** Admission asserts every declared band is present in every case. |
 | `required_groups` | **Load-bearing.** This *is* the withholding matrix: admission withholds each declared group in turn. |
-| `design_frame` | **Load-bearing.** Every geometry check is expressed in its units. |
+| `frame_min`, `frame_max`, `frame_step`, `aspect_min`, `aspect_max`, `canonical_frames` | **Load-bearing.** They decide which frames a shell may ask for, and admission runs the whole matrix at each canonical one. |
 | `background` | **Load-bearing.** An `Opaque` or `Cedeable` claim is proven against the emitted ink. |
 | `draw` | **Load-bearing.** Refusing to draw any case fails admission. |
 | `extreme_states` | **Load-bearing.** Each one multiplies the case matrix. |
 | `id`, `title` | Validated at registry init: charset, non-empty. |
 | `config_schema` | Validated at init (keys strictly ascending). Admission always draws the empty config. |
 | `group_regions` | **Declared, not currently read by admission.** See below. |
-| `raster_baseline` | Inert unless the panel is in a set the raster tests cover. |
+| `raster_baselines` | Inert unless the panel is in a set the raster tests cover. Each entry must name a canonical frame. |
 
 ### `required_layers` — declare what you always emit
 
@@ -86,6 +86,40 @@ its resolved status — the template's airspeed folds `Trust`, so
 withholding `Trust` genuinely dashes the number — that group belongs in
 the mask.
 
+### The frame range — declare what you can lay out against
+
+`draw` receives the frame as an argument, alongside the state, the
+config blob, and the alerts. Read it. A geometry constant that should
+have been `frame.width` is a panel that quietly ignores the size it was
+given, and no test can tell the difference while the declared range has
+one frame in it.
+
+The frame is deliberately *not* a config key. Configuration is an
+optional schema-gated blob and the admission harness draws the empty one
+on purpose, so a panel that took its size from configuration would be
+unadmittable by construction.
+
+What the registry checks at init:
+
+- `frame_min` and `frame_max` finite and positive, `min <= max` per
+  axis. `frame_min` is the readability floor — it is where conspicuity
+  has to hold, and it is the frame `group_regions` are validated
+  against.
+- `frame_step` finite and positive per axis. Admissible dimensions are
+  `frame_min + k * step`, exactly: the check applies no tolerance, so a
+  step that cannot express your frames is a declaration to fix.
+- Aspect bounds finite, positive, `min <= max`.
+- `canonical_frames` non-empty, containing both `frame_min` and
+  `frame_max`, with every entry in range, on the grid, and inside the
+  aspect bounds. The corners alone are not enough: 600×360 sits inside a
+  480×360-to-600×450 range on both axes and is a shape a 4:3 layout
+  never declared, which is what the aspect check is for.
+
+A fixed-layout panel declares `frame_min == frame_max`, one canonical
+frame, and any positive step — the honest statement that a shell may
+only ask for the size the geometry was authored for. Every shipped panel
+does exactly that today.
+
 ### The honesty rules, and their asymmetry
 
 This is the part of the contract that is easiest to get exactly
@@ -113,7 +147,7 @@ Two corollaries fall out of the same machinery:
 `Opaque` and `Cedeable` both promise a full-frame opaque cover, and
 admission proves it against the ink rather than taking the word: it
 looks for one axis-aligned, full-alpha rect fill covering the whole
-design frame in the `Background` band. A ground assembled from polygons,
+frame the panel was drawn at, in the `Background` band. A ground assembled from polygons,
 painted at alpha below full, drawn under a rotated transform, or under a
 clip that does not contain the frame **does not count**, and fails as
 `BackgroundContract`. A clip that does contain the frame is fine.
@@ -125,7 +159,7 @@ and composes as an overlay.
 ### `group_regions` — declared, and not yet load-bearing
 
 Regions say which surface of the panel a group's readout owns. They are
-validated for geometry at registry init — inside the frame, non-
+validated for geometry at registry init — inside `frame_min`, non-
 degenerate, only for groups the panel requires — and **admission does
 not currently read them**. The conformance crate says so in its own
 module documentation, and this contract will not paper over it.
@@ -150,12 +184,14 @@ Run it before opening a pull request, not after CI tells you:
 cargo test -p <your set crate>
 ```
 
-Per case — canonical states plus your extreme states, each fully fed and
-then once per withheld group — the harness checks that the draw returns,
-that the scene decodes and satisfies the layer envelope, that every
-required layer is present, that the background claim holds, that every
-glyph is in the controlled vocabulary, and that the provenance rules
-above hold. Ink outside the design frame is **counted, not refused** —
+Per case — every canonical frame × canonical states plus your extreme
+states, each fully fed and then once per withheld group — the harness
+checks that the draw returns, that the scene decodes and satisfies the
+layer envelope, that every required layer is present, that the
+background claim holds, that every glyph is in the controlled
+vocabulary, and that the provenance rules above hold. Every geometry
+check uses the frame being drawn, not a constant. Ink outside that frame
+is **counted, not refused** —
 and the ratchet that keeps the count from growing is an assertion *you*
 write in your own admission test, not something the harness does for
 you. A new set has no ratchet until its author pins one.
@@ -198,22 +234,27 @@ the vocabulary before inventing one.
 ## Digests, baselines, and who re-pins them
 
 - **The composition digest** covers the panels a registry composes, in
-  order, with their contract-relevant descriptor fields and their
-  emitted bytes. Adding a panel to a shipped set moves it. Set identity
-  is deliberately *not* in the digest, so publishing a new set does not
-  disturb a shell that does not compose it.
+  order, with their contract-relevant descriptor fields — the frame
+  range among them — and their bytes emitted per canonical state ×
+  canonical frame. Adding a panel to a shipped set moves it, and so does
+  widening a declared range. Set identity is deliberately *not* in the
+  digest, so publishing a new set does not disturb a shell that does not
+  compose it. Raster baselines are deliberately *not* in it either: they
+  pin one backend's pixels, and re-pinning them must not move
+  cross-shell identity.
 - **Who re-pins:** the author of the change that moves it, in the same
   change, with the reason in the commit message. Consumers advance their
   pins on the discipline in `README.md`. A digest that moves without a
   stated reason is indistinguishable from a regression.
-- **Raster baselines** are per-panel pinned frame hashes over the shared
-  typical state, asserted by the reference rasterizer (REN-03). A
-  mismatch means the paint changed. It is a regression unless the change
-  deliberately moved paint, in which case it re-pins once, for a stated
-  reason — never refreshed to make a red build green.
-- A new set outside `BUILTIN_PANELS` may leave `raster_baseline` at
-  `None` until it has rasterizer coverage; nothing asserts a baseline
-  that was never declared.
+- **Raster baselines** are per-panel, per-canonical-frame pinned frame
+  hashes over the shared typical state, asserted by the reference
+  rasterizer (REN-03). A mismatch means the paint changed. It is a
+  regression unless the change deliberately moved paint, in which case
+  it re-pins once, for a stated reason — never refreshed to make a red
+  build green.
+- A new set outside `BUILTIN_PANELS` may leave `raster_baselines` empty
+  until it has rasterizer coverage; nothing asserts a baseline that was
+  never declared.
 
 Contract values that a consumer pins — the state ABI, the scene format,
 the corpus, the composition digest, the shipped panel set — are named

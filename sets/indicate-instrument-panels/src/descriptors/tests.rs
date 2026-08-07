@@ -11,7 +11,7 @@ use indicate_instrument_state::{
 };
 
 use super::{BUILTIN_PANELS, HSI_DESCRIPTOR, PFD_DESCRIPTOR};
-use crate::{BackgroundMode, PfdConfig, draw_hsi, draw_pfd};
+use crate::{BUILTIN_FRAME, BackgroundMode, PfdConfig, draw_hsi, draw_pfd};
 
 fn resolved() -> PanelData {
     let state = AircraftState {
@@ -39,7 +39,7 @@ fn scene_via_descriptor(
     let data = resolved();
     let mut buf = vec![0u8; 64 * 1024];
     let mut writer = SceneWriter::new(&mut buf).expect("fits");
-    (descriptor.draw)(&data, config, None, &mut writer).expect("draws");
+    (descriptor.draw)(&data, config, None, BUILTIN_FRAME, &mut writer).expect("draws");
     let used = writer.finish();
     buf[..used].to_vec()
 }
@@ -65,7 +65,7 @@ fn the_monitor_stress_fixture_rows_are_full() {
     // silently emptied would weaken the stress case without failing
     // anything. Every row must be exactly at capacity.
     use indicate_instrument_state::TextLine;
-    let state = super::monitor_full_channel();
+    let state = super::extreme_states::monitor_full_channel();
     let text = state.monitor_text.data.expect("fixture feeds the channel");
     assert!(!text.is_malformed());
     for (row, line) in text.lines().iter().enumerate() {
@@ -87,7 +87,14 @@ fn descriptor_draws_match_the_direct_entry_points() {
     let data = resolved();
     let mut direct_buf = vec![0u8; 64 * 1024];
     let mut writer = SceneWriter::new(&mut direct_buf).expect("fits");
-    draw_pfd(&data, &PfdConfig::default(), None, &mut writer).expect("draws");
+    draw_pfd(
+        &data,
+        &PfdConfig::default(),
+        None,
+        BUILTIN_FRAME,
+        &mut writer,
+    )
+    .expect("draws");
     let used = writer.finish();
     assert_eq!(
         scene_via_descriptor(&PFD_DESCRIPTOR, &EMPTY_CONFIG),
@@ -97,7 +104,7 @@ fn descriptor_draws_match_the_direct_entry_points() {
 
     let mut hsi_buf = vec![0u8; 64 * 1024];
     let mut writer = SceneWriter::new(&mut hsi_buf).expect("fits");
-    draw_hsi(&data, None, &mut writer).expect("draws");
+    draw_hsi(&data, None, BUILTIN_FRAME, &mut writer).expect("draws");
     let used = writer.finish();
     assert_eq!(
         scene_via_descriptor(&HSI_DESCRIPTOR, &EMPTY_CONFIG),
@@ -131,7 +138,7 @@ fn svs_background_cedes_exactly_like_none() {
         };
         let mut buf = vec![0u8; 64 * 1024];
         let mut writer = SceneWriter::new(&mut buf).expect("fits");
-        draw_pfd(&data, &cfg, None, &mut writer).expect("draws");
+        draw_pfd(&data, &cfg, None, BUILTIN_FRAME, &mut writer).expect("draws");
         let used = writer.finish();
         scenes.push(buf[..used].to_vec());
     }
@@ -155,7 +162,7 @@ fn an_svs_config_blob_decodes_and_still_cedes() {
     bytes.extend_from_slice(&1u16.to_le_bytes());
     bytes.push(1);
     let blob = ConfigBlob::parse(&bytes).expect("well-formed");
-    let cfg = PfdConfig::from_config(&blob).expect("decodes");
+    let cfg = PfdConfig::from_config(&blob, BUILTIN_FRAME).expect("decodes");
     assert!(matches!(
         cfg.background,
         BackgroundMode::Svs { quality: 1, .. }
@@ -187,7 +194,7 @@ fn svs_keys_are_validated_and_refused_when_inert() {
     bytes.extend_from_slice(&[1, 2, 3]);
     let blob = ConfigBlob::parse(&bytes).expect("well-formed framing");
     assert_eq!(
-        PfdConfig::from_config(&blob),
+        PfdConfig::from_config(&blob, BUILTIN_FRAME),
         Err(ConfigError::BadValue {
             key: keys::SVS_VIEWPORT.0,
             len: 3,
@@ -206,7 +213,7 @@ fn svs_keys_are_validated_and_refused_when_inert() {
     }
     let blob = ConfigBlob::parse(&inert).expect("well-formed framing");
     assert_eq!(
-        PfdConfig::from_config(&blob),
+        PfdConfig::from_config(&blob, BUILTIN_FRAME),
         Err(ConfigError::InertKey {
             key: keys::SVS_VIEWPORT.0,
         })
@@ -223,7 +230,7 @@ fn svs_keys_are_validated_and_refused_when_inert() {
     }
     let blob = ConfigBlob::parse(&outside).expect("well-formed framing");
     assert_eq!(
-        PfdConfig::from_config(&blob),
+        PfdConfig::from_config(&blob, BUILTIN_FRAME),
         Err(ConfigError::BadValue {
             key: keys::SVS_VIEWPORT.0,
             len: 16,
@@ -242,7 +249,7 @@ fn a_collapsed_v_speed_ladder_is_refused() {
     }
     let blob = ConfigBlob::parse(&bytes).expect("well-formed framing");
     assert_eq!(
-        PfdConfig::from_config(&blob),
+        PfdConfig::from_config(&blob, BUILTIN_FRAME),
         Err(ConfigError::BadValue {
             key: keys::V_SPEEDS.0,
             len: 20,
@@ -260,5 +267,5 @@ fn the_hsi_rejects_any_configuration_key() {
     let data = resolved();
     let mut buf = vec![0u8; 64 * 1024];
     let mut writer = SceneWriter::new(&mut buf).expect("fits");
-    assert!((HSI_DESCRIPTOR.draw)(&data, &blob, None, &mut writer).is_err());
+    assert!((HSI_DESCRIPTOR.draw)(&data, &blob, None, BUILTIN_FRAME, &mut writer).is_err());
 }

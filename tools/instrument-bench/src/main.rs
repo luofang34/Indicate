@@ -1,8 +1,9 @@
 //! Standalone bench shell (ADR-0029): the third, deliberately unalike
 //! shell. It composes the same registry the web shell consumes, runs
 //! the admission harness, computes the cross-shell scene digest against
-//! the pinned value, and rasterizes every panel × canonical state —
-//! optionally writing PPM frames — with no host and no protocol. A
+//! the pinned value, and rasterizes every panel × canonical state ×
+//! canonical frame — optionally writing PPM frames — with no host and
+//! no protocol. A
 //! nonzero exit is a conformance failure, never a partial pass.
 
 mod output;
@@ -16,7 +17,8 @@ use indicate_instrument_conformance::{AdmissionError, admit};
 use indicate_instrument_panels::{BUILTIN_PANELS, BUILTIN_SCENE_DIGEST};
 use indicate_instrument_raster::{FrameId, FramebufferDims, RenderStatus, render};
 use indicate_instrument_registry::{
-    CANONICAL_STATES, EMPTY_CONFIG, PanelDrawError, Registry, RegistryError, scene_digest,
+    CANONICAL_STATES, DesignFrame, EMPTY_CONFIG, PanelDrawError, Registry, RegistryError,
+    scene_digest,
 };
 use indicate_instrument_scene::{MAX_SCENE_BYTES, SceneWriter};
 use indicate_instrument_state::{FreshnessPolicy, resolve};
@@ -109,18 +111,20 @@ fn main() -> Result<(), BenchError> {
     }
     print_line(&format!("scene digest: {digest} (matches pin)"));
 
+    let mut rasterized = 0usize;
     for panel in registry.panels() {
         for state in CANONICAL_STATES {
-            let frame = rasterize(panel, state.id, (state.build)(), &mut scratch)?;
-            if let Some(dir) = &out_dir {
-                write_ppm(dir, panel.id, state.id, panel.design_frame, &frame)?;
+            for frame in panel.canonical_frames {
+                let pixels = rasterize(panel, state.id, (state.build)(), *frame, &mut scratch)?;
+                rasterized += 1;
+                if let Some(dir) = &out_dir {
+                    write_ppm(dir, panel.id, state.id, *frame, &pixels)?;
+                }
             }
         }
     }
     print_line(&format!(
-        "rasterized {} panels x {} states",
-        registry.panels().count(),
-        CANONICAL_STATES.len()
+        "rasterized {rasterized} panel x state x canonical frame renders"
     ));
     Ok(())
 }
@@ -139,6 +143,7 @@ fn rasterize(
     panel: &'static indicate_instrument_registry::PanelDescriptor,
     state_id: &'static str,
     state: indicate_instrument_state::AircraftState,
+    frame: DesignFrame,
     scratch: &mut [u8],
 ) -> Result<Vec<u8>, BenchError> {
     let data = resolve(&state, &FreshnessPolicy::default());
@@ -146,16 +151,15 @@ fn rasterize(
         panel: panel.id,
         state: state_id,
     })?;
-    (panel.draw)(&data, &EMPTY_CONFIG, None, &mut writer).map_err(|source| BenchError::Draw {
-        panel: panel.id,
-        state: state_id,
-        source,
+    (panel.draw)(&data, &EMPTY_CONFIG, None, frame, &mut writer).map_err(|source| {
+        BenchError::Draw {
+            panel: panel.id,
+            state: state_id,
+            source,
+        }
     })?;
     let used = writer.finish();
-    let (w, h) = (
-        panel.design_frame.width as u32,
-        panel.design_frame.height as u32,
-    );
+    let (w, h) = (frame.width as u32, frame.height as u32);
     let mut framebuffer = vec![0u8; (w * h * 4) as usize];
     let report = render(
         scratch.get(..used).unwrap_or(&[]),
@@ -180,17 +184,20 @@ fn write_ppm(
     dir: &PathBuf,
     panel_id: &str,
     state_id: &str,
-    frame: indicate_instrument_registry::DesignFrame,
+    frame: DesignFrame,
     rgba: &[u8],
 ) -> Result<(), BenchError> {
-    let path = dir.join(format!("{panel_id}-{state_id}.ppm"));
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    // The frame is in the filename: a panel with several canonical
+    // frames writes one image per size, and they must not overwrite
+    // each other.
+    let path = dir.join(format!("{panel_id}-{state_id}-{w}x{h}.ppm"));
     let io = |source| BenchError::Io {
         path: path.clone(),
         source,
     };
     std::fs::create_dir_all(dir).map_err(io)?;
     let mut out = Vec::new();
-    let (w, h) = (frame.width as usize, frame.height as usize);
     out.extend_from_slice(format!("P6\n{w} {h}\n255\n").as_bytes());
     for pixel in rgba.chunks_exact(4) {
         out.extend_from_slice(&pixel[..3]);

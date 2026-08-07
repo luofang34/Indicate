@@ -35,18 +35,42 @@ traffic to tune. If a backend is slow, the cost is in the backend.
 
 ## The design frame
 
-A panel is authored in the logical frame its descriptor declares
-(`PanelDescriptor::design_frame`; 480×360 for every shipped panel).
+A panel is authored against a *range* of logical frames, and it is drawn
+at one of them. The frame is an argument to the draw call, not a
+descriptor constant and not a configuration key — configuration is an
+optional schema-gated blob that admission deliberately leaves empty, so
+a panel taking its size from a key could never be admitted.
 
-- Every backend clips at the design frame: ink outside it never reaches
-  a pixel, on any backend.
+The descriptor declares what a shell may ask for:
+
+| Field | What it says |
+|---|---|
+| `frame_min` | The readability floor. Conspicuity must hold here (AIR-OUT-004), and group regions are validated against it. |
+| `frame_max` | The ceiling the work budget allows. |
+| `frame_step` | Per-axis quantization: admissible dimensions are `frame_min + k * step`. |
+| `aspect_min`, `aspect_max` | The width/height ratios the layout supports. The per-axis corners alone admit shapes no layout declared. |
+| `canonical_frames` | The pinned evidence sizes. Must include both ends of the range, and every entry must satisfy every rule above. |
+
+`Registry::new` refuses a *declaration* that breaks any of them, so a
+range naming frames its own panel could not lay out against never
+reaches a shell. Choosing a frame inside a valid range, and clamping to
+it, is the shell's job: nothing in the draw path re-checks the argument.
+Every shipped panel currently declares a degenerate range —
+`frame_min == frame_max == 480×360`, one canonical frame — so the only
+frame a conforming shell may ask any of them for is 480×360.
+
+- Every backend clips at the frame it asked for: ink outside it never
+  reaches a pixel, on any backend.
 - Inside the frame, coordinates are logical units. Backends scale to
-  their surface; they never reinterpret geometry.
+  their surface; they never reinterpret geometry. A larger surface is
+  served either by scaling the frame up or, once a panel declares a real
+  range, by asking for a larger frame — the choice is the shell's, and
+  the mapping stays one uniform scale either way.
 - Unclipped text whose nominal ink extends past the frame edge is a
-  counted admission warning, ratcheted per panel by the conformance
-  harness. Growing the count is a deliberate, reviewed decision — never
-  drift. Fixing overflowing paint moves frame hashes and is its own
-  change, at which point the ratchet steps down.
+  counted admission warning, ratcheted per panel and per canonical frame
+  by the conformance harness. Growing the count is a deliberate,
+  reviewed decision — never drift. Fixing overflowing paint moves frame
+  hashes and is its own change, at which point the ratchet steps down.
 
 ## Where the vocabulary deliberately stops
 
@@ -56,10 +80,12 @@ stop looking for the version that adds it. The other is genuinely open,
 and is recorded here with its price rather than left to be discovered.
 
 **There is no `SCALE`, and there will not be one.** The transform ops
-are translate and rotate. A panel is authored in the frame its
-descriptor declares and a backend maps that whole frame to the viewport,
-so an instrument cannot be drawn at a different size *within* a scene.
-That is the contract: panels compose, instruments inside them do not.
+are translate and rotate. A panel is authored against the frame it is
+handed and a backend maps that whole frame to the viewport, so an
+instrument cannot be drawn at a different size *within* a scene. That is
+the contract: panels compose, instruments inside them do not. Sizing is
+a layout decision inside the panel — which is why the frame is an
+emission input rather than a transform over the output.
 
 The limitation this looks like is answered a layer up rather than by a
 transform. An instrument wanted at two-thirds size beside another is a

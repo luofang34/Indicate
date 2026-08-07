@@ -3,8 +3,9 @@
 //!
 //! The digest streams, per registered panel: the role-tagged,
 //! length-prefixed panel id and the contract-relevant descriptor
-//! fields, then per corpus state the role-tagged state id and emitted
-//! scene bytes — drawn with the empty config and no alerts, so it is
+//! fields, then per corpus state the role-tagged state id, and within
+//! it per canonical frame the role-tagged frame and the emitted scene
+//! bytes — drawn with the empty config and no alerts, so it is
 //! invariant to SVS by construction (theme independence holds because
 //! panels take no theme parameter at this boundary). Shells report the same digest or they are
 //! not showing the same panels; pixel hashes stay per-backend
@@ -13,7 +14,8 @@
 //! with a review note saying why.
 
 use indicate_instrument_descriptor::{
-    BackgroundCapability, CANONICAL_STATES, EMPTY_CONFIG, PanelDescriptor, PanelDrawError,
+    BackgroundCapability, CANONICAL_STATES, DesignFrame, EMPTY_CONFIG, PanelDescriptor,
+    PanelDrawError,
 };
 use indicate_instrument_scene::{SCENE_FORMAT_VERSION, SceneWriter};
 use indicate_instrument_state::{FreshnessPolicy, abi::v6, resolve};
@@ -56,9 +58,11 @@ pub enum DigestError {
 const ROLE_PANEL: u8 = 1;
 const ROLE_STATE: u8 = 2;
 const ROLE_SCENE: u8 = 3;
+const ROLE_FRAME: u8 = 4;
 
 /// Digests `registry` over the shared corpus plus each panel's own
-/// extreme states, drawing into `scratch` (size it
+/// extreme states, at every canonical frame each panel pins, drawing
+/// into `scratch` (size it
 /// [`indicate_instrument_scene::MAX_SCENE_BYTES`]).
 pub fn scene_digest(registry: &Registry, scratch: &mut [u8]) -> Result<[u8; 32], DigestError> {
     let mut ctx = Sha256Ctx::new();
@@ -78,14 +82,25 @@ pub fn scene_digest(registry: &Registry, scratch: &mut [u8]) -> Result<[u8; 32],
 
 /// Binds the contract-relevant descriptor fields, not just the id: two
 /// shells whose descriptors declare different required layers, groups,
-/// frames, background capability, or schemas are not showing the same
-/// instruments even if their scene bytes agree.
+/// frame ranges, background capability, or schemas are not showing the
+/// same instruments even if their scene bytes agree.
+///
+/// Raster baselines stay out: they pin one backend's pixels, and a
+/// deliberate re-pin there must not move cross-shell identity.
 fn digest_panel_contract(ctx: &mut Sha256Ctx, panel: &PanelDescriptor) {
     update_framed(ctx, ROLE_PANEL, panel.id.as_bytes());
     ctx.update(&[panel.required_layers]);
     ctx.update(&panel.required_groups.bits().to_le_bytes());
-    ctx.update(&panel.design_frame.width.to_le_bytes());
-    ctx.update(&panel.design_frame.height.to_le_bytes());
+    digest_frame(ctx, panel.frame_min);
+    digest_frame(ctx, panel.frame_max);
+    ctx.update(&panel.frame_step.0.to_le_bytes());
+    ctx.update(&panel.frame_step.1.to_le_bytes());
+    ctx.update(&panel.aspect_min.to_le_bytes());
+    ctx.update(&panel.aspect_max.to_le_bytes());
+    ctx.update(&(panel.canonical_frames.len() as u32).to_le_bytes());
+    for frame in panel.canonical_frames {
+        digest_frame(ctx, *frame);
+    }
     ctx.update(&[match panel.background {
         BackgroundCapability::NotUsed => 0,
         BackgroundCapability::Opaque => 1,
@@ -106,13 +121,31 @@ fn digest_state(
 ) -> Result<(), DigestError> {
     update_framed(ctx, ROLE_STATE, state_id.as_bytes());
     let data = resolve(&state, &FreshnessPolicy::default());
+    for frame in panel.canonical_frames {
+        digest_frame_scene(ctx, panel, state_id, &data, *frame, scratch)?;
+    }
+    Ok(())
+}
+
+fn digest_frame_scene(
+    ctx: &mut Sha256Ctx,
+    panel: &PanelDescriptor,
+    state_id: &'static str,
+    data: &indicate_instrument_state::PanelData,
+    frame: DesignFrame,
+    scratch: &mut [u8],
+) -> Result<(), DigestError> {
+    ctx.update(&[ROLE_FRAME]);
+    digest_frame(ctx, frame);
     let scratch_len = scratch.len();
     let mut writer =
         SceneWriter::new(scratch).map_err(|_| DigestError::Scratch { len: scratch_len })?;
-    (panel.draw)(&data, &EMPTY_CONFIG, None, &mut writer).map_err(|source| DigestError::Draw {
-        panel: panel.id,
-        state: state_id,
-        source,
+    (panel.draw)(data, &EMPTY_CONFIG, None, frame, &mut writer).map_err(|source| {
+        DigestError::Draw {
+            panel: panel.id,
+            state: state_id,
+            source,
+        }
     })?;
     let used = writer.finish();
     let Some(scene) = scratch.get(..used) else {
@@ -122,6 +155,14 @@ fn digest_state(
     };
     update_framed(ctx, ROLE_SCENE, scene);
     Ok(())
+}
+
+/// A frame is two fixed-width words, so it needs no length prefix; the
+/// role tag that precedes a frame item keeps it from aliasing anything
+/// else in the stream.
+fn digest_frame(ctx: &mut Sha256Ctx, frame: DesignFrame) {
+    ctx.update(&frame.width.to_le_bytes());
+    ctx.update(&frame.height.to_le_bytes());
 }
 
 /// Role-tagged, length-prefixed (`u32` LE) update: framing keeps

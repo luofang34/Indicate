@@ -4,10 +4,11 @@
 //! A panel is a plugin over three stable contracts — the state-group
 //! vocabulary, the scene-command IR, and the glyph vocabulary. This
 //! crate holds the words a panel uses to describe itself against them:
-//! identity, required layers and state groups, the design frame,
-//! background capability, the bounded key-TLV configuration schema, the
-//! draw entry point, the panel-set grouping, and the canonical state
-//! corpus every panel is expected to survive.
+//! identity, required layers and state groups, the range of design
+//! frames it lays out against, background capability, the bounded
+//! key-TLV configuration schema, the draw entry point, the panel-set
+//! grouping, and the canonical state corpus every panel is expected to
+//! survive.
 //!
 //! Declaring is separate from composing. A panel needs the vocabulary to
 //! be describable at all, so the vocabulary is `no_std` and sits low

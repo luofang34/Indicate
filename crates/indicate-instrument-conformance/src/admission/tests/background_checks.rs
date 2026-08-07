@@ -14,7 +14,7 @@ use indicate_instrument_scene::{LayerId, Rgba8, SceneWriter};
 use indicate_instrument_state::PanelData;
 
 use super::super::{AdmissionError, admit};
-use super::opaque_panel;
+use super::{FIXTURE_FRAME, opaque_panel};
 
 /// The shipped defect class: declaring NotUsed while painting an opaque
 /// ground in the Background band. Human review caught this once; the
@@ -23,6 +23,7 @@ fn draw_notused_painter(
     _data: &PanelData,
     _config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
+    _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     scene.begin_layer(LayerId::Background)?;
@@ -47,15 +48,17 @@ fn a_notused_panel_that_paints_the_band_is_refused() {
         title: "Shy Painter",
         required_layers: 1 << 2, // Tapes
         required_groups: GroupSet::EMPTY,
-        design_frame: DesignFrame {
-            width: 480.0,
-            height: 360.0,
-        },
+        frame_min: FIXTURE_FRAME,
+        frame_max: FIXTURE_FRAME,
+        frame_step: (1.0, 1.0),
+        aspect_min: 1.30,
+        aspect_max: 1.37,
+        canonical_frames: &[FIXTURE_FRAME],
         background: BackgroundCapability::NotUsed,
         config_schema: &[],
         group_regions: &[],
         extreme_states: &[],
-        raster_baseline: None,
+        raster_baselines: &[],
         draw: draw_notused_painter,
     }];
     let registry = Registry::new(&DEFECT).expect("structurally valid");
@@ -75,6 +78,7 @@ fn draw_optimist(
     _data: &PanelData,
     _config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
+    _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     scene.begin_layer(LayerId::Tapes)?;
@@ -89,15 +93,17 @@ fn an_opaque_panel_that_covers_nothing_is_refused() {
         title: "Optimist",
         required_layers: 1 << 2, // Tapes
         required_groups: GroupSet::EMPTY,
-        design_frame: DesignFrame {
-            width: 480.0,
-            height: 360.0,
-        },
+        frame_min: FIXTURE_FRAME,
+        frame_max: FIXTURE_FRAME,
+        frame_step: (1.0, 1.0),
+        aspect_min: 1.30,
+        aspect_max: 1.37,
+        canonical_frames: &[FIXTURE_FRAME],
         background: BackgroundCapability::Opaque,
         config_schema: &[],
         group_regions: &[],
         extreme_states: &[],
-        raster_baseline: None,
+        raster_baselines: &[],
         draw: draw_optimist,
     }];
     let registry = Registry::new(&DEFECT).expect("structurally valid");
@@ -114,6 +120,7 @@ fn draw_clip_evasion(
     _data: &PanelData,
     _config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
+    _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     scene.begin_layer(LayerId::Background)?;
@@ -138,6 +145,7 @@ fn draw_rotate_evasion(
     _data: &PanelData,
     _config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
+    _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     scene.begin_layer(LayerId::Background)?;
@@ -163,6 +171,7 @@ fn draw_alpha_evasion(
     _data: &PanelData,
     _config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
+    _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     scene.begin_layer(LayerId::Background)?;
@@ -188,6 +197,7 @@ fn draw_empty_band_notused(
     _data: &PanelData,
     _config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
+    _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     scene.begin_layer(LayerId::Background)?;
@@ -229,15 +239,17 @@ fn an_empty_band_under_notused_is_tolerated() {
         title: "Shy",
         required_layers: 1 << 2, // Tapes
         required_groups: GroupSet::EMPTY,
-        design_frame: DesignFrame {
-            width: 480.0,
-            height: 360.0,
-        },
+        frame_min: FIXTURE_FRAME,
+        frame_max: FIXTURE_FRAME,
+        frame_step: (1.0, 1.0),
+        aspect_min: 1.30,
+        aspect_max: 1.37,
+        canonical_frames: &[FIXTURE_FRAME],
         background: BackgroundCapability::NotUsed,
         config_schema: &[],
         group_regions: &[],
         extreme_states: &[],
-        raster_baseline: None,
+        raster_baselines: &[],
         draw: draw_empty_band_notused,
     }];
     let registry = Registry::new(&SHY).expect("structurally valid");
@@ -249,6 +261,7 @@ fn draw_empty(
     _data: &PanelData,
     _config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
+    _frame: DesignFrame,
     _scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     Ok(())
@@ -261,15 +274,17 @@ fn a_panel_missing_its_required_band_is_refused() {
         title: "Hollow",
         required_layers: 1 << 4, // Annunciation
         required_groups: GroupSet::EMPTY,
-        design_frame: DesignFrame {
-            width: 480.0,
-            height: 360.0,
-        },
+        frame_min: FIXTURE_FRAME,
+        frame_max: FIXTURE_FRAME,
+        frame_step: (1.0, 1.0),
+        aspect_min: 1.30,
+        aspect_max: 1.37,
+        canonical_frames: &[FIXTURE_FRAME],
         background: BackgroundCapability::NotUsed,
         config_schema: &[],
         group_regions: &[],
         extreme_states: &[],
-        raster_baseline: None,
+        raster_baselines: &[],
         draw: draw_empty,
     }];
     let registry = Registry::new(&HOLLOW).expect("structurally valid");

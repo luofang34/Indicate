@@ -1,10 +1,12 @@
 //! Optional sky/ground fill and critical attitude symbology.
 //!
-//! Geometry follows the G5 proportions: 7.2 px per degree of pitch
-//! (±25° across the 360-px panel height), roll arc radius 144 px
-//! spanning ±60° of bank.
+//! Geometry follows the G5 proportions: 7.2 px per degree of pitch, and
+//! a roll arc of radius 144 px spanning ±60° of bank. The pitch span the
+//! frame can show follows from its height, so the sky/ground fill takes
+//! the frame it is drawn in.
 
 use core::f32::consts::PI;
+use indicate_instrument_descriptor::DesignFrame;
 use indicate_instrument_scene::{Anchor, PaintMode, SceneError, SceneWriter};
 use indicate_instrument_state::GroupId;
 use indicate_instrument_state::units::RAD_TO_DEG;
@@ -14,10 +16,6 @@ use indicate_instrument_symbology::{fmt_label, palette, safety};
 
 pub(super) const PX_PER_DEG_PITCH: f32 = 7.2;
 const ROLL_ARC_R: f32 = 144.0;
-/// Half the panel height expressed in degrees of pitch: the pitch at which
-/// the level horizon reaches the top/bottom edge. Beyond it the true
-/// horizon has left the viewport.
-const VIEWPORT_HALF_PITCH_DEG: f32 = (crate::PANEL_H / 2.0) / PX_PER_DEG_PITCH;
 /// Pitch-ladder marks are culled beyond this radius so they stay inside
 /// the roll arc (the pyG5 clip).
 const LADDER_MAX_Y: f32 = 104.0;
@@ -34,12 +32,17 @@ const LADDER_MAX_Y: f32 = 104.0;
 /// only the color field is held.
 pub fn draw_background(
     scene: &mut SceneWriter<'_>,
+    frame: DesignFrame,
     roll_rad: f32,
     pitch_rad: f32,
     min_reverse_band_rad: f32,
 ) -> Result<(), SceneError> {
+    // Half the frame height in degrees of pitch: the pitch at which a
+    // level horizon reaches the top or bottom edge, and so the point
+    // beyond which the true horizon has left the viewport.
+    let viewport_half_pitch_deg = (frame.height / 2.0) / PX_PER_DEG_PITCH;
     let band_deg = min_reverse_band_rad * RAD_TO_DEG;
-    let fill_limit_deg = VIEWPORT_HALF_PITCH_DEG - band_deg;
+    let fill_limit_deg = viewport_half_pitch_deg - band_deg;
     let pitch_deg = (pitch_rad * RAD_TO_DEG).clamp(-fill_limit_deg, fill_limit_deg);
     let horizon_y = pitch_deg * PX_PER_DEG_PITCH;
 

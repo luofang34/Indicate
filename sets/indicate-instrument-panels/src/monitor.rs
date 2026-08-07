@@ -9,11 +9,10 @@
 //! text.
 
 use indicate_alerts::AlertOutput;
+use indicate_instrument_descriptor::DesignFrame;
 use indicate_instrument_scene::{Anchor, LayerId, PaintMode, SceneError, SceneWriter};
 use indicate_instrument_state::{GroupId, PanelData, SignalStatus};
 use indicate_instrument_symbology::{annunciation, palette, safety, status_paint};
-
-use crate::{PANEL_H, PANEL_W};
 
 const LINE_H: f32 = 36.0;
 const TEXT_X: f32 = 24.0;
@@ -26,13 +25,14 @@ const FIRST_LINE_Y: f32 = 84.0;
 pub fn draw_monitor(
     data: &PanelData,
     alerts: Option<&AlertOutput>,
+    frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), SceneError> {
     let channel = &data.monitor_text;
 
     scene.begin_layer(LayerId::Background)?;
     scene.fill_color(palette::BLACK)?;
-    scene.rect(PaintMode::Fill, 0.0, 0.0, PANEL_W, PANEL_H)?;
+    scene.rect(PaintMode::Fill, 0.0, 0.0, frame.width, frame.height)?;
     scene.end_layer(LayerId::Background)?;
 
     scene.begin_layer(LayerId::Tapes)?;
@@ -63,10 +63,10 @@ pub fn draw_monitor(
     scene.begin_layer(LayerId::Annunciation)?;
     match channel.status {
         SignalStatus::Failed => {
-            status_paint::draw_red_x(scene, 0.0, 0.0, PANEL_W, PANEL_H, "MON")?;
+            status_paint::draw_red_x(scene, 0.0, 0.0, frame.width, frame.height, "MON")?;
         }
         SignalStatus::Stale | SignalStatus::Degraded => {
-            status_paint::draw_flag(scene, PANEL_W - 60.0, 36.0, "MON")?;
+            status_paint::draw_flag(scene, frame.width - 60.0, 36.0, "MON")?;
         }
         SignalStatus::Missing | SignalStatus::Valid => {}
     }

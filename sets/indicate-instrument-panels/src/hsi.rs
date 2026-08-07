@@ -2,13 +2,12 @@
 //! bug, ground-track diamond, course deviation indicator, and data boxes.
 
 use indicate_alerts::AlertOutput;
+use indicate_instrument_descriptor::DesignFrame;
 use indicate_instrument_scene::{Anchor, LayerId, PaintMode, SceneError, SceneWriter};
 use indicate_instrument_state::HeadingReference;
 use indicate_instrument_state::{GroupId, NavSource, PanelData, RoseBasis, SignalStatus};
 
 use indicate_instrument_symbology::{annunciation, palette, safety, source_label, status_paint};
-
-use crate::{PANEL_H, PANEL_W};
 
 mod boxes;
 mod cdi;
@@ -28,11 +27,12 @@ pub(crate) const ROSE_R: f32 = 160.0;
 pub fn draw_hsi(
     data: &PanelData,
     alerts: Option<&AlertOutput>,
+    frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), SceneError> {
     scene.begin_layer(LayerId::Background)?;
     scene.fill_color(palette::BLACK)?;
-    scene.rect(PaintMode::Fill, 0.0, 0.0, PANEL_W, PANEL_H)?;
+    scene.rect(PaintMode::Fill, 0.0, 0.0, frame.width, frame.height)?;
     scene.end_layer(LayerId::Background)?;
 
     // The rose basis is resolve's selection — the same one every

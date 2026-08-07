@@ -3,12 +3,11 @@
 //! tapes → symbology → annunciation, ADR-0017).
 
 use indicate_alerts::AlertOutput;
+use indicate_instrument_descriptor::DesignFrame;
 use indicate_instrument_scene::{Anchor, LayerId, PaintMode, SceneError, SceneWriter};
 use indicate_instrument_state::{ChevronSense, FdEngagement, GroupId, PanelData, SignalStatus};
 
 use indicate_instrument_symbology::{annunciation, palette, safety, source_label, status_paint};
-
-use crate::{PANEL_H, PANEL_W};
 
 mod horizon;
 mod panel_config;
@@ -96,6 +95,7 @@ pub fn draw_pfd(
     data: &PanelData,
     cfg: &PfdConfig,
     alerts: Option<&AlertOutput>,
+    frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), SceneError> {
     let att_status = data.roll_rad.status.worst(data.pitch_rad.status);
@@ -105,10 +105,11 @@ pub fn draw_pfd(
         BackgroundMode::Horizon => {
             scene.begin_layer(LayerId::Background)?;
             scene.fill_color(palette::BLACK)?;
-            scene.rect(PaintMode::Fill, 0.0, 0.0, PANEL_W, PANEL_H)?;
+            scene.rect(PaintMode::Fill, 0.0, 0.0, frame.width, frame.height)?;
             if att_status.shows_value() {
                 horizon::draw_background(
                     scene,
+                    frame,
                     data.roll_rad.value,
                     data.pitch_rad.value,
                     data.presentation.min_reverse_band_rad,

@@ -11,7 +11,7 @@ use indicate_instrument_scene::{Anchor, LayerId, Rgba8, SceneWriter};
 use indicate_instrument_state::{GroupId, PanelData};
 
 use super::super::{AdmissionError, admit};
-use super::opaque_panel;
+use super::{FIXTURE_FRAME, opaque_panel};
 
 /// A panel that draws a numeral carrying no provenance claim — the
 /// totality hole that would otherwise escape every withholding case.
@@ -19,6 +19,7 @@ fn draw_dishonest(
     _data: &PanelData,
     _config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
+    _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     scene.begin_layer(LayerId::Tapes)?;
@@ -35,10 +36,12 @@ fn an_unclaimed_numeral_is_refused() {
         title: "Dishonest",
         required_layers: 1 << 2, // Tapes
         required_groups: GroupSet::of(&[GroupId::Air]),
-        design_frame: DesignFrame {
-            width: 480.0,
-            height: 360.0,
-        },
+        frame_min: FIXTURE_FRAME,
+        frame_max: FIXTURE_FRAME,
+        frame_step: (1.0, 1.0),
+        aspect_min: 1.30,
+        aspect_max: 1.37,
+        canonical_frames: &[FIXTURE_FRAME],
         background: BackgroundCapability::NotUsed,
         config_schema: &[],
         group_regions: &[(
@@ -51,7 +54,7 @@ fn an_unclaimed_numeral_is_refused() {
             },
         )],
         extreme_states: &[],
-        raster_baseline: None,
+        raster_baselines: &[],
         draw: draw_dishonest,
     }];
     let registry = Registry::new(&DISHONEST).expect("structurally valid");
@@ -72,6 +75,7 @@ fn draw_leaking(
     data: &PanelData,
     _config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
+    _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     scene.begin_layer(LayerId::Tapes)?;
@@ -99,10 +103,12 @@ fn a_fabricated_claim_is_refused_when_its_group_is_withheld() {
         title: "Leaking",
         required_layers: 1 << 2, // Tapes
         required_groups: GroupSet::of(&[GroupId::Air, GroupId::Kinematics]),
-        design_frame: DesignFrame {
-            width: 480.0,
-            height: 360.0,
-        },
+        frame_min: FIXTURE_FRAME,
+        frame_max: FIXTURE_FRAME,
+        frame_step: (1.0, 1.0),
+        aspect_min: 1.30,
+        aspect_max: 1.37,
+        canonical_frames: &[FIXTURE_FRAME],
         background: BackgroundCapability::NotUsed,
         config_schema: &[],
         group_regions: &[(
@@ -115,7 +121,7 @@ fn a_fabricated_claim_is_refused_when_its_group_is_withheld() {
             },
         )],
         extreme_states: &[],
-        raster_baseline: None,
+        raster_baselines: &[],
         draw: draw_leaking,
     }];
     let registry = Registry::new(&LEAKING).expect("structurally valid");
@@ -135,6 +141,7 @@ fn draw_translated(
     data: &PanelData,
     _config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
+    _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     scene.begin_layer(LayerId::Tapes)?;
@@ -165,10 +172,12 @@ fn a_transform_cannot_hide_a_dishonest_numeral() {
         title: "Translated",
         required_layers: 1 << 2, // Tapes
         required_groups: GroupSet::of(&[GroupId::Air, GroupId::Kinematics]),
-        design_frame: DesignFrame {
-            width: 480.0,
-            height: 360.0,
-        },
+        frame_min: FIXTURE_FRAME,
+        frame_max: FIXTURE_FRAME,
+        frame_step: (1.0, 1.0),
+        aspect_min: 1.30,
+        aspect_max: 1.37,
+        canonical_frames: &[FIXTURE_FRAME],
         background: BackgroundCapability::NotUsed,
         config_schema: &[],
         group_regions: &[(
@@ -181,7 +190,7 @@ fn a_transform_cannot_hide_a_dishonest_numeral() {
             },
         )],
         extreme_states: &[],
-        raster_baseline: None,
+        raster_baselines: &[],
         draw: draw_translated,
     }];
     let registry = Registry::new(&TRANSLATED).expect("structurally valid");
@@ -200,6 +209,7 @@ fn draw_foreign_claim(
     _data: &PanelData,
     _config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
+    _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     scene.begin_layer(LayerId::Tapes)?;
@@ -233,6 +243,7 @@ fn draw_config_claim(
     _data: &PanelData,
     _config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
+    _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     scene.begin_layer(LayerId::Tapes)?;
@@ -266,6 +277,7 @@ fn draw_clipped_away(
     _data: &PanelData,
     _config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
+    _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     scene.begin_layer(LayerId::Tapes)?;

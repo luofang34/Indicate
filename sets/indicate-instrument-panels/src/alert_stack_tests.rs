@@ -13,7 +13,7 @@ use indicate_instrument_scene::SceneWriter;
 use indicate_instrument_state::{PanelData, SignalStatus};
 
 use crate::pfd::tests::{flying, texts};
-use crate::{PfdConfig, draw_hsi, draw_pfd};
+use crate::{BUILTIN_FRAME, PfdConfig, draw_hsi, draw_pfd};
 
 fn stepped(events: &[AlertEvent], healthy: bool) -> AlertOutput {
     let mut manager = AlertManager::new();
@@ -38,7 +38,7 @@ fn saturated() -> AlertOutput {
 fn pfd_scene(data: &PanelData, alerts: Option<&AlertOutput>) -> Vec<u8> {
     let mut buf = std::vec![0u8; 32 * 1024];
     let mut w = SceneWriter::new(&mut buf).expect("fits");
-    draw_pfd(data, &PfdConfig::default(), alerts, &mut w).expect("pfd fits");
+    draw_pfd(data, &PfdConfig::default(), alerts, BUILTIN_FRAME, &mut w).expect("pfd fits");
     let len = w.finish();
     buf.truncate(len);
     buf
@@ -47,7 +47,7 @@ fn pfd_scene(data: &PanelData, alerts: Option<&AlertOutput>) -> Vec<u8> {
 fn hsi_scene(data: &PanelData, alerts: Option<&AlertOutput>) -> Vec<u8> {
     let mut buf = std::vec![0u8; 32 * 1024];
     let mut w = SceneWriter::new(&mut buf).expect("fits");
-    draw_hsi(data, alerts, &mut w).expect("hsi fits");
+    draw_hsi(data, alerts, BUILTIN_FRAME, &mut w).expect("hsi fits");
     let len = w.finish();
     buf.truncate(len);
     buf
