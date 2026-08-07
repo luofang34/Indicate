@@ -247,6 +247,27 @@ SVS shall not be described as TAWS and shall not suppress, replace, generate, or
 claim the terrain-alerting function; a future TAWS interface remains an
 independent monitored input whose alerts have priority over SVS graphics.
 
+<a id="air-out-011"></a>
+### AIR-OUT-011 — Composed multi-panel surface
+
+A display may present several panels on one surface, each placed in a declared
+region of a logical screen and stacked in a declared order. The composition
+shall be declared rather than computed at draw time, and shall be refused before
+first paint when a declared region falls outside the screen, when a panel is
+asked for a size it does not support, when a panel is wholly covered by opaque
+panels above it, or when a panel above obscures the criticality content of a
+panel below without that obscuration being declared.
+
+Every panel in a composed surface shall be resolved from one input snapshot and
+one alert state per composed frame, so that two panels presenting the same
+quantity cannot disagree.
+
+A panel that fails at run time shall present its failure within its own region
+and shall not suppress, delay, or alter any other panel's output.
+
+Composition is placement only: no panel's emitted geometry is reinterpreted,
+rewritten, or rescaled to fit its region.
+
 ## Modes
 
 <a id="air-mode-001"></a>
