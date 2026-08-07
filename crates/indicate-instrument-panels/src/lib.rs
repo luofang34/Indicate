@@ -25,7 +25,8 @@ mod monitor;
 mod pfd;
 
 pub use descriptors::{
-    BUILTIN_PANELS, BUILTIN_SCENE_DIGEST, HSI_DESCRIPTOR, MONITOR_DESCRIPTOR, PFD_DESCRIPTOR,
+    BUILTIN_PANELS, BUILTIN_SCENE_DIGEST, BUILTIN_SET, HSI_DESCRIPTOR, MONITOR_DESCRIPTOR,
+    PFD_DESCRIPTOR,
 };
 pub use hsi::draw_hsi;
 pub use monitor::draw_monitor;

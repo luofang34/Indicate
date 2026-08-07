@@ -119,7 +119,7 @@ fn main() -> Result<(), BenchError> {
     }
     print_line(&format!(
         "rasterized {} panels x {} states",
-        registry.panels().len(),
+        registry.panels().count(),
         CANONICAL_STATES.len()
     ));
     Ok(())
