@@ -50,7 +50,7 @@ echo "--- Tests present in the tree (inventory of artifacts, not results) ---"
 rust_tests="$(git ls-files '**/tests.rs' '**/tests/*.rs' | wc -l | tr -d ' ')"
 echo "Rust test modules (tests.rs + tests/*.rs): $rust_tests"
 echo "Downstream shell suites (browser, FFI) run in the consuming repositories."
-echo "Named test artifacts referenced from the docs:"
+echo "Test artifacts the docs name (downstream shell suites included):"
 grep -rhoE '[A-Za-z0-9_-]+\.test\.mjs|pilotage-instrument-[a-z]+' \
     "$document_dir" --include='*.md' \
     | LC_ALL=C sort -u \

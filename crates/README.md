@@ -1,9 +1,10 @@
 # Crate map
 
 Leaf-first index of the instrument crate family. Every crate here is
-consumer-agnostic: nothing in this workspace names a host, a wire
-protocol, or a shell. Consumers pin this repository by git rev and
-depend on the published crate surfaces only.
+consumer-agnostic in its dependencies: nothing in this workspace depends
+on a host, a wire protocol, or a shell (CI's downstream-agnostic gate
+holds that closed). Consumers pin this repository by git rev and depend
+on the published crate surfaces only.
 
 | Crate | Role |
 |---|---|

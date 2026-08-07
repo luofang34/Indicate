@@ -112,9 +112,8 @@ collect_scanned_files() {
     git ls-files \
         'docs/**/*.md' \
         'README.md' \
-        'clients/web/*.html' \
-        'clients/web/*.js' \
-        'clients/web/*.mjs' \
+        'CONTRIBUTING.md' \
+        'crates/README.md' \
         '.github/**/*.md' \
         '.github/ISSUE_TEMPLATE/*' \
         '.github/PULL_REQUEST_TEMPLATE*' \

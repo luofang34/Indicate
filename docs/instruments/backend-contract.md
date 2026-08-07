@@ -22,7 +22,7 @@ mode, into a caller-supplied buffer:
 - Adding a panel adds commands — never a new mechanism. A backend that
   interprets the opcode vocabulary renders every current and future
   panel; the Swift SceneKit backend is frozen against the opcodes, not
-  the panel set, and needed no change when the panel count grew.
+  the panel set.
 
 There is no retained scene graph, no diffing, and no per-frame heap
 traffic to tune. If a backend is slow, the cost is in the backend.

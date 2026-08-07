@@ -21,8 +21,7 @@ remain `PENDING`.
 ## Architecture under assessment
 
 The assessed architecture is the AIR-01 [system boundary](system-boundary.md)
-realized by [ADR-0017](../adr/0017-instrument-display-runtime.md) and
-[ADR-0018](../adr/0018-avionics-telemetry-and-aviate-adapter.md):
+realized by ADR-0017 and ADR-0018 (Pilotage repository, `docs/adr/`):
 
 - Untrusted adapters and transports deliver data to an **input validation and
   time/integrity gate**, which produces one atomic `DisplaySnapshot` with a

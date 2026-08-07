@@ -9,26 +9,37 @@
 
 ## Local gate battery
 
-Run the full battery before pushing; CI runs the same set.
+Run the full battery before pushing; CI runs this set plus the
+downstream-agnostic closure check.
 
 ```sh
 cargo fmt --all --check
-cargo clippy --all-targets -- -D warnings
-cargo test --all-targets
-RUSTDOCFLAGS="-D missing_docs -D rustdoc::broken_intra_doc_links" cargo doc --no-deps
-cargo build --release
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked --all-targets
+RUSTDOCFLAGS="-D missing_docs -D rustdoc::broken_intra_doc_links" cargo doc --locked --no-deps
+cargo build --locked --release
 bash scripts/check-structure.sh
 bash scripts/check-instrument-requirements.sh
 bash scripts/check-certification-claims.sh
 bash scripts/check-standards-registry.sh
-cargo check -p pilotage-frames -p pilotage-alerts -p pilotage-sha256 \
+bash scripts/trace-report.sh
+cargo check --locked -p pilotage-frames -p pilotage-alerts -p pilotage-sha256 \
   -p pilotage-instrument-state -p pilotage-instrument-scene \
   -p pilotage-instrument-glyphs -p pilotage-instrument-symbology \
   -p pilotage-instrument-panels -p pilotage-instrument-raster \
   -p pilotage-instrument-feeder -p pilotage-instrument-registry \
   --target thumbv7em-none-eabihf
-cargo run -q -p instrument-bench
+cargo run --locked -q -p instrument-bench
+cargo run --locked -q -p pilotage-evidence --bin evidence-gate -- \
+  --graph docs/instruments/evidence-graph.evg --repo-root . --resolve-selectors
+cargo run --locked -q -p pilotage-evidence --bin evidence-gate -- \
+  --graph docs/instruments/evidence-graph.evg --repo-root . --require-resolvable
 ```
+
+The evidence gate binds recorded test sources by content digest: editing
+a recorded test file (the attitude-behavior and presentation suites
+among them) reddens the gate until that evidence is re-recorded, so run
+the two gate invocations locally after touching any recorded source.
 
 ## Discipline that is easy to miss
 

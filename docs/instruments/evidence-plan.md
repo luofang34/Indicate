@@ -101,7 +101,7 @@ certified lifecycle data. Nothing here is marked satisfied.
 
 | ID | Objective family (standard) | Current artifact(s) | Status |
 | --- | --- | --- | --- |
-| EVP-01 | System/development-assurance planning (ARP4754A) | `requirements.md`, ADR set, `docs/architecture.md` | engineering input; process not exercised to closure |
+| EVP-01 | System/development-assurance planning (ARP4754A) | `requirements.md`, ADR set and architecture description (Pilotage repository) | engineering input; process not exercised to closure |
 | EVP-02 | Safety assessment (ARP4761 / FHA/PSSA) | [`fha.md`](fha.md), [`pssa.md`](pssa.md) | engineering input; **preliminary**, issue #27 `PENDING` |
 | EVP-03 | Software planning (DO-178C plans: PSAC/SDP/SVP/SCMP/SQAP) | none yet | deferred until level allocation (AIR-02, #27) |
 | EVP-04 | Software requirements (DO-178C) | `requirements.md` (`AIR-*`), intended-functions | engineering input; not level-allocated certified requirements |

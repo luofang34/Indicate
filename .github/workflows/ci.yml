@@ -33,18 +33,18 @@ jobs:
         run: cargo fmt --all --check
 
       - name: cargo clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
 
       - name: cargo test
-        run: cargo test --all-targets
+        run: cargo test --locked --all-targets
 
       - name: cargo doc
         env:
           RUSTDOCFLAGS: "-D missing_docs -D rustdoc::broken_intra_doc_links"
-        run: cargo doc --no-deps
+        run: cargo doc --locked --no-deps
 
       - name: cargo build --release
-        run: cargo build --release
+        run: cargo build --locked --release
 
       - name: check-structure
         run: bash scripts/check-structure.sh
@@ -72,23 +72,33 @@ jobs:
         run: bash scripts/trace-report.sh
 
       - name: the family is downstream-agnostic
-        # The dependency closure must never grow a consumer's crate: no wire
-        # protocol, no host, no shell. Consumers pin this repository, never
-        # the reverse (see docs/instruments/backend-contract.md).
+        # The family is a CLOSED set: any ecosystem crate in the dependency
+        # graph beyond the allowlist below means the boundary leaked — no
+        # wire protocol, no host, no shell, nothing from a consumer.
+        # Consumers pin this repository, never the reverse (see
+        # docs/instruments/backend-contract.md). The check reads Cargo.lock
+        # because the lock records every edge kind, dev-dependencies
+        # included; a denylist of known consumer names would false-negative
+        # on the next crate the ecosystem grows.
         run: |
-          tree=$(cargo tree -e normal,build --workspace)
+          known="pilotage-frames pilotage-alerts pilotage-sha256 \
+                 pilotage-instrument-scene pilotage-instrument-state \
+                 pilotage-instrument-glyphs pilotage-instrument-symbology \
+                 pilotage-instrument-panels pilotage-instrument-raster \
+                 pilotage-instrument-conformance pilotage-instrument-feeder \
+                 pilotage-instrument-registry pilotage-evidence \
+                 instrument-bench"
           fail=0
-          for banned in pilotage-protocol pilotage-session pilotage-authority \
-                        pilotage-ingress avionics-link instrument-panel-ffi prost; do
-            if grep -q "$banned" <<<"$tree"; then
-              echo "dependency closure reaches $banned; the family must stay downstream-agnostic"
-              fail=1
-            fi
-            if grep -q "\"$banned\"" Cargo.lock; then
-              echo "Cargo.lock names $banned; the family must stay downstream-agnostic"
-              fail=1
-            fi
-          done
+          while read -r pkg; do
+            case " $known " in
+              *" $pkg "*) ;;
+              *)
+                echo "Cargo.lock names non-family crate $pkg; the family must stay downstream-agnostic"
+                fail=1
+                ;;
+            esac
+          done < <(grep -oE '^name = "(pilotage|avionics|navigate|aviate|instrument)[a-z0-9-]*"' Cargo.lock \
+                   | sed 's/^name = "//;s/"$//')
           exit $fail
 
       - name: instrument closure is no_std, standalone
@@ -96,7 +106,7 @@ jobs:
         # containing ONLY closure crates. The conformance harness is
         # deliberately absent: it is a host-side tool and allocates.
         run: >
-          cargo check
+          cargo check --locked
           -p pilotage-frames
           -p pilotage-alerts
           -p pilotage-sha256
@@ -120,25 +130,25 @@ jobs:
         # measured target binds firmware, clock, memory, and compiler state.
         run: |
           bash scripts/detect-target.sh
-          cargo test -p pilotage-instrument-raster timing
+          cargo test --locked -p pilotage-instrument-raster timing
 
       - name: reference rasterizer frame hashes (REN-03)
         # Re-render every shipped panel and assert its pinned SHA-256 frame
         # hash, proving the software rasterizer is bit-reproducible.
-        run: cargo test -p pilotage-instrument-raster
+        run: cargo test --locked -p pilotage-instrument-raster
 
       - name: instrument bench shell conformance smoke
         # A shell built from the registry alone: runs admission and
         # reproduces the pinned composition digest on the host target.
-        run: cargo run -q -p instrument-bench
+        run: cargo run --locked -q -p instrument-bench
 
       - name: glyph pack integrity (REN-02)
         # Mandatory-vocabulary completeness, byte-identical reproducibility,
         # and fail-closed corruption detection for the controlled glyph pack.
-        run: cargo test -p pilotage-instrument-glyphs
+        run: cargo test --locked -p pilotage-instrument-glyphs
 
       - name: evidence gate — crate tests
-        run: cargo test -p pilotage-evidence --all-targets
+        run: cargo test --locked -p pilotage-evidence --all-targets
 
       - name: evidence trace — honest verdict and bidirectional trace
         # Informational: a review may honestly stay PENDING, and a pending
@@ -146,7 +156,7 @@ jobs:
         # advisory. Durable RESOLUTION is enforced by the hard steps below.
         continue-on-error: true
         run: >
-          cargo run -q -p pilotage-evidence --bin evidence-gate --
+          cargo run --locked -q -p pilotage-evidence --bin evidence-gate --
           --graph docs/instruments/evidence-graph.evg --repo-root . --trace
 
       - name: evidence trace — selectors MUST resolve against the tree (HARD)
@@ -154,7 +164,7 @@ jobs:
         # tree; the graph travels with its sources, so a non-resolving
         # selector is a defect, not an expected absence.
         run: >
-          cargo run -q -p pilotage-evidence --bin evidence-gate --
+          cargo run --locked -q -p pilotage-evidence --bin evidence-gate --
           --graph docs/instruments/evidence-graph.evg --repo-root .
           --resolve-selectors
 
@@ -164,14 +174,14 @@ jobs:
         # artifacts present. Needs full history (fetch-depth: 0 above) so
         # reachability is decidable.
         run: >
-          cargo run -q -p pilotage-evidence --bin evidence-gate --
+          cargo run --locked -q -p pilotage-evidence --bin evidence-gate --
           --graph docs/instruments/evidence-graph.evg --repo-root .
           --require-resolvable
 
       - name: Negative fixtures must all FAIL the gate
         run: |
           set -u
-          bin=(cargo run -q -p pilotage-evidence --bin evidence-gate --)
+          bin=(cargo run --locked -q -p pilotage-evidence --bin evidence-gate --)
           fail=0
           for f in empty missing-root missing-layer dangling-edge \
                    unresolved-selector orphan-requirement \
@@ -194,7 +204,7 @@ jobs:
         # drives the outcome and expiry is not silently skipped.
         run: |
           set -u
-          bin=(cargo run -q -p pilotage-evidence --bin evidence-gate --)
+          bin=(cargo run --locked -q -p pilotage-evidence --bin evidence-gate --)
           fixture="$FIXTURES/invalid-exception.evg"
           root=crates/pilotage-evidence
           if "${bin[@]}" --graph "$fixture" --repo-root "$root" \
@@ -220,7 +230,7 @@ jobs:
         # root; and a review whose named record entry is still pending.
         run: |
           set -u
-          bin=(cargo run -q -p pilotage-evidence --bin evidence-gate --)
+          bin=(cargo run --locked -q -p pilotage-evidence --bin evidence-gate --)
           fail=0
           for f in unresolvable-selector-fs unresolvable-artifact \
                    mismatched-artifact field-mismatch-artifact \
