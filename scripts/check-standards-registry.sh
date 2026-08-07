@@ -25,8 +25,8 @@ set -euo pipefail
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root_dir"
 
-registry="${PILOTAGE_STANDARDS_REGISTRY:-docs/instruments/standards-registry.toml}"
-matrix="${PILOTAGE_STANDARDS_MATRIX:-docs/instruments/standards-applicability.md}"
+registry="${INDICATE_STANDARDS_REGISTRY:-docs/instruments/standards-registry.toml}"
+matrix="${INDICATE_STANDARDS_MATRIX:-docs/instruments/standards-applicability.md}"
 status=0
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
@@ -269,7 +269,7 @@ else
     ' "$parsed" "$matrix" || status=1
 fi
 
-if [ "${PILOTAGE_STANDARDS_SELFTEST_CHILD:-0}" != "1" ]; then
+if [ "${INDICATE_STANDARDS_SELFTEST_CHILD:-0}" != "1" ]; then
     "$root_dir/scripts/test-standards-registry.sh" || status=1
 fi
 

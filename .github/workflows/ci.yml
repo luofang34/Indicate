@@ -100,8 +100,18 @@ jobs:
           # `indicate` is the family's own prefix and `pilotage` a consumer's:
           # both stay in the filter, so neither a family crate escaping the
           # allowlist nor a consumer crate reappearing goes unseen.
-          done < <(grep -oE '^name = "(indicate|pilotage|avionics|navigate|aviate|instrument)[a-z0-9-]*"' Cargo.lock \
+          done < <(grep -oE '^name = "(indicate|pilotage|avionics|navigate|aviate|instrument)[a-z0-9_-]*"' Cargo.lock \
                    | sed 's/^name = "//;s/"$//')
+          # A filter that matches nothing reports a closed boundary it never
+          # looked at. The family's own crates are the floor: fewer hits than
+          # crates means the pattern stopped seeing them, which is how a
+          # rename would silently blind this gate.
+          seen=$(grep -cE '^name = "(indicate|pilotage|avionics|navigate|aviate|instrument)[a-z0-9_-]*"' Cargo.lock)
+          floor=$(find crates -mindepth 1 -maxdepth 1 -type d | wc -l)
+          if [ "$seen" -lt "$floor" ]; then
+            echo "the downstream-agnostic filter matched $seen names but the tree has $floor crates; the pattern has gone blind"
+            fail=1
+          fi
           # Category sentinels the prefix filter cannot see: third-party
           # wire-protocol and transport crates mean the boundary leaked
           # regardless of what they are named.

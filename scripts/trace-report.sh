@@ -12,7 +12,7 @@ set -euo pipefail
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root_dir"
 
-document_dir="${PILOTAGE_INSTRUMENT_DOCUMENT_DIR:-docs/instruments}"
+document_dir="${INDICATE_INSTRUMENT_DOCUMENT_DIR:-docs/instruments}"
 catalog="$document_dir/requirements.md"
 review_record="$document_dir/review-record.md"
 pssa="$document_dir/pssa.md"
@@ -22,7 +22,7 @@ if [ ! -f "$catalog" ]; then
     exit 1
 fi
 
-echo "=== Pilotage instrument trace inventory (NOT a compliance trace) ==="
+echo "=== Indicate instrument trace inventory (NOT a compliance trace) ==="
 echo "Nothing below asserts verification or approval; pending evidence is"
 echo "reported as pending. See docs/instruments/evidence-plan.md."
 echo

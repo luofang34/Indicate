@@ -1,11 +1,11 @@
 # Standards applicability matrix (AIR-03)
 
 **SIM / NOT FOR FLIGHT.** This document classifies the industry standards,
-consensus references, and authority guidance that a future Pilotage instrument
+consensus references, and authority guidance that a future Indicate instrument
 certification effort would draw on. It is an engineering planning artifact. It
-is **not** a compliance finding, a declaration that Pilotage meets any standard,
+is **not** a compliance finding, a declaration that Indicate meets any standard,
 an FAA/EASA finding, a TSO authorization, or a TC/STC approval. Nothing in this
-matrix authorizes airborne use of any Pilotage output.
+matrix authorizes airborne use of any Indicate output.
 
 ## Purpose
 

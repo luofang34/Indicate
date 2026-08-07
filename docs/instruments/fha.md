@@ -1,7 +1,7 @@
 # Preliminary functional hazard assessment (AIR-02)
 
 **SIM / NOT FOR FLIGHT.** This is a preliminary functional hazard assessment
-(FHA) of the Pilotage instrument display functions. It is an engineering input
+(FHA) of the Indicate instrument display functions. It is an engineering input
 to a future safety assessment, not an FAA/EASA finding, TSO authorization, or
 TC/STC approval. Every browser, WebAssembly, Canvas, WebTransport, Gazebo, and
 test-harness surface analysed here is **SIM / NOT FOR FLIGHT** under

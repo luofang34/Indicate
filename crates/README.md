@@ -22,12 +22,21 @@ re-pin for no change in what is painted.
 | Survivor | Why it stays |
 |---|---|
 | `SCENE_DIGEST_DOMAIN` (`b"pilotage-scene-digest-v1"`) | Hashed into every composition digest; changing it moves `BUILTIN_SCENE_DIGEST` and reddens every consumer pin. |
-| Recorded evidence run records under `docs/instruments/evidence-artifacts/` | Captured output of runs that really executed under the old package names; a record is a statement about the past. |
+| `sha256(b"pilotage")` in the sha256 unit tests | A hash input, not a name. The vector and its expected digest are self-consistent whatever the bytes spell. |
+| Recorded run records that were not re-executed — the reference CDC capture notes, and the evidence crate's own fixtures | A record is a statement about a run that happened. Records whose suites *were* re-run under the new names were re-captured instead, and say so. |
 | `Pilotage` in prose naming the cockpit, its repository, or its browser shell | Correct — those name a consumer, which is what the word is for. |
 
 Renaming *is* right for anything a reader would take as a claim about
 what this repository is: crate and package names, workspace members,
 `-p` flags, module paths, and doc prose about the family itself.
+
+The corpus's `generatedBy` provenance line is renamed, which looks like
+an exception and is not one: `corpusSha256` hashes the concatenated case
+bytes only, so the header sits outside it, and interpreters pin
+`corpusVersion` and `corpusSha256` rather than the file. Naming a
+generator crate that no longer exists would have been the oversight. An
+interpreter that hashes the whole JSON document instead of the published
+field is the one consumer this would disturb.
 
 | Crate | Role |
 |---|---|

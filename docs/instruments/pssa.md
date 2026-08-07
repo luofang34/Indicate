@@ -1,7 +1,7 @@
 # Preliminary system safety assessment (AIR-02)
 
 **SIM / NOT FOR FLIGHT.** This is a preliminary system safety assessment (PSSA)
-of the Pilotage instrument display architecture. It develops the common-cause and
+of the Indicate instrument display architecture. It develops the common-cause and
 independence analysis, the assurance allocation, the simulator-versus-airborne
 mitigation split, and the bidirectional traceability for the failure conditions
 identified in the [FHA](fha.md). It is an engineering input to a future safety

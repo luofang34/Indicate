@@ -8,7 +8,7 @@
 # the active revision supersedes, and the date the identity and status were
 # checked against the cited primary source. It is an engineering planning
 # record. It makes no certification, compliance, approval, or airworthiness
-# claim, and nothing here authorizes airborne use of any Pilotage output.
+# claim, and nothing here authorizes airborne use of any Indicate output.
 #
 # `verified_on` records when each reference was checked against its primary
 # source. That check fixes document identity as of that date; it does NOT

@@ -1,7 +1,7 @@
 # Lifecycle evidence plan (AIR-03)
 
 **SIM / NOT FOR FLIGHT.** This document plans the lifecycle evidence a future
-Pilotage instrument certification effort would need, indexes the artifacts that
+Indicate instrument certification effort would need, indexes the artifacts that
 exist in the repository today, and states plainly which of those artifacts are
 **engineering input** versus which certified lifecycle data must be established
 anew. It is **not** a compliance record, and it does not claim that any existing

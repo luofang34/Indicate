@@ -2,7 +2,7 @@
 
 ## Baseline statement
 
-Pilotage instrument software is an engineering simulator display. Its browser,
+Indicate instrument software is an engineering simulator display. Its browser,
 WebAssembly, Canvas, network, and Gazebo paths are **SIM / NOT FOR FLIGHT** under
 [`AIR-BAS-001`](requirements.md#air-bas-001). The visual vocabulary may support
 a later aircraft project, but no output is approved primary flight information,

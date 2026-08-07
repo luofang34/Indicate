@@ -16,8 +16,8 @@ prepare_case() {
 
 run_checker() {
     env \
-        "PILOTAGE_INSTRUMENT_DOCUMENT_DIR=$case_dir" \
-        PILOTAGE_INSTRUMENT_SELFTEST_CHILD=1 \
+        "INDICATE_INSTRUMENT_DOCUMENT_DIR=$case_dir" \
+        INDICATE_INSTRUMENT_SELFTEST_CHILD=1 \
         bash "$checker"
 }
 

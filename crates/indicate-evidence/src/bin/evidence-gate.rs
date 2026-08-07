@@ -65,7 +65,7 @@ fn run(args: Vec<String>) -> Result<ExitCode, EvidenceError> {
     };
     let repo_root = options
         .repo_root
-        .or_else(|| env::var_os("PILOTAGE_REPO_ROOT").map(PathBuf::from))
+        .or_else(|| env::var_os("INDICATE_REPO_ROOT").map(PathBuf::from))
         .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
     let graph_path = options
         .graph
