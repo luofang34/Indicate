@@ -98,8 +98,8 @@ jobs:
                  indicate-instrument-glyphs indicate-instrument-symbology \
                  indicate-instrument-panels indicate-instrument-raster \
                  indicate-instrument-conformance indicate-instrument-feeder \
-                 indicate-instrument-registry indicate-evidence \
-                 instrument-bench"
+                 indicate-instrument-descriptor indicate-instrument-registry \
+                 indicate-evidence instrument-bench"
           fail=0
           while read -r pkg; do
             case " $known " in
@@ -148,6 +148,7 @@ jobs:
           -p indicate-instrument-scene
           -p indicate-instrument-glyphs
           -p indicate-instrument-symbology
+          -p indicate-instrument-descriptor
           -p indicate-instrument-panels
           -p indicate-instrument-raster
           -p indicate-instrument-feeder

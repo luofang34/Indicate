@@ -3,7 +3,8 @@
 use std::string::String;
 use std::vec;
 
-use indicate_instrument_registry::{PanelDescriptor, PanelSet, Registry, scene_digest};
+use indicate_instrument_descriptor::{PanelDescriptor, PanelSet};
+use indicate_instrument_registry::{Registry, scene_digest};
 use indicate_instrument_scene::MAX_SCENE_BYTES;
 
 use super::{BUILTIN_PANELS, HSI_DESCRIPTOR, MONITOR_DESCRIPTOR, PFD_DESCRIPTOR};

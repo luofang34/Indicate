@@ -56,7 +56,7 @@ locator crates/indicate-instrument-state/src/presentation.rs
 
 node DESIGN-HORIZON-GEOMETRY design
 title PFD horizon geometry — background reverse-color-band clamp and recovery chevrons
-locator crates/indicate-instrument-panels/src/pfd/horizon.rs
+locator sets/indicate-instrument-panels/src/pfd/horizon.rs
 
 # --- Implementation units ---
 
@@ -72,12 +72,12 @@ attr symbol down_in_body
 
 node IMPL-DRAW-BACKGROUND implementation
 title draw_background
-locator crates/indicate-instrument-panels/src/pfd/horizon.rs
+locator sets/indicate-instrument-panels/src/pfd/horizon.rs
 attr symbol draw_background
 
 node IMPL-DRAW-CHEVRONS implementation
 title draw_recovery_chevrons
-locator crates/indicate-instrument-panels/src/pfd.rs
+locator sets/indicate-instrument-panels/src/pfd.rs
 attr symbol draw_recovery_chevrons
 
 # --- Verification cases (raster behavior: pixel-level sky/ground vs f64 reference) ---
@@ -143,7 +143,7 @@ attr test q_and_negated_q_are_bit_identical
 
 node CASE-PFD-CHEVRONS verification-case
 title recovery chevrons point toward the horizon
-locator crates/indicate-instrument-panels/src/pfd/attitude_tests.rs
+locator sets/indicate-instrument-panels/src/pfd/attitude_tests.rs
 attr test chevrons_point_toward_the_horizon
 
 # --- Coverage analysis ---

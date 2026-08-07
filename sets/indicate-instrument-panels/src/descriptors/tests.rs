@@ -3,7 +3,8 @@
 use std::vec;
 use std::vec::Vec;
 
-use indicate_instrument_registry::{ConfigBlob, EMPTY_CONFIG, Registry, keys};
+use indicate_instrument_descriptor::{ConfigBlob, EMPTY_CONFIG, keys};
+use indicate_instrument_registry::Registry;
 use indicate_instrument_scene::SceneWriter;
 use indicate_instrument_state::{
     AircraftState, Attitude, FreshnessPolicy, PanelData, Quat, Stamped, resolve,
@@ -32,7 +33,7 @@ fn resolved() -> PanelData {
 }
 
 fn scene_via_descriptor(
-    descriptor: &indicate_instrument_registry::PanelDescriptor,
+    descriptor: &indicate_instrument_descriptor::PanelDescriptor,
     config: &ConfigBlob<'_>,
 ) -> Vec<u8> {
     let data = resolved();
@@ -174,7 +175,7 @@ fn an_svs_config_blob_decodes_and_still_cedes() {
 
 #[test]
 fn svs_keys_are_validated_and_refused_when_inert() {
-    use indicate_instrument_registry::ConfigError;
+    use indicate_instrument_descriptor::ConfigError;
     // A malformed viewport payload is refused even when the selected
     // background never consumes it.
     let mut bytes = Vec::new();
@@ -232,7 +233,7 @@ fn svs_keys_are_validated_and_refused_when_inert() {
 
 #[test]
 fn a_collapsed_v_speed_ladder_is_refused() {
-    use indicate_instrument_registry::ConfigError;
+    use indicate_instrument_descriptor::ConfigError;
     let mut bytes = Vec::new();
     bytes.extend_from_slice(&keys::V_SPEEDS.0.to_le_bytes());
     bytes.extend_from_slice(&20u16.to_le_bytes());

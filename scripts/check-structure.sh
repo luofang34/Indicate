@@ -233,12 +233,110 @@ check_crate_naming() {
     done < <(find . -name Cargo.toml -not -path './target/*' -not -path './.git/*' -mindepth 2)
 }
 
+# The tier law from #13. The tiers are only real if the tree enforces
+# them, so the dependency direction gets the same treatment as the
+# consumer boundary: stated once here, failed in CI.
+#
+#   kernel        the no_std closure a panel may draw against; depends
+#                 on the kernel only.
+#   verification  raster, conformance, registry, evidence. Consumes
+#                 sets; is never a normal dependency of one.
+#   sets          panel providers under sets/, one crate per set. Normal
+#                 dependencies are kernel-only. The registry is allowed
+#                 as a DEV dependency so a set can pin its own scene
+#                 digest without a shell — a test-graph edge is not a
+#                 shipping one.
+#   tools         unconstrained; they are shells, not library tiers.
+KERNEL_CRATES="indicate-frames indicate-alerts indicate-sha256 \
+indicate-instrument-state indicate-instrument-scene indicate-instrument-glyphs \
+indicate-instrument-symbology indicate-instrument-descriptor \
+indicate-instrument-feeder"
+VERIFICATION_CRATES="indicate-instrument-raster indicate-instrument-conformance \
+indicate-instrument-registry indicate-evidence"
+
+in_list() {
+    case " $2 " in
+        *" $1 "*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Names in `[dependencies]` only — dev- and build-dependencies are
+# separate tables and do not constrain what a crate ships.
+normal_dependencies() {
+    awk '
+        /^[[:space:]]*\[/ { in_deps = ($0 ~ /^[[:space:]]*\[dependencies\][[:space:]]*$/) }
+        in_deps && /^[[:space:]]*[A-Za-z0-9_-]+[[:space:]]*=/ {
+            line = $0
+            sub(/^[[:space:]]*/, "", line)
+            sub(/[[:space:]]*=.*$/, "", line)
+            print line
+        }
+    ' "$1"
+}
+
+check_tier_law() {
+    local manifest dir name tier allowed dep
+    while IFS= read -r manifest; do
+        dir="$(dirname "$manifest")"
+        name="$(package_name "$manifest" || true)"
+        case "$dir" in
+            ./tools/*) continue ;;
+            ./sets/*) tier="set"; allowed="$KERNEL_CRATES" ;;
+            *)
+                if in_list "$name" "$KERNEL_CRATES"; then
+                    tier="kernel"; allowed="$KERNEL_CRATES"
+                elif in_list "$name" "$VERIFICATION_CRATES"; then
+                    tier="verification"; allowed="$KERNEL_CRATES $VERIFICATION_CRATES"
+                else
+                    echo "FORBIDDEN: $name is in no tier; add it to the kernel or verification list in $(basename "${BASH_SOURCE[0]}")" >&2
+                    status=1
+                    continue
+                fi
+                ;;
+        esac
+        while IFS= read -r dep; do
+            case "$dep" in
+                indicate-*) ;;
+                *) continue ;;
+            esac
+            if ! in_list "$dep" "$allowed"; then
+                echo "FORBIDDEN: $tier crate $name depends on $dep, which its tier may not reach" >&2
+                status=1
+            fi
+        done < <(normal_dependencies "$manifest")
+    done < <(find . -name Cargo.toml -not -path './target/*' -not -path './.git/*' -mindepth 2)
+}
+
+# The crate map is prose about the tree, so it drifts unless checked:
+# every workspace library crate gets a row, and every row names a crate.
+check_crate_map() {
+    local map="crates/README.md" name manifest
+    [ -f "$map" ] || { echo "FORBIDDEN: $map is missing" >&2; status=1; return; }
+    while IFS= read -r manifest; do
+        case "$(dirname "$manifest")" in ./tools/*) continue ;; esac
+        name="$(package_name "$manifest" || true)"
+        if ! grep -q "\`$name\`" "$map"; then
+            echo "FORBIDDEN: $map has no row for $name" >&2
+            status=1
+        fi
+    done < <(find . -name Cargo.toml -not -path './target/*' -not -path './.git/*' -mindepth 2)
+    while IFS= read -r name; do
+        if [ ! -d "crates/$name" ] && [ ! -d "sets/$name" ]; then
+            echo "FORBIDDEN: $map names $name, which is not a crate in this workspace" >&2
+            status=1
+        fi
+    done < <(grep -oE '`indicate-[a-z0-9-]+`' "$map" | tr -d '`' | sort -u)
+}
+
 check_forbidden_filenames
 check_file_length
 check_function_length
 check_safety_palette_aliases
 check_safety_constant_count
 check_crate_naming
+check_tier_law
+check_crate_map
 
 if [ "$status" -ne 0 ]; then
     echo "check-structure: FAILED" >&2

@@ -97,7 +97,7 @@ actual_scene="$(read_or_empty grep -oE '^pub const SCENE_FORMAT_VERSION: u8 = [0
 actual_corpus="$(read_or_empty grep -oE '"corpusVersion": [0-9]+' \
     crates/indicate-instrument-scene/corpus/scene-conformance-corpus.json | grep -oE '[0-9]+$')"
 actual_digest="$(read_or_empty grep -A2 'BUILTIN_SCENE_DIGEST: &str' \
-    crates/indicate-instrument-panels/src/descriptors.rs | grep -oE '[0-9a-f]{64}')"
+    sets/indicate-instrument-panels/src/descriptors.rs | grep -oE '[0-9a-f]{64}')"
 
 # The panel ids of BUILTIN_PANELS, in composition order. The slice names
 # descriptor constants, so each is resolved to the `id` its descriptor
@@ -128,7 +128,7 @@ actual_panels="$(read_or_empty awk '
         }
         print out
     }
-' crates/indicate-instrument-panels/src/descriptors.rs)"
+' sets/indicate-instrument-panels/src/descriptors.rs)"
 
 compare() {
     local label="$1" actual="$2" found

@@ -24,7 +24,7 @@ font later is an upgrade path (see below), not a dependency today.
 
 The mandatory vocabulary is derived from what the panels actually draw, not
 guessed. Every `text(...)` literal and every `fmt_label!` template in
-`crates/indicate-instrument-panels` was enumerated:
+`sets/indicate-instrument-panels` was enumerated:
 
 - **Digits `0`–`9`** — tape, rose, and readout numerals.
 - **`-`** — dash runs (`---`, `--.-`, `---°`) and negative readouts.

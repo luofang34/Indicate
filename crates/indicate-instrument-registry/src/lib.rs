@@ -1,15 +1,12 @@
-//! Panel registry: the descriptor contract shells compose (ADR-0029,
-//! ADR-0033).
+//! Panel composition and cross-shell identity (ADR-0029, ADR-0033).
 //!
-//! A panel is a plugin over three stable contracts — the state-group
-//! vocabulary, the scene-command IR, and the glyph vocabulary. This
-//! crate holds the descriptor a shell consumes instead of hard-coded
-//! panel enumeration: identity, required layers and state groups, the
-//! design frame, background capability, the bounded key-TLV
-//! configuration schema, and the draw entry point. A registry is plain
-//! data composed by each shell, validated at init; an out-of-repo panel
-//! registers by being named in the shell's composition, never by
-//! link-time magic.
+//! A registry is plain data composed by each shell from panel
+//! descriptors and validated at init; an out-of-repo panel registers by
+//! being named in the shell's composition, never by link-time magic. The
+//! descriptor vocabulary itself lives in
+//! [`indicate_instrument_descriptor`] and is re-exported here, so a
+//! shell needs one dependency to compose and a panel needs neither this
+//! crate nor its checks.
 //!
 //! A shell drawing from one provider crate passes a descriptor slice to
 //! [`Registry::new`]. A shell drawing from several names
@@ -26,21 +23,14 @@
 #[cfg(test)]
 extern crate std;
 
-mod config;
-mod descriptor;
 mod digest;
-mod group_set;
 mod registry;
-mod set;
-pub mod states;
 
-pub use config::{CONFIG_BLOB_MAX, ConfigBlob, ConfigError, ConfigKey, EMPTY_CONFIG, keys};
-pub use descriptor::{
-    BackgroundCapability, DesignFrame, DrawFn, ExtremeState, PanelDescriptor, PanelDrawError,
-    Region,
-};
 pub use digest::{DigestError, SCENE_DIGEST_DOMAIN, scene_digest};
-pub use group_set::GroupSet;
+pub use indicate_instrument_descriptor::states;
+pub use indicate_instrument_descriptor::{
+    BackgroundCapability, CANONICAL_STATES, CONFIG_BLOB_MAX, CanonicalState, ConfigBlob,
+    ConfigError, ConfigKey, DesignFrame, DrawFn, EMPTY_CONFIG, ExtremeState, GroupSet,
+    PanelDescriptor, PanelDrawError, PanelSet, Region, keys,
+};
 pub use registry::{Panels, Registry, RegistryError};
-pub use set::PanelSet;
-pub use states::{CANONICAL_STATES, CanonicalState};

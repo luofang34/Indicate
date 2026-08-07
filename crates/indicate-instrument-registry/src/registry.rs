@@ -2,8 +2,7 @@
 
 use indicate_instrument_scene::LAYER_COUNT;
 
-use crate::descriptor::PanelDescriptor;
-use crate::set::PanelSet;
+use indicate_instrument_descriptor::{PanelDescriptor, PanelSet};
 
 /// How a shell named the panels it composed.
 ///

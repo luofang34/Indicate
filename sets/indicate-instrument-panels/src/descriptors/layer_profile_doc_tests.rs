@@ -8,7 +8,7 @@ use std::format;
 use std::string::String;
 use std::vec::Vec;
 
-use indicate_instrument_registry::PanelDescriptor;
+use indicate_instrument_descriptor::PanelDescriptor;
 use indicate_instrument_scene::{LAYER_COUNT, LayerId};
 
 use super::{BUILTIN_PANELS, layer_bit};

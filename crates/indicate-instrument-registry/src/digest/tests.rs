@@ -4,10 +4,11 @@ use indicate_alerts::AlertOutput;
 use indicate_instrument_scene::{MAX_SCENE_BYTES, SceneWriter};
 use indicate_instrument_state::PanelData;
 
+use indicate_instrument_descriptor::{
+    BackgroundCapability, ConfigBlob, DesignFrame, GroupSet, PanelDescriptor, PanelDrawError,
+};
+
 use super::{DigestError, scene_digest};
-use crate::config::ConfigBlob;
-use crate::descriptor::{BackgroundCapability, DesignFrame, PanelDescriptor, PanelDrawError};
-use crate::group_set::GroupSet;
 use crate::registry::Registry;
 
 fn draw_nothing(

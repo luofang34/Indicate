@@ -1,6 +1,6 @@
 //! PFD configuration decoding from the shell-delivered blob (ADR-0033).
 
-use indicate_instrument_registry::{ConfigBlob, ConfigError, ConfigKey, keys};
+use indicate_instrument_descriptor::{ConfigBlob, ConfigError, ConfigKey, keys};
 
 use super::{BackgroundMode, PfdConfig, SvsViewport, VSpeeds};
 use crate::{PANEL_H, PANEL_W};

@@ -80,9 +80,9 @@ pub struct ExtremeState {
     pub build: fn() -> AircraftState,
 }
 
-/// One panel, as data. A shell composes descriptors into a
-/// [`crate::Registry`] and consumes only this — no shell may hold a
-/// panel list, index, or layer mask of its own (ADR-0029).
+/// One panel, as data. A shell composes descriptors into a registry and
+/// consumes only this — no shell may hold a panel list, index, or layer
+/// mask of its own (ADR-0029).
 #[derive(Debug, Clone, Copy)]
 pub struct PanelDescriptor {
     /// Stable identity (lowercase, digits, dashes): canvas ids, health
