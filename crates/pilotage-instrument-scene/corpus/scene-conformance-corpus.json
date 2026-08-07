@@ -5,7 +5,7 @@
   "simOnly": "Canvas/browser backend is SIM / NOT FOR FLIGHT",
   "canonicalization": "trace args are Q8.8 floor(v*256); non-finite as nan/inf/-inf",
   "review": {
-    "reason": "Add frame-edge-overhang: ink crossing all four design-frame edges, pinning that every backend clips at the frame boundary rather than trusting panel authorship (the backend-contract design-frame rule made replayable).",
+    "reason": "Add frame-edge-overhang: ink crossing all four design-frame edges is a valid scene, not a fault — the gate accepts it, no raw-argument guard fires, and both backends replay the overhanging coordinates verbatim. The design-frame clip itself is surface-side and outside what the corpus records.",
     "approvedBy": "REN-04 owner; regenerated goldens require human review and are never rewritten by CI."
   },
   "budgets": {
@@ -108,7 +108,7 @@
     {
       "name": "frame-edge-overhang",
       "category": "valid",
-      "notes": "Ink crossing all four design-frame edges: the frame clip, not the panel author, bounds what reaches pixels (backend-contract design-frame rule).",
+      "notes": "Ink crossing all four design-frame edges is a valid scene, not a fault: the gate accepts it, no raw-argument guard fires, and both backends replay the overhanging coordinates verbatim. The design-frame clip itself is surface-side, outside what the corpus records.",
       "bytesHex": "0150010001010000100400ffffffff231100010000a0c10000a0c10000704200007042231100010000e6430000aa430000204200002042201000000020c200003443000002440000344302000051010001",
       "framingValid": true,
       "decode": { "ok": true, "error": null },

@@ -76,9 +76,11 @@ pub(super) fn valid_entries(out: &mut Vec<CorpusEntry>) {
         "frame-edge-overhang",
         "valid",
         Some(
-            "Ink crossing all four design-frame edges: the frame clip, not the \
-             panel author, bounds what reaches pixels (backend-contract \
-             design-frame rule).",
+            "Ink crossing all four design-frame edges is a valid scene, not a \
+             fault: the gate accepts it, no raw-argument guard fires, and both \
+             backends replay the overhanging coordinates verbatim. The \
+             design-frame clip itself is surface-side, outside what the corpus \
+             records.",
         ),
         in_layer(LayerId::Attitude, |w| {
             w.fill_color(WHITE).expect("fill");

@@ -23,9 +23,10 @@ use crate::{MAX_DIMENSION, MAX_POLYGON_VERTICES, WORST_CASE_FRAME_BYTES};
 
 const SCHEMA_VERSION: u32 = 2;
 const CORPUS_VERSION: u32 = 4;
-const REVIEW_REASON: &str = "Add frame-edge-overhang: ink crossing all four design-frame edges, \
-pinning that every backend clips at the frame boundary rather than trusting panel authorship \
-(the backend-contract design-frame rule made replayable).";
+const REVIEW_REASON: &str = "Add frame-edge-overhang: ink crossing all four design-frame edges \
+is a valid scene, not a fault — the gate accepts it, no raw-argument guard fires, and both \
+backends replay the overhanging coordinates verbatim. The design-frame clip itself is \
+surface-side and outside what the corpus records.";
 const REVIEW_APPROVED_BY: &str =
     "REN-04 owner; regenerated goldens require human review and are never rewritten by CI.";
 
