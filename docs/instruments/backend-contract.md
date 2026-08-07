@@ -50,9 +50,10 @@ A panel is authored in the logical frame its descriptor declares
 
 ## Where the vocabulary deliberately stops
 
-Two limits in the opcode set are contract, not oversight. A backend
-author reading the vocabulary and finding them missing should stop
-looking for the version that adds them.
+Two properties of the opcode set decide what an instrument can be. One
+is settled contract, and a backend author who finds it missing should
+stop looking for the version that adds it. The other is genuinely open,
+and is recorded here with its price rather than left to be discovered.
 
 **There is no `SCALE`, and there will not be one.** The transform ops
 are translate and rotate. A panel is authored in the frame its
@@ -69,21 +70,36 @@ vocabulary change. A compositor therefore never resizes a scene by
 rewriting its commands, and `panel-contract.md` tells authors the same
 thing from the other side.
 
-**`ARC` is stroke-only, and that one is genuinely open.** `LINE`,
-`POLYLINE`, `RECT`, `CIRCLE`, and `POLYGON` carry a paint mode; `ARC`
-does not. A thick stroked arc reproduces a coloured band, so an engine
-dial's green/yellow/red sweeps are expressible today, but the band's
-inner and outer radii end up coupled to the stroke width — the geometry
-expressed sideways. Whether that is sufficient cannot be decided without
-the instrument set that needs it, so it stays open.
+**A filled annular band has no opcode, and that one is genuinely open.**
+Paint mode splits the vocabulary by shape, not by oversight: the
+closed-area ops — `RECT`, `CIRCLE`, `POLYGON` — carry a `PaintMode`,
+while the open-path ops — `LINE`, `POLYLINE`, `ARC` — are stroke-only,
+having no interior to fill. `ARC` is not the odd one out.
+
+That consistency is what makes the question a real one. An engine dial's
+green/yellow/red sweeps are expressible today, because a thick stroked
+arc reproduces a band — but the band's inner and outer radii then come
+out of the stroke width and the radius together, which is the geometry
+expressed sideways. A band is an area between two radii, so what it
+wants is not a mode byte on `ARC` — a stroke-only op has nothing to fill
+— but its own geometry. Whether the sideways expression is sufficient
+cannot be decided without the instrument set that needs it, so it stays
+open.
 
 What it would cost, recorded now so the price is known when that day
 comes: a *new* filled annular-band opcode is **not** a scene-format
 version bump, because an unknown ordinary opcode inside a layer is
 counted and skipped, so older backends degrade gracefully. It is a
 corpus bump, an implementation in every backend, and new admission
-geometry. Changing the existing `ARC` payload, by contrast, is a hard
-break for every pinned interpreter and is off the table. The cheap path
+geometry — the background-coverage check counts only the painting
+commands it knows, so a new one is invisible to it until it is added.
+
+Changing the existing `ARC` payload, by contrast, is off the table, and
+for a worse reason than "a hard break": the decoder reads its five
+floats from fixed offsets and ignores trailing bytes, so prepending a
+mode byte would not raise an error on a pinned interpreter. It would
+silently mis-read the centre and radius from shifted bytes and paint the
+wrong arc. Opcodes are append-only. The cheap path
 exists; take it only with the set in hand.
 
 ## Two disciplines every backend must follow
