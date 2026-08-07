@@ -10,6 +10,7 @@ members = [
     "crates/indicate-instrument-symbology",
     "crates/indicate-instrument-descriptor",
     "sets/indicate-instrument-panels",
+    "sets/indicate-instrument-template",
     "crates/indicate-instrument-raster",
     "crates/indicate-instrument-conformance",
     "crates/indicate-instrument-feeder",
@@ -38,6 +39,7 @@ indicate-instrument-glyphs = { path = "crates/indicate-instrument-glyphs" }
 indicate-instrument-symbology = { path = "crates/indicate-instrument-symbology" }
 indicate-instrument-descriptor = { path = "crates/indicate-instrument-descriptor" }
 indicate-instrument-panels = { path = "sets/indicate-instrument-panels" }
+indicate-instrument-template = { path = "sets/indicate-instrument-template" }
 indicate-instrument-raster = { path = "crates/indicate-instrument-raster" }
 indicate-instrument-conformance = { path = "crates/indicate-instrument-conformance" }
 indicate-instrument-feeder = { path = "crates/indicate-instrument-feeder" }

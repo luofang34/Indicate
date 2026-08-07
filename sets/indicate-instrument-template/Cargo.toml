@@ -1,0 +1,25 @@
+[package]
+name = "indicate-instrument-template"
+description = "The smallest panel set that passes admission: the worked example a new set crate is copied from (ADR-0029, ADR-0033)"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+# Kernel only. A set may not reach the machinery that judges it, and
+# scripts/check-structure.sh fails the build on a manifest that tries.
+[dependencies]
+indicate-alerts = { workspace = true }
+indicate-instrument-descriptor = { workspace = true }
+indicate-instrument-scene = { workspace = true }
+indicate-instrument-state = { workspace = true }
+indicate-instrument-symbology = { workspace = true }
+
+# The verification tier is reachable as a DEV dependency: running the
+# admission harness over this set is a test-graph edge, not a shipping
+# one, and it is what makes "admitted in CI" a build result.
+[dev-dependencies]
+indicate-instrument-conformance = { workspace = true }
+indicate-instrument-registry = { workspace = true }

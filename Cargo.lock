@@ -259,6 +259,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "indicate-instrument-template"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-instrument-conformance",
+ "indicate-instrument-descriptor",
+ "indicate-instrument-registry",
+ "indicate-instrument-scene",
+ "indicate-instrument-state",
+ "indicate-instrument-symbology",
+]
+
+[[package]]
 name = "indicate-sha256"
 version = "0.1.0"
 dependencies = [
