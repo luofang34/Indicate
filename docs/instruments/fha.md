@@ -19,10 +19,10 @@ there remain `PENDING`.
 The analysed functions and their boundary are the merged AIR-01 baseline:
 [intended functions](intended-functions.md), [system boundary](system-boundary.md),
 and the [requirements registry](requirements.md). The architecture context is
-[ADR-0017](../adr/0017-instrument-display-runtime.md) (no_std sans-IO runtime,
+ADR-0017 (Pilotage repository, `docs/adr/`; no_std sans-IO runtime,
 scene-command IR, six criticality-banded compositor layers, first-class
-validity) and [ADR-0018](../adr/0018-avionics-telemetry-and-aviate-adapter.md)
-(measurement-identity ingress gate, coherence result, fail-closed authorization).
+validity) and ADR-0018 (same location; measurement-identity ingress gate,
+coherence result, fail-closed authorization).
 
 The hazard set additionally covers the vehicle-neutral six-degree-of-freedom
 frame contract introduced by FRAME-01 (issue #52), whose frame, epoch, clock,

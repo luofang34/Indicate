@@ -1,47 +1,59 @@
-# Contributing to Pilotage
+# Contributing to Indicate
 
 ## Toolchain setup
 
-1. Install the Rust toolchain pinned by `rust-toolchain.toml` (stable channel);
-   `rustup` will pick it up automatically when you run any `cargo` command in
-   this repository.
-2. Install `protoc` (needed by `prost-build` for crates that compile
-   `schemas/*.proto`).
-3. Install `shellcheck` (used to lint `scripts/*.sh`).
-4. On Linux, install `libudev-dev` (required to build `hidapi`).
-5. If `schemas/` contains `.proto` files, install `buf` to run `buf lint`
-   locally before pushing.
+1. Install the Rust toolchain pinned by `rust-toolchain.toml` (stable
+   channel); `rustup` picks it up automatically.
+2. Add the bare-metal check target: `rustup target add thumbv7em-none-eabihf`.
+3. Install `shellcheck` if you touch `scripts/*.sh`.
 
-## Local gate commands
+## Local gate battery
 
-Run these in order before opening a PR — they are the same gates CI runs in
-`.github/workflows/ci.yml`, and all of them are blocking:
+Run the full battery before pushing; CI runs this set plus the
+downstream-agnostic closure check.
 
-```bash
+```sh
 cargo fmt --all --check
-cargo clippy --all-targets -- -D warnings
-cargo test --all-targets
-RUSTDOCFLAGS='-D missing_docs -D rustdoc::broken_intra_doc_links' cargo doc --no-deps
-cargo build --release
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked --all-targets
+RUSTDOCFLAGS="-D missing_docs -D rustdoc::broken_intra_doc_links" cargo doc --locked --no-deps
+cargo build --locked --release
 bash scripts/check-structure.sh
+bash scripts/check-instrument-requirements.sh
+bash scripts/check-certification-claims.sh
+bash scripts/check-standards-registry.sh
+bash scripts/trace-report.sh
+cargo check --locked -p pilotage-frames -p pilotage-alerts -p pilotage-sha256 \
+  -p pilotage-instrument-state -p pilotage-instrument-scene \
+  -p pilotage-instrument-glyphs -p pilotage-instrument-symbology \
+  -p pilotage-instrument-panels -p pilotage-instrument-raster \
+  -p pilotage-instrument-feeder -p pilotage-instrument-registry \
+  --target thumbv7em-none-eabihf
+cargo run --locked -q -p instrument-bench
+cargo run --locked -q -p pilotage-evidence --bin evidence-gate -- \
+  --graph docs/instruments/evidence-graph.evg --repo-root . --resolve-selectors
+cargo run --locked -q -p pilotage-evidence --bin evidence-gate -- \
+  --graph docs/instruments/evidence-graph.evg --repo-root . --require-resolvable
 ```
 
-If `schemas/` contains `.proto` files, also run `buf lint` from the repo
-root.
+The evidence gate binds recorded test sources by content digest: editing
+a recorded test file (the attitude-behavior and presentation suites
+among them) reddens the gate until that evidence is re-recorded, so run
+the two gate invocations locally after touching any recorded source.
 
-## PR discipline
+## Discipline that is easy to miss
 
-- One issue per PR. Break large refactors into independently revertible
-  steps.
-- Every PR lands the fix **and** the guardrail that prevents its regression
-  (a test, a lint, or a CI script change) in the same PR. A fix without a
-  guardrail is temporary.
-- Do not skip hooks, force-push shared branches, or bypass the gates above to
-  land a PR faster; if a gate is wrong, fix the gate in its own PR first.
-
-## Workspace conventions
-
-See `docs/adr/0002-cargo-workspace-portable-sans-io-core.md` and
-`docs/adr/0015-workspace-quality-gates.md` for the architectural and lint
-rules this repository enforces mechanically (sans-IO core crates, structure
-limits, error-handling conventions, and the CI pipeline order).
+- REN-03 frame hashes and the scene digest are pinned invariants, not
+  values to refresh: a mismatch is a determinism regression unless the
+  change deliberately moves paint, and a deliberate move re-pins once,
+  with the reason in the commit message.
+- A corpus edit is a versioned event: bump `corpusVersion`, expect every
+  pinned consumer to go red at its next pin advance, and treat that red
+  as the sync mechanism working.
+- The evidence graph (`docs/instruments/evidence-graph.evg`) binds test
+  sources by content digest and its baseline by commit: editing a
+  recorded source file requires re-recording that evidence, and history
+  rewrites that orphan the baseline commit are forbidden.
+- Panels are authored in the design frame their descriptor declares;
+  unclipped ink past the frame edge is counted and ratcheted by the
+  admission harness — growth is a deliberate decision, not drift.

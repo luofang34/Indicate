@@ -22,8 +22,8 @@
 //! groups in strictly ascending id order, so equal states produce equal
 //! bytes ([`fixtures`] pins that against committed golden frames).
 //!
-//! Payload layouts live with their codecs in [`stamped`] and
-//! [`declared`]. Field codings: NaN encodes an absent optional float;
+//! Payload layouts live with their codecs in `stamped` and
+//! `declared`. Field codings: NaN encodes an absent optional float;
 //! enum bytes count from zero in declaration order with 255 as the
 //! fail-closed unknown, and a wire value outside the known set decodes
 //! to each type's `Unknown`, never to a benign variant (VAL-01).

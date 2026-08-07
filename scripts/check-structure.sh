@@ -148,34 +148,6 @@ check_function_length() {
     done < <(collect_rs_files)
 }
 
-# There must be exactly one `CalibrationId` type in the program, in the
-# dependency-free leaf; every other crate re-exports it. A second public or
-# private definition would fork the identity space a projection reference and a
-# calibration artifact must share, so it is forbidden here (the `\b` stops the
-# pattern from matching `CalibrationIdentity`).
-check_calibration_id_uniqueness() {
-    local canonical="./crates/pilotage-calibration-id/src/lib.rs"
-    local matches unexpected file
-    matches=""
-    while IFS= read -r file; do
-        is_excluded_path "$file" && continue
-        if grep -Eq 'struct[[:space:]]+CalibrationId\b' "$file"; then
-            matches="$matches$file"$'\n'
-        fi
-    done < <(collect_rs_files)
-
-    if ! printf '%s' "$matches" | grep -qxF "$canonical"; then
-        echo "FORBIDDEN: canonical CalibrationId not found at $canonical" >&2
-        status=1
-    fi
-    unexpected="$(printf '%s' "$matches" | grep -vxF "$canonical" || true)"
-    while IFS= read -r file; do
-        [ -z "$file" ] && continue
-        echo "FORBIDDEN: $file defines a second CalibrationId; the only definition belongs in $canonical" >&2
-        status=1
-    done <<< "$unexpected"
-}
-
 # The palette names RED, AMBER, YELLOW, and BAND_YELLOW alias the
 # never-skinnable safety set (ADR-0029). Outside the symbology crate,
 # safety-semantic paints must reference `safety::` directly so a future
@@ -212,7 +184,6 @@ check_safety_constant_count() {
 check_forbidden_filenames
 check_file_length
 check_function_length
-check_calibration_id_uniqueness
 check_safety_palette_aliases
 check_safety_constant_count
 

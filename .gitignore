@@ -1,33 +1,7 @@
 # Rust
 /target/
 **/*.rs.bk
-# Cargo.lock is committed: the workspace ships binaries (hosts, services, clients).
-
-# Web client / Node
-node_modules/
-dist/
-.vite/
-*.tsbuildinfo
-
-# WebAssembly build output
-pkg/
-wasm-pack.log
-clients/web/instruments.wasm
-clients/web/instrument-runtime.js
-clients/web/instrument-runtime.d.ts
-clients/web/instrument-runtime_bg.wasm
-clients/web/instrument-runtime_bg.wasm.d.ts
-clients/web/control-runtime.js
-clients/web/control-runtime.d.ts
-clients/web/control-runtime_bg.wasm
-clients/web/control-runtime_bg.wasm.d.ts
-
-# Generated protobuf code (generated at build time; schemas/ is the source of truth)
-**/src/generated/
-
-# CMake build output for the C++ gz-transport bridge (objects, binary, and
-# protobuf C++ generated from schemas/ at build time)
-adapters/**/bridge/build/
+# Cargo.lock is committed: the workspace ships binaries (tools).
 
 # Environment and secrets
 .env
@@ -47,4 +21,3 @@ adapters/**/bridge/build/
 * 2.*
 *.bak
 *.orig
-clients/web/session.json

@@ -48,10 +48,9 @@ echo
 
 echo "--- Tests present in the tree (inventory of artifacts, not results) ---"
 rust_tests="$(git ls-files '**/tests.rs' '**/tests/*.rs' | wc -l | tr -d ' ')"
-browser_suites="$(git ls-files 'clients/web/*.test.mjs' | wc -l | tr -d ' ')"
 echo "Rust test modules (tests.rs + tests/*.rs): $rust_tests"
-echo "Browser conformance suites (clients/web/*.test.mjs): $browser_suites"
-echo "Named test artifacts referenced from the docs:"
+echo "Downstream shell suites (browser, FFI) run in the consuming repositories."
+echo "Test artifacts the docs name (downstream shell suites included):"
 grep -rhoE '[A-Za-z0-9_-]+\.test\.mjs|pilotage-instrument-[a-z]+' \
     "$document_dir" --include='*.md' \
     | LC_ALL=C sort -u \
@@ -73,9 +72,7 @@ echo
 
 echo "--- Configuration record (git as the engineering configuration log) ---"
 head_sha="$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
-adr_count="$(git ls-files 'docs/adr/0*.md' | wc -l | tr -d ' ')"
 echo "HEAD commit: $head_sha"
-echo "Architecture decision records: $adr_count"
 echo "Structural/requirement guards in force:"
 for guard in scripts/check-structure.sh scripts/check-instrument-requirements.sh scripts/check-certification-claims.sh; do
     [ -f "$guard" ] && echo "    $guard"

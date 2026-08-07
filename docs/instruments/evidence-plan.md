@@ -40,21 +40,22 @@ work performed, not of certification credit earned.
 
 ### Design baseline
 
-- `docs/adr/0001`–`0019` — the architecture decision record set, including
-  ADR-0015 (workspace quality gates), ADR-0017 (instrument display runtime),
-  ADR-0018 (avionics telemetry and Aviate adapter), and ADR-0019 (pluggable
-  vehicle link).
+- The architecture decision record set (Pilotage repository, `docs/adr/`),
+  including ADR-0015 (workspace quality gates), ADR-0017 (instrument display
+  runtime), ADR-0018 (avionics telemetry and Aviate adapter), and ADR-0019
+  (pluggable vehicle link).
 - [`scene-layer-protocol.md`](scene-layer-protocol.md) and
   [`glyph-pack.md`](glyph-pack.md) — the controlled display-content contracts.
-- `docs/architecture.md` — the system-level architecture description.
+- The system-level architecture description (Pilotage repository,
+  `docs/architecture.md`).
 
 ### Code baseline
 
 - The `pilotage-instrument-*` crate family (`-state`, `-scene`, `-glyphs`,
   `-panels`, `-raster`) plus `pilotage-frames` and `pilotage-alerts`, compiled
   for a bare-metal target in CI to substantiate the `no_std` claim (ADR-0017).
-- `clients/web-instruments` — the WebAssembly instrument backend.
-- `clients/web` — the browser viewer and its wire/telemetry/transport paths.
+- The WebAssembly instrument backend and the browser viewer with its
+  wire/telemetry/transport paths (Pilotage repository, `clients/`).
 
 ### Test baseline
 
@@ -100,14 +101,14 @@ certified lifecycle data. Nothing here is marked satisfied.
 
 | ID | Objective family (standard) | Current artifact(s) | Status |
 | --- | --- | --- | --- |
-| EVP-01 | System/development-assurance planning (ARP4754A) | `requirements.md`, ADR set, `docs/architecture.md` | engineering input; process not exercised to closure |
+| EVP-01 | System/development-assurance planning (ARP4754A) | `requirements.md`, ADR set and architecture description (Pilotage repository) | engineering input; process not exercised to closure |
 | EVP-02 | Safety assessment (ARP4761 / FHA/PSSA) | [`fha.md`](fha.md), [`pssa.md`](pssa.md) | engineering input; **preliminary**, issue #27 `PENDING` |
 | EVP-03 | Software planning (DO-178C plans: PSAC/SDP/SVP/SCMP/SQAP) | none yet | deferred until level allocation (AIR-02, #27) |
 | EVP-04 | Software requirements (DO-178C) | `requirements.md` (`AIR-*`), intended-functions | engineering input; not level-allocated certified requirements |
 | EVP-05 | Software design (DO-178C) | ADR-0017/0018/0019, scene-layer/glyph-pack contracts | engineering input |
-| EVP-06 | Software coding (DO-178C) | `pilotage-instrument-*`, `pilotage-frames`, `pilotage-alerts`, `clients/web-instruments` | engineering input; **not** certified source data |
+| EVP-06 | Software coding (DO-178C) | `pilotage-instrument-*`, `pilotage-frames`, `pilotage-alerts`, downstream shells | engineering input; **not** certified source data |
 | EVP-07 | Verification — reviews and analyses (DO-178C) | code review in PR history, `renderer-verification.md` | engineering input; not DO-178C-conformant review records |
-| EVP-08 | Verification — testing (DO-178C) | workspace `tests.rs`/`tests/`, browser `*.test.mjs`, raster/glyph tests | engineering input; not requirements-based certified test evidence |
+| EVP-08 | Verification — testing (DO-178C) | workspace `tests.rs`/`tests/`, raster/glyph tests, downstream shell suites | engineering input; not requirements-based certified test evidence |
 | EVP-09 | Structural coverage (DO-178C) | none | **deferred** — see structural-coverage section |
 | EVP-10 | Configuration management (DO-178C SCM) | git/PR history, ADR-0015 gates, CI, structure checks | engineering configuration record; not certified SCM data |
 | EVP-11 | Quality assurance (DO-178C SQA) | CI quality gates | engineering practice; independent SQA function not established |

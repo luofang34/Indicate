@@ -6,11 +6,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # The Navigate crates are a private git dependency; libgit2 cannot use
-  # the runner's rewritten ssh credentials, the git CLI can.
-  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-  PROTOC_SHA256: a7be2928c0454f132c599e25b79b7ad1b57663f2337d7f7e468a1d59b98ec1b0
-  PROTOC_VERSION: "26.1"
+  FIXTURES: crates/pilotage-evidence/tests/fixtures
 
 jobs:
   quality-gates:
@@ -19,66 +15,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          # buf breaking compares the working tree against the base ref, so the
-          # base commit must be present locally; a shallow clone would hide it.
+          # Evidence baseline membership resolves declared configuration
+          # commits against real history; a shallow clone would make every
+          # recorded baseline unverifiable.
           fetch-depth: 0
-
-      - name: Authorize the private Navigate dependency
-        env:
-          NAVIGATE_DEPLOY_KEY: ${{ secrets.NAVIGATE_DEPLOY_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$NAVIGATE_DEPLOY_KEY" > ~/.ssh/navigate_ci
-          chmod 600 ~/.ssh/navigate_ci
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-          git config --global core.sshCommand "ssh -i ~/.ssh/navigate_ci -o IdentitiesOnly=yes"
-          git config --global url."ssh://git@github.com/luofang34/Navigate".insteadOf "https://github.com/luofang34/Navigate"
-
-      - name: Install system dependencies (hidapi on Linux)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libudev-dev
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-          targets: thumbv7em-none-eabihf, wasm32-unknown-unknown
-
-      - name: Install protoc
-        run: |
-          archive="${RUNNER_TEMP}/protoc-${PROTOC_VERSION}.zip"
-          install_dir="${RUNNER_TEMP}/protoc"
-          curl --fail --location --retry 3 --silent --show-error \
-            "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip" \
-            --output "${archive}"
-          echo "${PROTOC_SHA256}  ${archive}" | sha256sum --check --strict
-          unzip -q "${archive}" -d "${install_dir}"
-          echo "${install_dir}/bin" >> "${GITHUB_PATH}"
-          "${install_dir}/bin/protoc" --version
+          targets: thumbv7em-none-eabihf
 
       - name: Cache cargo artifacts
         uses: Swatinem/rust-cache@v2
-
-      - name: Install wasm-bindgen CLI
-        run: cargo install wasm-bindgen-cli --version 0.2.126 --locked
 
       - name: cargo fmt --check
         run: cargo fmt --all --check
 
       - name: cargo clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
 
       - name: cargo test
-        run: cargo test --all-targets
+        run: cargo test --locked --all-targets
 
       - name: cargo doc
         env:
           RUSTDOCFLAGS: "-D missing_docs -D rustdoc::broken_intra_doc_links"
-        run: cargo doc --no-deps
+        run: cargo doc --locked --no-deps
 
       - name: cargo build --release
-        run: cargo build --release
+        run: cargo build --locked --release
 
       - name: check-structure
         run: bash scripts/check-structure.sh
@@ -87,16 +53,17 @@ jobs:
         run: bash scripts/check-instrument-requirements.sh
 
       - name: certification-claim guard (AIR-03)
-        # Fail on any tracked doc/UI artifact that asserts a certification,
+        # Fail on any tracked doc artifact that asserts a certification,
         # compliance, approval, or airworthiness claim about this SIM project.
         run: bash scripts/check-certification-claims.sh
 
       - name: standards registry drift guard (AIR-04)
         # Keep the standards registry honest and the applicability matrix in
         # sync with it: fail closed on an absent/empty registry, on missing
-        # status provenance, on contradictory active/superseded classifications,
-        # and on matrix drift. This checks internal consistency only and does
-        # not prove external freshness, which remains a human source review.
+        # status provenance, on contradictory active/superseded
+        # classifications, and on matrix drift. This checks internal
+        # consistency only and does not prove external freshness, which
+        # remains a human source review.
         run: bash scripts/check-standards-registry.sh
 
       - name: instrument trace inventory (AIR-03)
@@ -104,14 +71,42 @@ jobs:
         # This is an inventory, not a compliance trace, and fabricates nothing.
         run: bash scripts/trace-report.sh
 
-      - name: instrument closure is no_std, standalone (ADR-0017, ADR-0034)
-        # The extraction closure compiles for a bare-metal target in ONE
-        # invocation containing ONLY closure crates — this is the gate the
-        # extracted repo runs unchanged, so it must pass with nothing from
-        # outside the closure. The conformance harness is deliberately
-        # absent: it is a host-side tool and allocates.
+      - name: the family is downstream-agnostic
+        # The family is a CLOSED set: any ecosystem crate in the dependency
+        # graph beyond the allowlist below means the boundary leaked — no
+        # wire protocol, no host, no shell, nothing from a consumer.
+        # Consumers pin this repository, never the reverse (see
+        # docs/instruments/backend-contract.md). The check reads Cargo.lock
+        # because the lock records every edge kind, dev-dependencies
+        # included; a denylist of known consumer names would false-negative
+        # on the next crate the ecosystem grows.
+        run: |
+          known="pilotage-frames pilotage-alerts pilotage-sha256 \
+                 pilotage-instrument-scene pilotage-instrument-state \
+                 pilotage-instrument-glyphs pilotage-instrument-symbology \
+                 pilotage-instrument-panels pilotage-instrument-raster \
+                 pilotage-instrument-conformance pilotage-instrument-feeder \
+                 pilotage-instrument-registry pilotage-evidence \
+                 instrument-bench"
+          fail=0
+          while read -r pkg; do
+            case " $known " in
+              *" $pkg "*) ;;
+              *)
+                echo "Cargo.lock names non-family crate $pkg; the family must stay downstream-agnostic"
+                fail=1
+                ;;
+            esac
+          done < <(grep -oE '^name = "(pilotage|avionics|navigate|aviate|instrument)[a-z0-9-]*"' Cargo.lock \
+                   | sed 's/^name = "//;s/"$//')
+          exit $fail
+
+      - name: instrument closure is no_std, standalone
+        # The closure compiles for a bare-metal target in ONE invocation
+        # containing ONLY closure crates. The conformance harness is
+        # deliberately absent: it is a host-side tool and allocates.
         run: >
-          cargo check
+          cargo check --locked
           -p pilotage-frames
           -p pilotage-alerts
           -p pilotage-sha256
@@ -125,22 +120,6 @@ jobs:
           -p pilotage-instrument-registry
           --target thumbv7em-none-eabihf
 
-      - name: remaining sans-IO crates are no_std (ADR-0017)
-        run: >
-          cargo check
-          -p pilotage-geo
-          -p pilotage-ingress
-          --target thumbv7em-none-eabihf
-
-      - name: the instrument shell is protocol-free (ADR-0034)
-        # The wasm bundle splits on the protocol dependency: the instrument
-        # half must never grow one, or the extraction cut line closes.
-        run: |
-          tree=$(cargo tree -p pilotage-instruments-web-shell -e normal)
-          if grep -q "pilotage-protocol" <<<"$tree"; then
-            echo "pilotage-instruments-web-shell depends on pilotage-protocol"; exit 1
-          fi
-
       - name: target timing gate (REN-04)
         # No display hardware is selected: the USB CDC scan documents that no
         # target is connected, and the envelope gate prices the per-class
@@ -151,201 +130,121 @@ jobs:
         # measured target binds firmware, clock, memory, and compiler state.
         run: |
           bash scripts/detect-target.sh
-          cargo test -p pilotage-instrument-raster timing
-
-      - name: geospatial contract (SVS-01)
-        # Datum discipline, coherence, view/projection, availability, and the
-        # fail-closed versioned ABI for synthetic vision and conformal HUD.
-        run: cargo test -p pilotage-geo
-
-      - name: database package integrity (SVS-02)
-        # Signed, provenance-preserving, atomically activated aeronautical
-        # database packages: one-byte mutation fails tile/package verification,
-        # interrupted update yields the prior package or none, and trust-root,
-        # rollback, expiry, coverage, and datum rules fail closed.
-        run: cargo test -p pilotage-svs-db
+          cargo test --locked -p pilotage-instrument-raster timing
 
       - name: reference rasterizer frame hashes (REN-03)
-        # Re-render the PFD and HSI panels and assert their pinned SHA-256
-        # frame hashes, proving the software rasterizer is bit-reproducible.
-        run: cargo test -p pilotage-instrument-raster
+        # Re-render every shipped panel and assert its pinned SHA-256 frame
+        # hash, proving the software rasterizer is bit-reproducible.
+        run: cargo test --locked -p pilotage-instrument-raster
 
-      - name: instrument bench shell conformance smoke (ADR-0029)
+      - name: instrument bench shell conformance smoke
         # A shell built from the registry alone: runs admission and
-        # reproduces the pinned composition digest on the host target
-        # (the wasm target's reproduction is pinned in the node suite).
-        run: cargo run -q -p instrument-bench
-
-      - name: instrument wasm backend builds
-        # Generating the resource binding here makes the fail-visible test
-        # exercise the exact WASM artifact served by the browser client.
-        run: bash scripts/build-web-instruments.sh
+        # reproduces the pinned composition digest on the host target.
+        run: cargo run --locked -q -p instrument-bench
 
       - name: glyph pack integrity (REN-02)
         # Mandatory-vocabulary completeness, byte-identical reproducibility,
         # and fail-closed corruption detection for the controlled glyph pack.
-        run: cargo test -p pilotage-instrument-glyphs
+        run: cargo test --locked -p pilotage-instrument-glyphs
 
-      - name: web viewer wire conformance
-        run: node clients/web/wire.test.mjs
+      - name: evidence gate — crate tests
+        run: cargo test --locked -p pilotage-evidence --all-targets
 
-      - name: telemetry ingress gate contract
-        run: node clients/web/telemetry-ingress.test.mjs
+      - name: evidence trace — honest verdict and bidirectional trace
+        # Informational: a review may honestly stay PENDING, and a pending
+        # review must never block a merge, so the verdict step stays
+        # advisory. Durable RESOLUTION is enforced by the hard steps below.
+        continue-on-error: true
+        run: >
+          cargo run --locked -q -p pilotage-evidence --bin evidence-gate --
+          --graph docs/instruments/evidence-graph.evg --repo-root . --trace
 
-      - name: navigation display profile (ADR-0031 deviation scaling and signs)
-        run: node clients/web/nav-display.test.mjs
+      - name: evidence trace — selectors MUST resolve against the tree (HARD)
+        # Every recorded case selector names a real test definition in this
+        # tree; the graph travels with its sources, so a non-resolving
+        # selector is a defect, not an expected absence.
+        run: >
+          cargo run --locked -q -p pilotage-evidence --bin evidence-gate --
+          --graph docs/instruments/evidence-graph.evg --repo-root .
+          --resolve-selectors
 
-      - name: telemetry display retirement contract
-        run: node clients/web/telemetry-display.test.mjs
+      - name: evidence trace — baselines MUST be reachable and resolvable (HARD)
+        # Every recorded result must resolve: its declared SCM baseline
+        # reachable from HEAD (not a force-push orphan), its selectors and
+        # artifacts present. Needs full history (fetch-depth: 0 above) so
+        # reachability is decidable.
+        run: >
+          cargo run --locked -q -p pilotage-evidence --bin evidence-gate --
+          --graph docs/instruments/evidence-graph.evg --repo-root .
+          --require-resolvable
 
-      - name: transport session identity contract
-        run: node clients/web/transport-session.test.mjs
-
-      - name: control datagram capability contract
-        run: node clients/web/datagram-control.test.mjs
-
-      - name: state-frame ABI cross-language golden pin
-        run: node clients/web/state-abi.test.mjs
-
-      - name: instrument display fail-visible contract
-        run: node clients/web/instruments.test.mjs
-
-      - name: renderer backend conformance corpus
-        run: node clients/web/scene-conformance.test.mjs
-
-      - name: browser video capture-identity tests (HUD-01)
-        run: node clients/web/video-identity.test.mjs
-
-      - name: viewer video-diagnostics decision logic (readiness dedup + read-failure coalescing)
-        run: node clients/web/video-diagnostics.test.mjs
-
-      - name: video stall transitions (frame-arrival freshness, enter/recover once)
-        run: node clients/web/video-stall.test.mjs
-
-      - name: viewer video-source routing (FPV + chase + gimbal payload)
-        run: node clients/web/video-routing.test.mjs
-
-      - name: viewer incoming-uni-stream accept-loop lifecycle (stream isolation + terminal collection)
-        run: node clients/web/uni-stream-accept.test.mjs
-
-      - name: multiplexed video stream framing (live records, split boundaries, copied bodies)
-        run: node clients/web/video-stream.test.mjs
-
-      - name: viewer bootstrap reader (no LeaseRequest on auto-reconnect, pre-welcome rejection signal)
-        run: node clients/web/bootstrap.test.mjs
-
-      - name: viewer connection auto-recovery lifecycle (backoff/jitter, classification, control-suspended)
-        run: node clients/web/reconnect.test.mjs
-
-      - name: viewer session discovery (manifest validation, stale-tab convergence, visibility-deferred autoconnect)
-        run: node clients/web/session-discovery.test.mjs
-
-      - name: viewer control arm-edge detection (rising edges, hold-across-reconnect safety)
-        run: node clients/web/control-edges.test.mjs
-
-      - name: control runtime golden vectors (wasm == native plans)
-        # The wasm control runtime must produce the SAME plan as the native
-        # Rust golden_vectors test for the same raw samples and profile; this
-        # drives the real wasm artifact built above.
-        run: node clients/web/control-runtime.test.mjs
-
-      - name: control shell structural contract (no browser module holds mapping logic)
-        run: node clients/web/control-structure.test.mjs
-
-      - name: typed-command chain (real wasm -> advertised envelope -> shared wire fixture)
-        run: node clients/web/typed-command.test.mjs
-
-      - name: viewer input-loss gate (latched blur, no post-latch frames, held-button safety)
-        run: node clients/web/control-gate.test.mjs
-
-      - name: control-loop macrotask pacing (gated un-latched path must not microtask-spin)
-        run: node clients/web/control-pacing.test.mjs
-
-      - name: control-loop failure surface (channel-death release, keyup delivery, rejection re-log)
-        run: node clients/web/control-loop-failsafe.test.mjs
-
-      - name: motion-lease reacquisition (release fence, stale-grant rejection, terminal denial)
-        run: node clients/web/motion-lease.test.mjs
-
-      - name: authority stream live decode (fragmented LinkLossCleared, generation correlation)
-        run: node clients/web/authority-stream.test.mjs
-
-      - name: uni-stream reader (0x01 tag + fragmented open stream + live recovery transition)
-        run: node clients/web/uni-stream.test.mjs
-
-      - name: headless-CDP media recovery (cancelled reader credit + live-session re-attach)
-        run: node clients/web/media-recovery.browser.test.mjs
-
-      - name: viewer explicit lease release (ack/timeout/abandon, reconnect awaits settlement)
-        run: node clients/web/lease-release.test.mjs
-
-      - name: viewer connect lifecycle under a racing blur (live lease probe, immediate release)
-        run: node clients/web/connect-lifecycle.test.mjs
-
-      - name: wasm wire-decode conformance (REN)
-        # The wasm exports the viewer decodes with must agree with the JS
-        # reference decoders on layout, numeric kinds, and the capture-identity
-        # contract; this loads the real wasm artifact built above.
-        run: node clients/web/wire-wasm.test.mjs
-
-      - name: browser H.264 decode lifecycle + Annex-B fixture (REN)
-        run: node clients/web/video-h264.test.mjs
-
-      - name: real Chromium/WebCodecs fixture decode (VID-02)
-        # A real browser decodes the recorded Annex-B fixture through the
-        # viewer's wasm session machine and platform adapter: every frame
-        # output, at the recorded dimensions, and closed by the adapter.
-        run: node clients/web/video-h264.browser.test.mjs
-
-      - name: control module browser boot (real wasm, one real control tick)
-        # A real browser imports the control module, instantiates the wasm,
-        # bootstraps the default profile, and runs one evaluate() tick.
-        run: node clients/web/control-runtime.browser.test.mjs
-
-      - name: viewer entrypoint boot contract (VID-04)
-        # A real browser loads the unmodified index.html + main.js: module
-        # evaluation must complete with no wasm-backed object constructed
-        # before wasm init, a good wasm load ends in live panels, and a
-        # failed wasm load degrades visibly without killing the viewer.
-        run: node clients/web/viewer-boot.browser.test.mjs
-
-      - name: browser snapshot-association tests (HUD-01)
-        run: node clients/web/snapshot-association.test.mjs
-
-      - name: browser camera calibration contract (HUD-02)
-        run: node clients/web/calibration.test.mjs
-
-      - name: browser turn-derivation tests (DYN-01)
-        run: node clients/web/turn-derivation.test.mjs
-
-      - name: feeder degraded-mode contract (wasm absent)
-        run: node clients/web/feeder-degraded.test.mjs
-
-      - name: browser wire-range identity bounds (GEO-68)
-        run: node clients/web/wire-bounds.test.mjs
-
-      - name: Setup buf
-        if: hashFiles('schemas/**/*.proto') != ''
-        uses: bufbuild/buf-action@v1
-        with:
-          setup_only: true
-
-      - name: buf lint
-        if: hashFiles('schemas/**/*.proto') != ''
-        run: buf lint schemas
-
-      - name: buf breaking
-        if: hashFiles('schemas/**/*.proto') != ''
-        # Detect wire-schema breakage against the target of this PR (or the
-        # default branch on push), so field-number reuse and other incompatible
-        # edits fail CI (ADR-0014). buf hard-fails when the base ref contains
-        # no .proto files at all (a module with zero protos is an error, not an
-        # empty baseline), so the comparison is skipped until schemas exist on
-        # the base ref.
+      - name: Negative fixtures must all FAIL the gate
         run: |
-          base="${{ github.base_ref || github.event.repository.default_branch }}"
-          if git ls-tree -r "origin/${base}" --name-only | grep -q '^schemas/.*\.proto$'; then
-            buf breaking schemas --against ".git#ref=refs/remotes/origin/${base},subdir=schemas"
-          else
-            echo "origin/${base} has no .proto files yet; nothing to compare against."
+          set -u
+          bin=(cargo run --locked -q -p pilotage-evidence --bin evidence-gate --)
+          fail=0
+          for f in empty missing-root missing-layer dangling-edge \
+                   unresolved-selector orphan-requirement \
+                   missing-result invalid-exception \
+                   pending-review placeholder-result \
+                   unexecuted-result unbacked-review; do
+            if "${bin[@]}" --graph "$FIXTURES/$f.evg" \
+                --repo-root crates/pilotage-evidence >/dev/null 2>&1; then
+              echo "REGRESSION: $f.evg unexpectedly PASSED the gate"; fail=1
+            else
+              echo "ok: $f.evg correctly failed the gate"
+            fi
+          done
+          exit $fail
+
+      - name: Exception expiry is actually enforced in the gate
+        # The invalid-exception fixture is complete and independently reviewed
+        # but EXPIRED. Past its expiry it must fail; before its expiry the
+        # same exception legitimately applies. This proves the as-of date
+        # drives the outcome and expiry is not silently skipped.
+        run: |
+          set -u
+          bin=(cargo run --locked -q -p pilotage-evidence --bin evidence-gate --)
+          fixture="$FIXTURES/invalid-exception.evg"
+          root=crates/pilotage-evidence
+          if "${bin[@]}" --graph "$fixture" --repo-root "$root" \
+              --as-of 2026-07-14 >/dev/null 2>&1; then
+            echo "REGRESSION: expired exception was not caught as of 2026-07-14"; exit 1
           fi
+          echo "ok: expired exception fails once past its expiry"
+          if "${bin[@]}" --graph "$fixture" --repo-root "$root" \
+              --as-of 2019-01-01 >/dev/null 2>&1; then
+            echo "ok: the same exception applies before its expiry"
+          else
+            echo "REGRESSION: exception rejected before its expiry date"; exit 1
+          fi
+
+      - name: Filesystem resolution rejects unresolvable evidence
+        # These fixtures are structurally VALID and fail only when the gate
+        # resolves them against the tree: a test selector naming a missing
+        # symbol; an execution-output artifact that is absent, whose content
+        # does not hash to its declared digest, whose parsed run-record fields
+        # (including the run identity) disagree with the result, or which is a
+        # source file with no run-record fields; an artifact path that is
+        # absolute, climbs out via '..', or symlinks outside the evidence
+        # root; and a review whose named record entry is still pending.
+        run: |
+          set -u
+          bin=(cargo run --locked -q -p pilotage-evidence --bin evidence-gate --)
+          fail=0
+          for f in unresolvable-selector-fs unresolvable-artifact \
+                   mismatched-artifact field-mismatch-artifact \
+                   runid-mismatch-artifact absolute-artifact \
+                   traversal-artifact symlink-escape-artifact \
+                   stale-source-artifact selector-not-a-test \
+                   source-as-artifact unresolved-review-entry \
+                   baseline-unverifiable baseline-unreachable; do
+            if "${bin[@]}" --graph "$FIXTURES/$f.evg" \
+                --repo-root crates/pilotage-evidence \
+                --resolve-selectors >/dev/null 2>&1; then
+              echo "REGRESSION: $f.evg unexpectedly passed resolution"; fail=1
+            else
+              echo "ok: $f.evg correctly failed resolution"
+            fi
+          done
+          exit $fail
