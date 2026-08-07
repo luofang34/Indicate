@@ -98,8 +98,8 @@ jobs:
                  indicate-instrument-glyphs indicate-instrument-symbology \
                  indicate-instrument-panels indicate-instrument-raster \
                  indicate-instrument-conformance indicate-instrument-feeder \
-                 indicate-instrument-registry indicate-evidence \
-                 instrument-bench"
+                 indicate-instrument-descriptor indicate-instrument-registry \
+                 indicate-evidence instrument-bench"
           fail=0
           while read -r pkg; do
             case " $known " in
@@ -119,7 +119,7 @@ jobs:
           # crates means the pattern stopped seeing them, which is how a
           # rename would silently blind this gate.
           seen=$(grep -cE '^name = "(indicate|pilotage|avionics|navigate|aviate|instrument)[a-z0-9_-]*"' Cargo.lock)
-          floor=$(find crates -mindepth 1 -maxdepth 1 -type d | wc -l)
+          floor=$(find crates sets -mindepth 1 -maxdepth 1 -type d | wc -l)
           if [ "$seen" -lt "$floor" ]; then
             echo "the downstream-agnostic filter matched $seen names but the tree has $floor crates; the pattern has gone blind"
             fail=1
@@ -148,6 +148,7 @@ jobs:
           -p indicate-instrument-scene
           -p indicate-instrument-glyphs
           -p indicate-instrument-symbology
+          -p indicate-instrument-descriptor
           -p indicate-instrument-panels
           -p indicate-instrument-raster
           -p indicate-instrument-feeder

@@ -6,13 +6,12 @@ use indicate_instrument_state::{AircraftState, GroupId, PanelData};
 
 use std::vec::Vec;
 
-use super::{Registry, RegistryError};
-use crate::config::ConfigBlob;
-use crate::descriptor::{
-    BackgroundCapability, DesignFrame, ExtremeState, PanelDescriptor, PanelDrawError, Region,
+use indicate_instrument_descriptor::{
+    BackgroundCapability, ConfigBlob, DesignFrame, ExtremeState, GroupSet, PanelDescriptor,
+    PanelDrawError, PanelSet, Region,
 };
-use crate::group_set::GroupSet;
-use crate::set::PanelSet;
+
+use super::{Registry, RegistryError};
 
 fn draw_nothing(
     _data: &PanelData,
@@ -117,7 +116,7 @@ fn a_degenerate_design_frame_is_refused() {
 
 #[test]
 fn schema_key_order_is_enforced() {
-    use crate::config::ConfigKey;
+    use indicate_instrument_descriptor::ConfigKey;
     static UNSORTED: [PanelDescriptor; 1] = [{
         let mut p = panel("pfd");
         p.config_schema = &[ConfigKey(2), ConfigKey(1)];

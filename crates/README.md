@@ -38,6 +38,20 @@ generator crate that no longer exists would have been the oversight. An
 interpreter that hashes the whole JSON document instead of the published
 field is the one consumer this would disturb.
 
+## Tiers
+
+The tree has three library tiers and a tools directory. Each tier states
+what it may depend on, and `check-structure.sh` fails the build on a
+manifest that reaches outside its tier — the dependency law is the
+structure, so it is enforced rather than described. The same check keeps
+the tables below from drifting: every workspace library crate needs a
+row, and every row must name a crate that exists.
+
+### Kernel — `crates/`
+
+The `no_std` closure an instrument may draw against. Depends on the
+kernel only.
+
 | Crate | Role |
 |---|---|
 | `indicate-frames` | Frame and rotation vocabulary (`Quat`); dependency-free leaf. |
@@ -47,13 +61,39 @@ field is the one consumer this would disturb.
 | `indicate-instrument-scene` | Scene IR: layers, opcodes, budgets, structural validation; owns the scene-conformance corpus (`corpus/`). |
 | `indicate-instrument-glyphs` | Controlled glyph pack: manifest, integrity hashes, coverage requirements. |
 | `indicate-instrument-symbology` | Shared symbology: palette, never-skinnable safety constants, status paint, annunciations. |
-| `indicate-instrument-panels` | The shipped panels (PFD, HSI, monitor): immediate-mode scene emission per frame. |
-| `indicate-instrument-raster` | Reference software rasterizer: bit-exact pinned frame hashes, corpus authorship, target-timing evidence (`evidence/`). |
-| `indicate-instrument-registry` | Panel descriptors, group sets, config blobs, canonical states, the cross-shell scene digest. |
+| `indicate-instrument-descriptor` | The vocabulary a set is written against: panel identity, group sets, config blobs and their key schema, canonical states, and the `PanelSet` a provider exports. |
 | `indicate-instrument-feeder` | Source admission ladder shared by every feeding shell. |
+
+### Verification and registry — `crates/`
+
+Composition, admission, the rendering reference, and lifecycle evidence.
+Depends on the kernel and on this tier. **Consumes sets; is never a
+normal dependency of one.**
+
+| Crate | Role |
+|---|---|
+| `indicate-instrument-registry` | Composition of descriptors into a validated registry, and the cross-shell scene digest. |
+| `indicate-instrument-raster` | Reference software rasterizer: bit-exact pinned frame hashes, corpus authorship, target-timing evidence (`evidence/`). |
 | `indicate-instrument-conformance` | Panel admission harness (host-side, allocates; deliberately outside the `no_std` closure). |
 | `indicate-evidence` | Standard-neutral lifecycle evidence graph and gate (`evidence-gate` binary); guards `docs/instruments/evidence-graph.evg`. |
 
-Tools: `tools/instrument-bench` (registry-only shell that reproduces the
-composition digest and runs admission), `tools/xtask`
-(`gen-state-fixture` golden-frame generation).
+### Sets — `sets/`
+
+Panel providers, one crate per set, each exporting one `PanelSet`. A set
+lives here whether or not it was written in this repository.
+
+Normal dependencies are kernel-only, so a set cannot reach the machinery
+that judges it. The registry is allowed as a **dev**-dependency: that
+lets a set pin its own scene digest without standing up a shell, and a
+test-graph edge is not a shipping one.
+
+| Crate | Role |
+|---|---|
+| `indicate-instrument-panels` | The shipped panels (PFD, HSI, monitor): immediate-mode scene emission per frame. |
+
+### Tools — `tools/`
+
+Shells, not a library tier, and unconstrained: `tools/instrument-bench`
+(a registry-only shell that reproduces the composition digest and runs
+admission) and `tools/xtask` (`gen-state-fixture` golden-frame
+generation).

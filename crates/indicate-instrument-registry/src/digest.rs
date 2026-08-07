@@ -12,14 +12,14 @@
 //! digest moves exactly once per deliberate contract change, re-pinned
 //! with a review note saying why.
 
+use indicate_instrument_descriptor::{
+    BackgroundCapability, CANONICAL_STATES, EMPTY_CONFIG, PanelDescriptor, PanelDrawError,
+};
 use indicate_instrument_scene::{SCENE_FORMAT_VERSION, SceneWriter};
 use indicate_instrument_state::{FreshnessPolicy, abi::v6, resolve};
 use indicate_sha256::Sha256Ctx;
 
-use crate::config::EMPTY_CONFIG;
-use crate::descriptor::{PanelDescriptor, PanelDrawError};
 use crate::registry::Registry;
-use crate::states::CANONICAL_STATES;
 
 /// Domain separator; a new value is a deliberate contract break.
 ///
@@ -87,9 +87,9 @@ fn digest_panel_contract(ctx: &mut Sha256Ctx, panel: &PanelDescriptor) {
     ctx.update(&panel.design_frame.width.to_le_bytes());
     ctx.update(&panel.design_frame.height.to_le_bytes());
     ctx.update(&[match panel.background {
-        crate::descriptor::BackgroundCapability::NotUsed => 0,
-        crate::descriptor::BackgroundCapability::Opaque => 1,
-        crate::descriptor::BackgroundCapability::Cedeable => 2,
+        BackgroundCapability::NotUsed => 0,
+        BackgroundCapability::Opaque => 1,
+        BackgroundCapability::Cedeable => 2,
     }]);
     ctx.update(&(panel.config_schema.len() as u32).to_le_bytes());
     for key in panel.config_schema {

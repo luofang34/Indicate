@@ -7,9 +7,9 @@
 //! and never holds a panel list, index, or mask of its own.
 
 use indicate_alerts::AlertOutput;
-use indicate_instrument_registry::{
-    BackgroundCapability, ConfigBlob, DesignFrame, GroupSet, PanelDescriptor, PanelDrawError,
-    PanelSet, Region,
+use indicate_instrument_descriptor::{
+    BackgroundCapability, ConfigBlob, DesignFrame, ExtremeState, GroupSet, PanelDescriptor,
+    PanelDrawError, PanelSet, Region, states,
 };
 use indicate_instrument_scene::{LayerId, SceneWriter};
 use indicate_instrument_state::{
@@ -17,8 +17,6 @@ use indicate_instrument_state::{
     HeadingReference, HeadingSample, Kinematics, MonitorText, NavData, NavFromTo, NavSource,
     PanelData, Quat, Stamped, TextLine, TurnBasis, TurnSample,
 };
-
-use indicate_instrument_registry::{ExtremeState, states};
 
 use crate::pfd::PFD_CONFIG_SCHEMA;
 use crate::{PANEL_H, PANEL_W, PfdConfig, draw_hsi, draw_pfd};

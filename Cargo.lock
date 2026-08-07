@@ -165,6 +165,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "indicate-instrument-descriptor"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-instrument-scene",
+ "indicate-instrument-state",
+ "thiserror",
+]
+
+[[package]]
 name = "indicate-instrument-feeder"
 version = "0.1.0"
 dependencies = [
@@ -185,6 +195,7 @@ version = "0.1.0"
 dependencies = [
  "indicate-alerts",
  "indicate-frames",
+ "indicate-instrument-descriptor",
  "indicate-instrument-glyphs",
  "indicate-instrument-registry",
  "indicate-instrument-scene",
@@ -212,6 +223,7 @@ name = "indicate-instrument-registry"
 version = "0.1.0"
 dependencies = [
  "indicate-alerts",
+ "indicate-instrument-descriptor",
  "indicate-instrument-scene",
  "indicate-instrument-state",
  "indicate-sha256",
