@@ -113,10 +113,10 @@ guards accidental drift on every side.
 
 | Category | Cases |
 |---|---|
-| Normal displays / every opcode | empty-background canonical, every drawing opcode, multi-layer PFD, transforms, clip, guidance, background imagery |
+| Normal displays / every opcode | empty-background canonical, every drawing opcode, multi-layer PFD, transforms, clip, guidance, background imagery, frame-edge overhang |
 | Validity/failure imagery | failure-display band, annunciation flag |
 | Extreme attitude / coordinates | large roll & translate, large in-range coordinate |
-| Text / glyphs | covered digit, uncovered character |
+| Text / glyphs | covered digit, uncovered character, center-anchored multi-digit run |
 | Version policy | unknown opcode counted (inside and outside a layer) |
 | Malformed / truncated | bad version, truncated tail, malformed known payload, unknown layer id, full truncation sweep |
 | Layer structure | duplicate, out-of-order, nested, end-without-begin, end-mismatch, unclosed, command-outside-layer, unisolated state, unbalanced state |
