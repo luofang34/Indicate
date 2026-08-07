@@ -4,9 +4,9 @@
 //! runtime uses and writes one lowercase-hex line per fixture into
 //! `crates/pilotage-instrument-state/fixtures/` — inside the crate that
 //! owns the codec, so the fixtures travel with it. The Rust golden test
-//! and the JS state-writer
-//! test both pin against these committed files, so the two sides of the
-//! wasm boundary can only drift by turning CI red.
+//! and downstream state writers (the Pilotage browser shell's
+//! `state-abi.js` among them) pin against these committed files, so the
+//! sides of that boundary can only drift by turning a consumer's CI red.
 
 use std::path::{Path, PathBuf};
 

@@ -1,6 +1,15 @@
 # Indicate
 
-SIM / NOT FOR FLIGHT. Nothing here is certified, approved, or airworthy.
+> **⚠️ Work in progress — experimental.** Indicate is early-stage,
+> experimental software under active development, provided **as is**
+> with **no warranty or guarantee of any kind**, express or implied —
+> including, without limitation, fitness for a particular purpose,
+> correctness, reliability, availability, or safety. Interfaces and
+> behavior may change without notice.
+>
+> **SIM / NOT FOR FLIGHT.** Nothing here is certified, approved, or airworthy.
+> Nothing may be used for operational control of a real vehicle or for any
+> safety-critical purpose. Use at your own risk.
 
 The standalone instrument crate family: `no_std` flight instrument
 panels that emit an immediate-mode scene command stream, plus the
