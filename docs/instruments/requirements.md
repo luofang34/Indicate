@@ -251,12 +251,22 @@ independent monitored input whose alerts have priority over SVS graphics.
 ### AIR-OUT-011 — Composed multi-panel surface
 
 A display may present several panels on one surface, each placed in a declared
-region of a logical screen and stacked in a declared order. The composition
-shall be declared rather than computed at draw time, and shall be refused before
-first paint when a declared region falls outside the screen, when a panel is
-asked for a size it does not support, when a panel is wholly covered by opaque
-panels above it, or when a panel above obscures the criticality content of a
-panel below without that obscuration being declared.
+region of a logical screen and stacked in a declared order. Composing a panel
+shall not change its own modes, reversion, or failure presentation.
+
+The composition shall be declared rather than computed at draw time, and shall
+be refused before first paint when a declared region falls outside the screen,
+when a panel is asked for a size it does not support, when a panel is wholly
+covered by opaque panels above it, or when a panel above obscures the
+criticality content of a panel below without that obscuration being declared.
+
+*Criticality content* is a panel's warnings, miscompare and failure
+indications, together with the simulation labelling required by
+[`AIR-BAS-001`](requirements.md#air-bas-001) and
+[`AIR-FLAG-007`](requirements.md#air-flag-007). A declared obscuration shall
+not conceal it: declaring an obscuration permits a lower panel's ordinary
+symbology to be covered, never its warnings, its failure indications, or the
+labelling that identifies the surface as simulation.
 
 Every panel in a composed surface shall be resolved from one input snapshot and
 one alert state per composed frame, so that two panels presenting the same
@@ -266,7 +276,8 @@ A panel that fails at run time shall present its failure within its own region
 and shall not suppress, delay, or alter any other panel's output.
 
 Composition is placement only: no panel's emitted geometry is reinterpreted,
-rewritten, or rescaled to fit its region.
+rewritten, or rescaled to fit its region. The single uniform mapping from the
+logical screen to the physical surface is unaffected by this.
 
 ## Modes
 
