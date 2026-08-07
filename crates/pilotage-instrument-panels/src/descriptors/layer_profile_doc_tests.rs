@@ -15,7 +15,9 @@ use super::{BUILTIN_PANELS, layer_bit};
 
 const PROTOCOL_DOC: &str = include_str!("../../../../docs/instruments/scene-layer-protocol.md");
 
-const SECTION: &str = "## Required panel profiles";
+const HEADING: &str = "## Required panel profiles";
+
+const HEADER: [&str; 3] = ["Panel", "Required layers", "Optional layers"];
 
 /// Every defined layer, ascending — the order both table columns list.
 fn defined_layers() -> Vec<LayerId> {
@@ -41,42 +43,84 @@ fn backticked(layers: &[LayerId]) -> String {
         .join(", ")
 }
 
-/// The table's data rows as (panel, required, optional).
-fn documented_rows() -> Vec<(String, String, String)> {
-    let section = PROTOCOL_DOC
-        .split_once(SECTION)
+/// The profiles section alone, bounded by the next section's heading:
+/// a table elsewhere in the document can never be read as a profile row,
+/// and deleting the real table fails loudly instead of silently
+/// latching onto the next one.
+fn section() -> &'static str {
+    let after = PROTOCOL_DOC
+        .split_once(HEADING)
         .expect("the layer-protocol document still has a required-profiles section")
         .1;
-    let mut rows: Vec<(String, String, String)> = Vec::new();
-    for line in section.lines() {
-        let line = line.trim();
-        if !line.starts_with('|') {
-            // The profiles table is one contiguous block. Stopping at its
-            // end keeps a later table in the document from being read as
-            // a profile row.
-            if rows.is_empty() {
-                continue;
-            }
-            break;
-        }
-        let cells: Vec<&str> = line.trim_matches('|').split('|').map(str::trim).collect();
-        assert_eq!(
-            cells.len(),
-            3,
-            "a profiles row must carry panel, required, and optional: {line}"
-        );
-        let is_header = cells[0] == "Panel";
-        let is_rule = cells.iter().all(|cell| cell.chars().all(|c| c == '-'));
-        if is_header || is_rule {
-            continue;
-        }
-        rows.push((
-            String::from(cells[0]),
-            String::from(cells[1]),
-            String::from(cells[2]),
-        ));
-    }
-    rows
+    after
+        .split_once("\n## ")
+        .map_or(after, |(section, _)| section)
+}
+
+fn cells(row: &str) -> Vec<&str> {
+    let cells: Vec<&str> = row.trim_matches('|').split('|').map(str::trim).collect();
+    assert_eq!(
+        cells.len(),
+        HEADER.len(),
+        "a profiles row must carry panel, required, and optional: {row}"
+    );
+    cells
+}
+
+/// Lines of the section that belong to a markdown table.
+fn table_lines() -> Vec<&'static str> {
+    section()
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.starts_with('|'))
+        .collect()
+}
+
+/// The table's data rows as (panel, required, optional).
+///
+/// Parsing is positional — header, delimiter, then data — so a row
+/// cannot exempt itself from the comparison by imitating the header or
+/// leaving its cells blank.
+fn documented_rows() -> Vec<(String, String, String)> {
+    let lines = table_lines();
+    let mut lines = lines.into_iter();
+    let header = lines
+        .next()
+        .expect("the profiles section still contains a table");
+    assert_eq!(
+        cells(header),
+        HEADER.to_vec(),
+        "the profiles table's columns must stay panel, required, optional"
+    );
+    let delimiter = lines.next().expect("the table still has a delimiter row");
+    assert!(
+        cells(delimiter)
+            .iter()
+            .all(|cell| !cell.is_empty() && cell.chars().all(|c| c == '-')),
+        "the row under the header must be the table delimiter: {delimiter}"
+    );
+    lines
+        .map(|line| {
+            let cells = cells(line);
+            (
+                String::from(cells[0]),
+                String::from(cells[1]),
+                String::from(cells[2]),
+            )
+        })
+        .collect()
+}
+
+/// A second table in the section could assert profiles nothing checks.
+#[test]
+fn the_profiles_section_holds_exactly_one_table() {
+    let expected = BUILTIN_PANELS.len() + 2;
+    assert_eq!(
+        table_lines().len(),
+        expected,
+        "the profiles section must hold one table: a header, a delimiter, \
+         and one row per shipped panel"
+    );
 }
 
 #[test]
@@ -117,17 +161,25 @@ fn the_documented_profiles_are_the_descriptor_masks() {
     }
 }
 
-/// The guard is only worth its line count if a drifting mask breaks it.
+/// The comparison guards drift only if a changed mask changes the cell
+/// it compares, so drift cannot hide behind an unchanged string.
 #[test]
-fn a_drifting_mask_is_caught() {
-    let mut drifted = *BUILTIN_PANELS
+fn a_changed_mask_changes_the_cell_the_guard_compares() {
+    let panel = BUILTIN_PANELS
         .first()
         .expect("the family ships at least one panel");
+    let rows = documented_rows();
+    let row = rows.first().expect("that panel has a row");
+    let mut drifted = *panel;
     drifted.required_layers &= !layer_bit(LayerId::Annunciation);
-    let (required, _) = cells_from_mask(&drifted);
-    let documented = documented_rows();
+    assert_eq!(
+        cells_from_mask(panel).0,
+        row.1,
+        "the shipped mask must match the row the guard reads"
+    );
     assert_ne!(
-        required, documented[0].1,
-        "dropping a required layer must change the cell this test compares"
+        cells_from_mask(&drifted).0,
+        row.1,
+        "dropping a required layer must break that match"
     );
 }
