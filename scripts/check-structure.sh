@@ -254,58 +254,72 @@ indicate-instrument-feeder"
 VERIFICATION_CRATES="indicate-instrument-raster indicate-instrument-conformance \
 indicate-instrument-registry indicate-evidence"
 
-in_list() {
-    case " $2 " in
-        *" $1 "*) return 0 ;;
-        *) return 1 ;;
-    esac
-}
-
-# Names in `[dependencies]` only — dev- and build-dependencies are
-# separate tables and do not constrain what a crate ships.
-normal_dependencies() {
-    awk '
-        /^[[:space:]]*\[/ { in_deps = ($0 ~ /^[[:space:]]*\[dependencies\][[:space:]]*$/) }
-        in_deps && /^[[:space:]]*[A-Za-z0-9_-]+[[:space:]]*=/ {
-            line = $0
-            sub(/^[[:space:]]*/, "", line)
-            sub(/[[:space:]]*=.*$/, "", line)
-            print line
-        }
-    ' "$1"
-}
-
+# Cargo answers, rather than a regex over TOML. A manifest may write a
+# dependency six ways this file would otherwise have to anticipate —
+# `dep.workspace = true`, a quoted key, a `[dependencies.dep]` section,
+# a `[target.'cfg(…)'.dependencies]` table, a `package = ` rename, or a
+# table header trailed by a comment — and a scanner that misses one of
+# them prints OK over the edge it was written to hold. `cargo metadata`
+# reports the RESOLVED package name, the dependency kind, and the target
+# it applies to, so a rename cannot hide a crate behind another name.
 check_tier_law() {
-    local manifest dir name tier allowed dep
-    while IFS= read -r manifest; do
-        dir="$(dirname "$manifest")"
-        name="$(package_name "$manifest" || true)"
-        case "$dir" in
-            ./tools/*) continue ;;
-            ./sets/*) tier="set"; allowed="$KERNEL_CRATES" ;;
-            *)
-                if in_list "$name" "$KERNEL_CRATES"; then
-                    tier="kernel"; allowed="$KERNEL_CRATES"
-                elif in_list "$name" "$VERIFICATION_CRATES"; then
-                    tier="verification"; allowed="$KERNEL_CRATES $VERIFICATION_CRATES"
-                else
-                    echo "FORBIDDEN: $name is in no tier; add it to the kernel or verification list in $(basename "${BASH_SOURCE[0]}")" >&2
-                    status=1
-                    continue
-                fi
-                ;;
-        esac
-        while IFS= read -r dep; do
-            case "$dep" in
-                indicate-*) ;;
-                *) continue ;;
-            esac
-            if ! in_list "$dep" "$allowed"; then
-                echo "FORBIDDEN: $tier crate $name depends on $dep, which its tier may not reach" >&2
-                status=1
-            fi
-        done < <(normal_dependencies "$manifest")
-    done < <(find . -name Cargo.toml -not -path './target/*' -not -path './.git/*' -mindepth 2)
+    local metadata
+    metadata="$(mktemp)"
+    if ! cargo metadata --format-version 1 --no-deps >"$metadata" 2>/dev/null; then
+        echo "FORBIDDEN: cargo metadata failed; the tier law cannot be checked (fail-closed)" >&2
+        status=1
+        rm -f "$metadata"
+        return
+    fi
+    python3 - "$metadata" "$KERNEL_CRATES" "$VERIFICATION_CRATES" <<'PY' || status=1
+import json, os, sys
+
+metadata, kernel, verification = sys.argv[1], sys.argv[2].split(), sys.argv[3].split()
+packages = json.load(open(metadata))["packages"]
+root = os.getcwd()
+known = {p["name"] for p in packages}
+bad = False
+
+def report(message):
+    global bad
+    print("FORBIDDEN: " + message, file=sys.stderr)
+    bad = True
+
+# A tier list naming a crate that no longer exists is drift of the same
+# kind the crate map guards against, one file over.
+for name in kernel + verification:
+    if name not in known:
+        report(f"the tier lists name {name}, which is not a crate in this workspace")
+
+for package in sorted(packages, key=lambda p: p["name"]):
+    name = package["name"]
+    where = os.path.relpath(package["manifest_path"], root)
+    if where.startswith("tools/"):
+        continue
+    if where.startswith("sets/"):
+        tier, allowed = "set", kernel
+    elif name in kernel:
+        tier, allowed = "kernel", kernel
+    elif name in verification:
+        tier, allowed = "verification", kernel + verification
+    else:
+        report(f"{name} is in no tier; add it to the kernel or verification list")
+        continue
+    for dependency in package["dependencies"]:
+        # Only what the crate ships: dev- and build-dependencies do not
+        # constrain a tier, which is what lets a set pin its own digest.
+        if dependency.get("kind") is not None:
+            continue
+        depended = dependency["name"]
+        if depended not in known or depended in allowed:
+            continue
+        target = dependency.get("target")
+        qualifier = f" (under target {target})" if target else ""
+        report(f"{tier} crate {name} depends on {depended}{qualifier}, which its tier may not reach")
+
+sys.exit(1 if bad else 0)
+PY
+    rm -f "$metadata"
 }
 
 # The crate map is prose about the tree, so it drifts unless checked:
@@ -337,6 +351,15 @@ check_safety_constant_count
 check_crate_naming
 check_tier_law
 check_crate_map
+
+# The tier law is the one check here that a manifest can spell its way
+# around, so it carries a selftest proving it refuses each spelling. The
+# child guard stops the recursion, since the selftest runs this script.
+if [ "${INDICATE_STRUCTURE_SELFTEST_CHILD:-0}" != "1" ]; then
+    if ! INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash "$root_dir/scripts/test-structure.sh"; then
+        status=1
+    fi
+fi
 
 if [ "$status" -ne 0 ]; then
     echo "check-structure: FAILED" >&2
