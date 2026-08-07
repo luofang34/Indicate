@@ -462,4 +462,6 @@ pub const BUILTIN_SCENE_DIGEST: &str =
 #[cfg(test)]
 mod digest_tests;
 #[cfg(test)]
+mod layer_profile_doc_tests;
+#[cfg(test)]
 mod tests;

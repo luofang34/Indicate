@@ -112,8 +112,24 @@ enforce its required layer mask before visible commit:
 
 | Panel | Required layers | Optional layers |
 |---|---|---|
-| PFD | `Attitude`, `Tapes`, `Annunciation` | `Background`, `Guidance`, `Failure` |
+| PFD | `Attitude`, `Tapes`, `Guidance`, `Annunciation` | `Background`, `Failure` |
 | HSI | `Attitude`, `Tapes`, `Guidance`, `Annunciation` | `Background`, `Failure` |
+| Monitor | `Tapes`, `Annunciation` | `Background`, `Attitude`, `Guidance`, `Failure` |
+
+This table is the `required_layers` mask of each shipped descriptor, not an
+independent statement of intent: the required column is the mask, the optional
+column is its complement over the defined layers, and both are listed in
+ascending layer order. `layer_profile_doc_tests` in
+`pilotage-instrument-panels` parses this table and fails the build if either
+column disagrees with the descriptor it describes, so a mask change must
+arrive with its row. The section holds this one table and no other.
+
+A panel requires a band when it opens that band on *every* frame, not when the
+band always carries content. The PFD requires `Guidance` on those terms: it
+opens the band unconditionally so the layer contract holds under every
+degradation, and the flight-director command bars inside it disappear when the
+director is disengaged, invalid, or decluttered by the unusual-attitude tier.
+A backend must therefore not read an empty `Guidance` band as a missing one.
 
 A well-framed prefix that ends at a layer boundary is a smaller structural
 scene, not proof of a complete panel frame. Missing a required layer is a
