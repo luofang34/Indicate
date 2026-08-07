@@ -56,6 +56,37 @@ the two gate invocations locally after touching any recorded source.
   architecture decision records living in the Pilotage repository's
   `docs/adr/`.
 
+## Cutting a release
+
+Consumers pin a bare revision, so a revision meant to be pinned carries
+an annotated tag and a `CHANGELOG.md` entry naming what it contains.
+
+Cut one whenever any of the five contract values moves: state ABI, scene
+format, corpus, composition digest, or the panel set.
+
+1. Add a `## [x.y.z]` entry at the top of `CHANGELOG.md` with all five
+   values, and anything a consumer re-pinning across it must know.
+   `scripts/check-release-markers.sh` fails the build if a value
+   disagrees with the tree, so run it before pushing.
+2. Merge. The release names the *merge* commit.
+3. Tag that commit, with the same five values in the message:
+
+   ```
+   git tag -a v0.1.0 -m 'Indicate v0.1.0
+   state ABI: 6
+   scene format: 1
+   corpus: 4
+   composition digest: bd85b853…
+   panel set: pfd, hsi, monitor'
+   git push origin v0.1.0
+   ```
+
+Step 3 is deliberately manual and unguarded. A release tags its own
+merge commit, which does not exist while the pull request creating the
+entry is open, so a CI check for the tag would fail every release on the
+one run that matters. The changelog entry is what CI can hold honest;
+the tag is what a human owes it.
+
 ## Discipline that is easy to miss
 
 - REN-03 frame hashes and the scene digest are pinned invariants, not
