@@ -72,6 +72,24 @@ pub(super) fn valid_entries(out: &mut Vec<CorpusEntry>) {
         }),
         true,
     ));
+    out.push(raw(
+        "frame-edge-overhang",
+        "valid",
+        Some(
+            "Ink crossing all four design-frame edges: the frame clip, not the \
+             panel author, bounds what reaches pixels (backend-contract \
+             design-frame rule).",
+        ),
+        in_layer(LayerId::Attitude, |w| {
+            w.fill_color(WHITE).expect("fill");
+            w.rect(PaintMode::Fill, -20.0, -20.0, 60.0, 60.0)
+                .expect("top-left overhang");
+            w.rect(PaintMode::Fill, 460.0, 340.0, 40.0, 40.0)
+                .expect("bottom-right overhang");
+            w.line(-40.0, 180.0, 520.0, 180.0).expect("full-width line");
+        }),
+        true,
+    ));
 }
 
 pub(super) fn symbology_entries(out: &mut Vec<CorpusEntry>) {

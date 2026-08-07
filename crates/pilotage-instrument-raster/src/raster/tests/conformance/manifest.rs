@@ -22,10 +22,10 @@ use super::outcomes::{Outcome, outcome_of};
 use crate::{MAX_DIMENSION, MAX_POLYGON_VERTICES, WORST_CASE_FRAME_BYTES};
 
 const SCHEMA_VERSION: u32 = 2;
-const CORPUS_VERSION: u32 = 3;
-const REVIEW_REASON: &str = "Add text-centered-multichar: a center-anchored multi-digit run at a \
-readout-like size, pinning that both backends place centered readout values from the same nominal \
-advance (DISP-02's width-aware readout fitting relies on that agreement).";
+const CORPUS_VERSION: u32 = 4;
+const REVIEW_REASON: &str = "Add frame-edge-overhang: ink crossing all four design-frame edges, \
+pinning that every backend clips at the frame boundary rather than trusting panel authorship \
+(the backend-contract design-frame rule made replayable).";
 const REVIEW_APPROVED_BY: &str =
     "REN-04 owner; regenerated goldens require human review and are never rewritten by CI.";
 
