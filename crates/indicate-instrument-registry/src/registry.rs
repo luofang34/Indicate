@@ -31,7 +31,12 @@ pub struct Registry {
 /// The flattened order is contractual — it is the order
 /// [`crate::scene_digest`] streams — so a shell's set list is its
 /// composition order.
-#[derive(Debug, Clone, Copy)]
+///
+/// `Clone` but deliberately not `Copy`, following the slice iterators:
+/// a `Copy` iterator can be consumed through a copy while the original
+/// silently stays where it was, and a half-read composition that looks
+/// whole is the wrong thing to make easy here.
+#[derive(Debug, Clone)]
 pub struct Panels {
     composition: Composition,
     set: usize,
@@ -100,7 +105,7 @@ pub enum RegistryError {
     /// A panel id violates the lowercase/digits/dashes charset.
     #[error("panel {index} has a malformed id")]
     BadId {
-        /// Position in the composed slice.
+        /// Position in the flattened composition.
         index: usize,
     },
     /// Two panels share an id.
@@ -112,20 +117,20 @@ pub enum RegistryError {
     /// An empty title cannot label health or layout surfaces.
     #[error("panel {index} has an empty title")]
     EmptyTitle {
-        /// Position in the composed slice.
+        /// Position in the flattened composition.
         index: usize,
     },
     /// A panel that requires no layers would pass every completeness
     /// check vacuously.
     #[error("panel {index} declares no required layers")]
     NoRequiredLayers {
-        /// Position in the composed slice.
+        /// Position in the flattened composition.
         index: usize,
     },
     /// Required-layer bits beyond the defined scene layers.
     #[error("panel {index} requires undefined layer bits {bits:#04x}")]
     UndefinedLayerBits {
-        /// Position in the composed slice.
+        /// Position in the flattened composition.
         index: usize,
         /// The offending mask.
         bits: u8,
@@ -133,13 +138,13 @@ pub enum RegistryError {
     /// A non-finite or non-positive design frame.
     #[error("panel {index} has a degenerate design frame")]
     BadDesignFrame {
-        /// Position in the composed slice.
+        /// Position in the flattened composition.
         index: usize,
     },
     /// Schema keys must be strictly ascending (unique by construction).
     #[error("panel {index} schema key {key} repeats or descends")]
     SchemaKeysNotAscending {
-        /// Position in the composed slice.
+        /// Position in the flattened composition.
         index: usize,
         /// The out-of-order key.
         key: u16,
@@ -147,7 +152,7 @@ pub enum RegistryError {
     /// A group region for a group the panel does not consume.
     #[error("panel {index} declares a region for group {group} it does not require")]
     RegionGroupNotRequired {
-        /// Position in the composed slice.
+        /// Position in the flattened composition.
         index: usize,
         /// The wire tag of the unrequired group.
         group: u8,
@@ -155,7 +160,7 @@ pub enum RegistryError {
     /// A group region outside the design frame (or degenerate).
     #[error("panel {index} declares a region for group {group} outside its design frame")]
     RegionOutsideFrame {
-        /// Position in the composed slice.
+        /// Position in the flattened composition.
         index: usize,
         /// The wire tag of the group.
         group: u8,
@@ -163,7 +168,7 @@ pub enum RegistryError {
     /// Two extreme states of one panel share an id.
     #[error("panel {index} repeats the extreme-state id at position {position}")]
     DuplicateExtremeId {
-        /// Position in the composed slice.
+        /// Position in the flattened composition.
         index: usize,
         /// Position of the second occurrence within the panel.
         position: usize,
@@ -171,7 +176,7 @@ pub enum RegistryError {
     /// An extreme-state id violates the lowercase/digits/dashes charset.
     #[error("panel {index} extreme state {position} has a malformed id")]
     BadExtremeId {
-        /// Position in the composed slice.
+        /// Position in the flattened composition.
         index: usize,
         /// Position of the offending extreme state within the panel.
         position: usize,
@@ -231,6 +236,11 @@ impl Registry {
     /// The per-panel rules, run over the flattened composition.
     fn validated(composition: Composition) -> Result<Registry, RegistryError> {
         let registry = Registry { composition };
+        // Both constructors already refuse a composition that yields no
+        // panels, so this is unreachable today. It stays because it is
+        // the invariant the per-panel loop below depends on, and a
+        // third `Composition` shape would otherwise inherit a loop that
+        // passes by iterating nothing.
         if registry.panels().next().is_none() {
             return Err(RegistryError::Empty);
         }
