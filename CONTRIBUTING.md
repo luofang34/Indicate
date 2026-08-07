@@ -1,47 +1,48 @@
-# Contributing to Pilotage
+# Contributing to Indicate
 
 ## Toolchain setup
 
-1. Install the Rust toolchain pinned by `rust-toolchain.toml` (stable channel);
-   `rustup` will pick it up automatically when you run any `cargo` command in
-   this repository.
-2. Install `protoc` (needed by `prost-build` for crates that compile
-   `schemas/*.proto`).
-3. Install `shellcheck` (used to lint `scripts/*.sh`).
-4. On Linux, install `libudev-dev` (required to build `hidapi`).
-5. If `schemas/` contains `.proto` files, install `buf` to run `buf lint`
-   locally before pushing.
+1. Install the Rust toolchain pinned by `rust-toolchain.toml` (stable
+   channel); `rustup` picks it up automatically.
+2. Add the bare-metal check target: `rustup target add thumbv7em-none-eabihf`.
+3. Install `shellcheck` if you touch `scripts/*.sh`.
 
-## Local gate commands
+## Local gate battery
 
-Run these in order before opening a PR — they are the same gates CI runs in
-`.github/workflows/ci.yml`, and all of them are blocking:
+Run the full battery before pushing; CI runs the same set.
 
-```bash
+```sh
 cargo fmt --all --check
 cargo clippy --all-targets -- -D warnings
 cargo test --all-targets
-RUSTDOCFLAGS='-D missing_docs -D rustdoc::broken_intra_doc_links' cargo doc --no-deps
+RUSTDOCFLAGS="-D missing_docs -D rustdoc::broken_intra_doc_links" cargo doc --no-deps
 cargo build --release
 bash scripts/check-structure.sh
+bash scripts/check-instrument-requirements.sh
+bash scripts/check-certification-claims.sh
+bash scripts/check-standards-registry.sh
+cargo check -p pilotage-frames -p pilotage-alerts -p pilotage-sha256 \
+  -p pilotage-instrument-state -p pilotage-instrument-scene \
+  -p pilotage-instrument-glyphs -p pilotage-instrument-symbology \
+  -p pilotage-instrument-panels -p pilotage-instrument-raster \
+  -p pilotage-instrument-feeder -p pilotage-instrument-registry \
+  --target thumbv7em-none-eabihf
+cargo run -q -p instrument-bench
 ```
 
-If `schemas/` contains `.proto` files, also run `buf lint` from the repo
-root.
+## Discipline that is easy to miss
 
-## PR discipline
-
-- One issue per PR. Break large refactors into independently revertible
-  steps.
-- Every PR lands the fix **and** the guardrail that prevents its regression
-  (a test, a lint, or a CI script change) in the same PR. A fix without a
-  guardrail is temporary.
-- Do not skip hooks, force-push shared branches, or bypass the gates above to
-  land a PR faster; if a gate is wrong, fix the gate in its own PR first.
-
-## Workspace conventions
-
-See `docs/adr/0002-cargo-workspace-portable-sans-io-core.md` and
-`docs/adr/0015-workspace-quality-gates.md` for the architectural and lint
-rules this repository enforces mechanically (sans-IO core crates, structure
-limits, error-handling conventions, and the CI pipeline order).
+- REN-03 frame hashes and the scene digest are pinned invariants, not
+  values to refresh: a mismatch is a determinism regression unless the
+  change deliberately moves paint, and a deliberate move re-pins once,
+  with the reason in the commit message.
+- A corpus edit is a versioned event: bump `corpusVersion`, expect every
+  pinned consumer to go red at its next pin advance, and treat that red
+  as the sync mechanism working.
+- The evidence graph (`docs/instruments/evidence-graph.evg`) binds test
+  sources by content digest and its baseline by commit: editing a
+  recorded source file requires re-recording that evidence, and history
+  rewrites that orphan the baseline commit are forbidden.
+- Panels are authored in the design frame their descriptor declares;
+  unclipped ink past the frame edge is counted and ratcheted by the
+  admission harness — growth is a deliberate decision, not drift.

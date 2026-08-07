@@ -1,30 +1,30 @@
-//! Repository orchestration entry point (`cargo xtask ...`): launches a
-//! full SITL session behind one command with event-based readiness and
-//! ordered teardown, and wraps the simulation reset script.
+//! Repository orchestration entry point (`cargo xtask ...`): golden-frame
+//! generation for the state ABI.
 
 use std::process::ExitCode;
 
-mod backend;
-mod cli;
 mod error;
 mod fixture;
-mod log_archive;
 mod output;
-mod process;
-mod readiness;
-mod session;
 
-use cli::Command;
 use output::print_line;
+
+const USAGE: &str = "\
+cargo xtask <command>
+
+Commands:
+  gen-state-fixture
+      Regenerate the committed state-ABI golden frames in
+      crates/pilotage-instrument-state/fixtures/ from the shared
+      posture fixtures.
+  help
+      Show this message.";
 
 fn main() -> ExitCode {
     tracing_subscriber::fmt::init();
     let args: Vec<String> = std::env::args().skip(1).collect();
     match run(&args) {
         Ok(()) => ExitCode::SUCCESS,
-        // A ctrl-c before the session was ready is a requested stop:
-        // everything started has been torn down, nothing failed.
-        Err(error::XtaskError::Cancelled) => ExitCode::SUCCESS,
         Err(error) => {
             tracing::error!(%error, "xtask failed");
             ExitCode::FAILURE
@@ -33,22 +33,25 @@ fn main() -> ExitCode {
 }
 
 fn run(args: &[String]) -> Result<(), error::XtaskError> {
-    match cli::parse_args(args)? {
-        Command::Help => {
-            print_line(cli::USAGE);
+    let Some((command, rest)) = args.split_first() else {
+        print_line(USAGE);
+        return Ok(());
+    };
+    match command.as_str() {
+        "gen-state-fixture" => {
+            if let Some(extra) = rest.first() {
+                return Err(error::XtaskError::Usage {
+                    message: format!("gen-state-fixture takes no arguments, got {extra:?}"),
+                });
+            }
+            fixture::run()
+        }
+        "help" | "--help" | "-h" => {
+            print_line(USAGE);
             Ok(())
         }
-        Command::Reset(fc) => session::run_reset(&fc),
-        Command::GenStateFixture => fixture::run(),
-        Command::Sim(sim) => {
-            let runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .map_err(|source| error::XtaskError::Io {
-                    context: "building the async runtime",
-                    source,
-                })?;
-            runtime.block_on(session::run_sim(&sim))
-        }
+        other => Err(error::XtaskError::Usage {
+            message: format!("unknown command {other:?} (expected gen-state-fixture or help)"),
+        }),
     }
 }

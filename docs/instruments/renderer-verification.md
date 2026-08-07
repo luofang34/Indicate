@@ -14,14 +14,15 @@ engineering conformance for the simulator; it makes no certification claim.
 | Backend | Where | Determinism gate |
 |---|---|---|
 | Reference software rasterizer | `pilotage-instrument-raster::render` | Bit-exact: pinned SHA-256 frame hashes (`src/raster/tests/frame_hashes.rs`), reproducible via `libm` + IEEE-754 `f32`. |
-| Browser Canvas2D | `clients/web/instruments.js` (`interpretScene`) | Semantic conformance + documented, limited tolerances. **Not** pixel-deterministic — Canvas2D anti-aliasing and font/geometry rounding are platform-owned. |
+| Browser Canvas2D | Pilotage repository, `clients/web/instruments.js` (`interpretScene`) | Semantic conformance + documented, limited tolerances. **Not** pixel-deterministic — Canvas2D anti-aliasing and font/geometry rounding are platform-owned. |
 | wgpu / embedded framebuffer | future | Consume the identical scene IR; verified by the same corpus when they land. |
 
 Both backends share one authoritative structural gate: the strong layer contract
 `pilotage-instrument-scene::validate_layers`. In the browser it runs inside the
-wasm renderer (`clients/web-instruments`) on the scene the wasm itself produced,
-before any bytes reach `interpretScene`; `interpretScene` re-checks framing
-(`validateSceneStructure`) as defence in depth.
+wasm renderer (the Pilotage repository's instrument wasm bundle) on the scene
+the wasm itself produced, before any bytes reach `interpretScene`;
+`interpretScene` re-checks framing (`validateSceneStructure`) as defence in
+depth.
 
 ## Resource budgets
 
@@ -103,10 +104,10 @@ simulator-only) latches a stalled panel as `LIVENESS` past its deadline.
 `crates/pilotage-instrument-scene/corpus/scene-conformance-corpus.json`
 is a reviewed, versioned golden. The
 reference rasterizer authors it (`pilotage-instrument-raster`, module
-`src/raster/tests/conformance`); the browser test
-`clients/web/scene-conformance.test.mjs` replays it. Both sides pin to it, and a
-SHA-256 over the concatenated case bytes (`corpusSha256`) guards accidental
-drift on both sides.
+`src/raster/tests/conformance`); downstream interpreters replay it (the
+Pilotage browser shell's `scene-conformance.test.mjs` among them). Every side
+pins to it, and a SHA-256 over the concatenated case bytes (`corpusSha256`)
+guards accidental drift on every side.
 
 ### Coverage map
 
@@ -232,8 +233,8 @@ failure page and an independent DOM fault surface.
 
 The reference-side tests run under the existing `cargo test -p
 pilotage-instrument-raster` step (they include the drift guard, coverage, budget,
-and fail-safe tests). The browser-side conformance test is a new step alongside
-the other `clients/web` node tests:
+and fail-safe tests). The browser-side conformance test runs in the Pilotage
+repository's CI:
 
 ```
 - name: renderer backend conformance corpus

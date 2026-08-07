@@ -14,8 +14,9 @@
 //! - the resource budgets flip verdict exactly at their limits;
 //! - the fail-safe paint faults spoil the reference frame.
 //!
-//! The browser side is `clients/web/scene-conformance.test.mjs`, which pins
-//! itself to the same golden and to its `corpusSha256`.
+//! Downstream interpreters (the Pilotage browser shell's
+//! `scene-conformance.test.mjs` among them) pin themselves to the same
+//! golden and to its `corpusSha256`.
 
 #![allow(clippy::expect_used, clippy::panic)]
 

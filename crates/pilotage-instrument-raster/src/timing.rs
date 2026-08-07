@@ -21,8 +21,8 @@
 //!
 //! The frame deadline is not chosen here: it derives from the one recorded
 //! display requirement that exists today — the SIM display liveness deadline
-//! (`PanelHealth` `livenessDeadlineMs`, 1000 ms, in
-//! `clients/web/instrument-health.js`): a panel whose frame generation has
+//! (`PanelHealth` `livenessDeadlineMs`, 1000 ms, in the Pilotage browser
+//! shell's `instrument-health.js`): a panel whose frame generation has
 //! not advanced within that deadline fails `LIVENESS`, so producing one frame
 //! must fit inside it. When display hardware is selected, the deadline
 //! tightens to that display's refresh requirement.
