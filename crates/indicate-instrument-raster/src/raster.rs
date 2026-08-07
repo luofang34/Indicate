@@ -35,7 +35,8 @@ pub fn render(
     frame: FrameId,
 ) -> Result<RenderReport, RasterError> {
     let mut surface = Surface::new(pixels, dims)?;
-    match paint(scene, &mut surface) {
+    surface.clear();
+    match paint_at(scene, &mut surface, Placement::WHOLE_SURFACE) {
         Ok((unknown_opcodes, layers_present)) => Ok(RenderReport {
             scene_version: scene.first().copied().unwrap_or(0),
             status: RenderStatus::Painted,
@@ -51,16 +52,55 @@ pub fn render(
     }
 }
 
-/// Validates, clears, and paints; returns the unknown-opcode count and the
+/// Where on the surface one scene paints: the device-space origin its
+/// logical coordinates are measured from, and the rectangle it is
+/// confined to.
+///
+/// A whole-surface placement is the ordinary single-panel render. A
+/// composition gives each slot its own, which is the `stride_bytes`
+/// sub-window idea (see [`crate::FramebufferDims`]) carried into a
+/// shared framebuffer, where sub-windows may overlap.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Placement {
+    /// Device-space origin of the scene's logical space.
+    pub(crate) origin: (f32, f32),
+    /// Extent from that origin, in logical units; `None` clips to the
+    /// surface alone.
+    pub(crate) extent: Option<(f32, f32)>,
+}
+
+impl Placement {
+    pub(crate) const WHOLE_SURFACE: Placement = Placement {
+        origin: (0.0, 0.0),
+        extent: None,
+    };
+}
+
+/// Validates and paints one scene at `placement`, without clearing:
+/// clearing is the frame's business, and a composed frame has one
+/// frame and many scenes. Returns the unknown-opcode count and the
 /// present-layer bitset for the report.
-fn paint(scene: &[u8], surface: &mut Surface<'_>) -> Result<(u32, u8), RasterError> {
+///
+/// The placement is applied through the ordinary translate and clip
+/// commands rather than a second geometry path, so a slot inherits the
+/// same Q8.8 snapping and the same conservative clip bound that every
+/// scene's own `Translate`/`ClipRect` gets.
+pub(crate) fn paint_at(
+    scene: &[u8],
+    surface: &mut Surface<'_>,
+    placement: Placement,
+) -> Result<(u32, u8), RasterError> {
     let report = validate_layers(scene)?;
     // The controlled glyph pack is part of the display's integrity
     // envelope: a corrupt pack fails the frame before any text could
     // paint from it (REN-02's no-fallback rule).
     indicate_instrument_glyphs::PANEL_GLYPHS.verify()?;
-    surface.clear();
     let mut state = RenderState::new(surface.bounds());
+    let (ox, oy) = placement.origin;
+    translate(&mut state, ox, oy)?;
+    if let Some((w, h)) = placement.extent {
+        clip(&mut state, 0.0, 0.0, w, h)?;
+    }
     let mut unknown: u32 = 0;
     for item in SceneCmds::new(scene)? {
         run(&item?, &mut state, surface, &mut unknown)?;

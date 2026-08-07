@@ -78,7 +78,7 @@ normal dependency of one.**
 | Crate | Role |
 |---|---|
 | `indicate-instrument-registry` | Composition of descriptors into a validated registry, and the cross-shell scene digest. |
-| `indicate-instrument-raster` | Reference software rasterizer: bit-exact pinned frame hashes, corpus authorship, target-timing evidence (`evidence/`). |
+| `indicate-instrument-raster` | Reference software rasterizer: bit-exact pinned frame hashes, the composed-screen harness, corpus authorship, target-timing evidence (`evidence/`). |
 | `indicate-instrument-conformance` | Panel admission harness (host-side, allocates; deliberately outside the `no_std` closure). |
 | `indicate-evidence` | Standard-neutral lifecycle evidence graph and gate (`evidence-gate` binary); guards `docs/instruments/evidence-graph.evg`. |
 

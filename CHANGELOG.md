@@ -54,8 +54,17 @@ worth knowing before the next one is cut.
   `Annunciation`/`Failure` ink bound per panel × canonical frame, which
   a composition validates obscuration against. The monitor's is `None`,
   which is a measurement rather than an omission.
-- The scene digest, the corpus, and every REN-03 raster frame hash are
-  unchanged.
+- **New pinned data: three composed-frame hashes.** The reference
+  rasterizer gains `render_composition`, which paints a validated
+  composition into one framebuffer, and pins REN-03-style hashes for a
+  side-by-side screen, an opaque inset over a PFD, and a `NotUsed`
+  overlay. The overlay's show-through is asserted as a property, not
+  only as a hash. `indicate-instrument-raster` gains normal
+  dependencies on the registry, the state crate, and the alert model;
+  the arrow points that way and no crate gained a dependency on the
+  rasterizer.
+- The scene digest, the corpus, the screen-composition digest, and every
+  REN-03 per-panel frame hash are unchanged.
 
 ## [0.2.0] — 2026-08-07
 
