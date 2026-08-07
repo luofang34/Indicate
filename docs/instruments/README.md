@@ -1,10 +1,10 @@
 # Instrument intended-function baseline
 
-The files in this directory define what Pilotage instrument displays may do,
+The files in this directory define what Indicate instrument displays may do,
 where their responsibility ends, and which assumptions must be made explicit.
 They are engineering inputs for later safety assessment and implementation.
 They are not an FAA/EASA finding, TSO authorization, TC/STC approval, or a claim
-that any Pilotage display is suitable for airborne use.
+that any display built from this family is suitable for airborne use.
 
 The baseline is split into four controlled artifacts:
 

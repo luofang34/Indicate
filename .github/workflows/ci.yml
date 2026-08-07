@@ -6,7 +6,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  FIXTURES: crates/pilotage-evidence/tests/fixtures
+  FIXTURES: crates/indicate-evidence/tests/fixtures
 
 jobs:
   quality-gates:
@@ -81,12 +81,12 @@ jobs:
         # included; a denylist of known consumer names would false-negative
         # on the next crate the ecosystem grows.
         run: |
-          known="pilotage-frames pilotage-alerts pilotage-sha256 \
-                 pilotage-instrument-scene pilotage-instrument-state \
-                 pilotage-instrument-glyphs pilotage-instrument-symbology \
-                 pilotage-instrument-panels pilotage-instrument-raster \
-                 pilotage-instrument-conformance pilotage-instrument-feeder \
-                 pilotage-instrument-registry pilotage-evidence \
+          known="indicate-frames indicate-alerts indicate-sha256 \
+                 indicate-instrument-scene indicate-instrument-state \
+                 indicate-instrument-glyphs indicate-instrument-symbology \
+                 indicate-instrument-panels indicate-instrument-raster \
+                 indicate-instrument-conformance indicate-instrument-feeder \
+                 indicate-instrument-registry indicate-evidence \
                  instrument-bench"
           fail=0
           while read -r pkg; do
@@ -97,8 +97,21 @@ jobs:
                 fail=1
                 ;;
             esac
-          done < <(grep -oE '^name = "(pilotage|avionics|navigate|aviate|instrument)[a-z0-9-]*"' Cargo.lock \
+          # `indicate` is the family's own prefix and `pilotage` a consumer's:
+          # both stay in the filter, so neither a family crate escaping the
+          # allowlist nor a consumer crate reappearing goes unseen.
+          done < <(grep -oE '^name = "(indicate|pilotage|avionics|navigate|aviate|instrument)[a-z0-9_-]*"' Cargo.lock \
                    | sed 's/^name = "//;s/"$//')
+          # A filter that matches nothing reports a closed boundary it never
+          # looked at. The family's own crates are the floor: fewer hits than
+          # crates means the pattern stopped seeing them, which is how a
+          # rename would silently blind this gate.
+          seen=$(grep -cE '^name = "(indicate|pilotage|avionics|navigate|aviate|instrument)[a-z0-9_-]*"' Cargo.lock)
+          floor=$(find crates -mindepth 1 -maxdepth 1 -type d | wc -l)
+          if [ "$seen" -lt "$floor" ]; then
+            echo "the downstream-agnostic filter matched $seen names but the tree has $floor crates; the pattern has gone blind"
+            fail=1
+          fi
           # Category sentinels the prefix filter cannot see: third-party
           # wire-protocol and transport crates mean the boundary leaked
           # regardless of what they are named.
@@ -116,17 +129,17 @@ jobs:
         # deliberately absent: it is a host-side tool and allocates.
         run: >
           cargo check --locked
-          -p pilotage-frames
-          -p pilotage-alerts
-          -p pilotage-sha256
-          -p pilotage-instrument-state
-          -p pilotage-instrument-scene
-          -p pilotage-instrument-glyphs
-          -p pilotage-instrument-symbology
-          -p pilotage-instrument-panels
-          -p pilotage-instrument-raster
-          -p pilotage-instrument-feeder
-          -p pilotage-instrument-registry
+          -p indicate-frames
+          -p indicate-alerts
+          -p indicate-sha256
+          -p indicate-instrument-state
+          -p indicate-instrument-scene
+          -p indicate-instrument-glyphs
+          -p indicate-instrument-symbology
+          -p indicate-instrument-panels
+          -p indicate-instrument-raster
+          -p indicate-instrument-feeder
+          -p indicate-instrument-registry
           --target thumbv7em-none-eabihf
 
       - name: target timing gate (REN-04)
@@ -139,12 +152,12 @@ jobs:
         # measured target binds firmware, clock, memory, and compiler state.
         run: |
           bash scripts/detect-target.sh
-          cargo test --locked -p pilotage-instrument-raster timing
+          cargo test --locked -p indicate-instrument-raster timing
 
       - name: reference rasterizer frame hashes (REN-03)
         # Re-render every shipped panel and assert its pinned SHA-256 frame
         # hash, proving the software rasterizer is bit-reproducible.
-        run: cargo test --locked -p pilotage-instrument-raster
+        run: cargo test --locked -p indicate-instrument-raster
 
       - name: instrument bench shell conformance smoke
         # A shell built from the registry alone: runs admission and
@@ -154,10 +167,10 @@ jobs:
       - name: glyph pack integrity (REN-02)
         # Mandatory-vocabulary completeness, byte-identical reproducibility,
         # and fail-closed corruption detection for the controlled glyph pack.
-        run: cargo test --locked -p pilotage-instrument-glyphs
+        run: cargo test --locked -p indicate-instrument-glyphs
 
       - name: evidence gate — crate tests
-        run: cargo test --locked -p pilotage-evidence --all-targets
+        run: cargo test --locked -p indicate-evidence --all-targets
 
       - name: evidence trace — honest verdict and bidirectional trace
         # Informational: a review may honestly stay PENDING, and a pending
@@ -165,7 +178,7 @@ jobs:
         # advisory. Durable RESOLUTION is enforced by the hard steps below.
         continue-on-error: true
         run: >
-          cargo run --locked -q -p pilotage-evidence --bin evidence-gate --
+          cargo run --locked -q -p indicate-evidence --bin evidence-gate --
           --graph docs/instruments/evidence-graph.evg --repo-root . --trace
 
       - name: evidence trace — selectors MUST resolve against the tree (HARD)
@@ -173,7 +186,7 @@ jobs:
         # tree; the graph travels with its sources, so a non-resolving
         # selector is a defect, not an expected absence.
         run: >
-          cargo run --locked -q -p pilotage-evidence --bin evidence-gate --
+          cargo run --locked -q -p indicate-evidence --bin evidence-gate --
           --graph docs/instruments/evidence-graph.evg --repo-root .
           --resolve-selectors
 
@@ -183,14 +196,14 @@ jobs:
         # artifacts present. Needs full history (fetch-depth: 0 above) so
         # reachability is decidable.
         run: >
-          cargo run --locked -q -p pilotage-evidence --bin evidence-gate --
+          cargo run --locked -q -p indicate-evidence --bin evidence-gate --
           --graph docs/instruments/evidence-graph.evg --repo-root .
           --require-resolvable
 
       - name: Negative fixtures must all FAIL the gate
         run: |
           set -u
-          bin=(cargo run --locked -q -p pilotage-evidence --bin evidence-gate --)
+          bin=(cargo run --locked -q -p indicate-evidence --bin evidence-gate --)
           fail=0
           for f in empty missing-root missing-layer dangling-edge \
                    unresolved-selector orphan-requirement \
@@ -198,7 +211,7 @@ jobs:
                    pending-review placeholder-result \
                    unexecuted-result unbacked-review; do
             if "${bin[@]}" --graph "$FIXTURES/$f.evg" \
-                --repo-root crates/pilotage-evidence >/dev/null 2>&1; then
+                --repo-root crates/indicate-evidence >/dev/null 2>&1; then
               echo "REGRESSION: $f.evg unexpectedly PASSED the gate"; fail=1
             else
               echo "ok: $f.evg correctly failed the gate"
@@ -213,9 +226,9 @@ jobs:
         # drives the outcome and expiry is not silently skipped.
         run: |
           set -u
-          bin=(cargo run --locked -q -p pilotage-evidence --bin evidence-gate --)
+          bin=(cargo run --locked -q -p indicate-evidence --bin evidence-gate --)
           fixture="$FIXTURES/invalid-exception.evg"
-          root=crates/pilotage-evidence
+          root=crates/indicate-evidence
           if "${bin[@]}" --graph "$fixture" --repo-root "$root" \
               --as-of 2026-07-14 >/dev/null 2>&1; then
             echo "REGRESSION: expired exception was not caught as of 2026-07-14"; exit 1
@@ -239,7 +252,7 @@ jobs:
         # root; and a review whose named record entry is still pending.
         run: |
           set -u
-          bin=(cargo run --locked -q -p pilotage-evidence --bin evidence-gate --)
+          bin=(cargo run --locked -q -p indicate-evidence --bin evidence-gate --)
           fail=0
           for f in unresolvable-selector-fs unresolvable-artifact \
                    mismatched-artifact field-mismatch-artifact \
@@ -249,7 +262,7 @@ jobs:
                    source-as-artifact unresolved-review-entry \
                    baseline-unverifiable baseline-unreachable; do
             if "${bin[@]}" --graph "$FIXTURES/$f.evg" \
-                --repo-root crates/pilotage-evidence \
+                --repo-root crates/indicate-evidence \
                 --resolve-selectors >/dev/null 2>&1; then
               echo "REGRESSION: $f.evg unexpectedly passed resolution"; fail=1
             else

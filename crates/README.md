@@ -6,21 +6,53 @@ on a host, a wire protocol, or a shell (CI's downstream-agnostic gate
 holds that closed). Consumers pin this repository by git rev and depend
 on the published crate surfaces only.
 
+## Names and identifiers
+
+Crates are named for this repository — `indicate-*` — because Pilotage is
+one consumer of the family and not its owner. `check-structure.sh` fails
+on a `pilotage-`-named crate directory or package so the scheme cannot
+drift back.
+
+A handful of `pilotage` strings survive on purpose, and they are
+**identifiers rather than names**: values that were minted once, are
+hashed or pinned by someone downstream, and do not track what the crates
+are called. Rewriting one buys a tidier grep and costs every consumer a
+re-pin for no change in what is painted.
+
+| Survivor | Why it stays |
+|---|---|
+| `SCENE_DIGEST_DOMAIN` (`b"pilotage-scene-digest-v1"`) | Hashed into every composition digest; changing it moves `BUILTIN_SCENE_DIGEST` and reddens every consumer pin. |
+| `sha256(b"pilotage")` in the sha256 unit tests | A hash input, not a name. The vector and its expected digest are self-consistent whatever the bytes spell. |
+| Recorded run records that were not re-executed — the reference CDC capture notes, and the evidence crate's own fixtures | A record is a statement about a run that happened. Records whose suites *were* re-run under the new names were re-captured instead, and say so. |
+| `Pilotage` in prose naming the cockpit, its repository, or its browser shell | Correct — those name a consumer, which is what the word is for. |
+
+Renaming *is* right for anything a reader would take as a claim about
+what this repository is: crate and package names, workspace members,
+`-p` flags, module paths, and doc prose about the family itself.
+
+The corpus's `generatedBy` provenance line is renamed, which looks like
+an exception and is not one: `corpusSha256` hashes the concatenated case
+bytes only, so the header sits outside it, and interpreters pin
+`corpusVersion` and `corpusSha256` rather than the file. Naming a
+generator crate that no longer exists would have been the oversight. An
+interpreter that hashes the whole JSON document instead of the published
+field is the one consumer this would disturb.
+
 | Crate | Role |
 |---|---|
-| `pilotage-frames` | Frame and rotation vocabulary (`Quat`); dependency-free leaf. |
-| `pilotage-alerts` | Alert model (`AlertOutput`, stack semantics); leaf. |
-| `pilotage-sha256` | Streaming SHA-256 (`Sha256Ctx`) for `no_std` digest pinning; leaf. |
-| `pilotage-instrument-state` | Aircraft display state, the self-delimiting tagged-group ABI (`abi::v6`), group statuses, posture fixtures. |
-| `pilotage-instrument-scene` | Scene IR: layers, opcodes, budgets, structural validation; owns the scene-conformance corpus (`corpus/`). |
-| `pilotage-instrument-glyphs` | Controlled glyph pack: manifest, integrity hashes, coverage requirements. |
-| `pilotage-instrument-symbology` | Shared symbology: palette, never-skinnable safety constants, status paint, annunciations. |
-| `pilotage-instrument-panels` | The shipped panels (PFD, HSI, monitor): immediate-mode scene emission per frame. |
-| `pilotage-instrument-raster` | Reference software rasterizer: bit-exact pinned frame hashes, corpus authorship, target-timing evidence (`evidence/`). |
-| `pilotage-instrument-registry` | Panel descriptors, group sets, config blobs, canonical states, the cross-shell scene digest. |
-| `pilotage-instrument-feeder` | Source admission ladder shared by every feeding shell. |
-| `pilotage-instrument-conformance` | Panel admission harness (host-side, allocates; deliberately outside the `no_std` closure). |
-| `pilotage-evidence` | Standard-neutral lifecycle evidence graph and gate (`evidence-gate` binary); guards `docs/instruments/evidence-graph.evg`. |
+| `indicate-frames` | Frame and rotation vocabulary (`Quat`); dependency-free leaf. |
+| `indicate-alerts` | Alert model (`AlertOutput`, stack semantics); leaf. |
+| `indicate-sha256` | Streaming SHA-256 (`Sha256Ctx`) for `no_std` digest pinning; leaf. |
+| `indicate-instrument-state` | Aircraft display state, the self-delimiting tagged-group ABI (`abi::v6`), group statuses, posture fixtures. |
+| `indicate-instrument-scene` | Scene IR: layers, opcodes, budgets, structural validation; owns the scene-conformance corpus (`corpus/`). |
+| `indicate-instrument-glyphs` | Controlled glyph pack: manifest, integrity hashes, coverage requirements. |
+| `indicate-instrument-symbology` | Shared symbology: palette, never-skinnable safety constants, status paint, annunciations. |
+| `indicate-instrument-panels` | The shipped panels (PFD, HSI, monitor): immediate-mode scene emission per frame. |
+| `indicate-instrument-raster` | Reference software rasterizer: bit-exact pinned frame hashes, corpus authorship, target-timing evidence (`evidence/`). |
+| `indicate-instrument-registry` | Panel descriptors, group sets, config blobs, canonical states, the cross-shell scene digest. |
+| `indicate-instrument-feeder` | Source admission ladder shared by every feeding shell. |
+| `indicate-instrument-conformance` | Panel admission harness (host-side, allocates; deliberately outside the `no_std` closure). |
+| `indicate-evidence` | Standard-neutral lifecycle evidence graph and gate (`evidence-gate` binary); guards `docs/instruments/evidence-graph.evg`. |
 
 Tools: `tools/instrument-bench` (registry-only shell that reproduces the
 composition digest and runs admission), `tools/xtask`

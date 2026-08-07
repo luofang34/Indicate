@@ -12,7 +12,7 @@ set -euo pipefail
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root_dir"
 
-document_dir="${PILOTAGE_INSTRUMENT_DOCUMENT_DIR:-docs/instruments}"
+document_dir="${INDICATE_INSTRUMENT_DOCUMENT_DIR:-docs/instruments}"
 catalog="$document_dir/requirements.md"
 review_record="$document_dir/review-record.md"
 pssa="$document_dir/pssa.md"
@@ -22,7 +22,7 @@ if [ ! -f "$catalog" ]; then
     exit 1
 fi
 
-echo "=== Pilotage instrument trace inventory (NOT a compliance trace) ==="
+echo "=== Indicate instrument trace inventory (NOT a compliance trace) ==="
 echo "Nothing below asserts verification or approval; pending evidence is"
 echo "reported as pending. See docs/instruments/evidence-plan.md."
 echo
@@ -51,7 +51,7 @@ rust_tests="$(git ls-files '**/tests.rs' '**/tests/*.rs' | wc -l | tr -d ' ')"
 echo "Rust test modules (tests.rs + tests/*.rs): $rust_tests"
 echo "Downstream shell suites (browser, FFI) run in the consuming repositories."
 echo "Test artifacts the docs name (downstream shell suites included):"
-grep -rhoE '[A-Za-z0-9_-]+\.test\.mjs|pilotage-instrument-[a-z]+' \
+grep -rhoE '[A-Za-z0-9_-]+\.test\.mjs|indicate-instrument-[a-z]+' \
     "$document_dir" --include='*.md' \
     | LC_ALL=C sort -u \
     | sed 's/^/    /' || true

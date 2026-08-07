@@ -9,7 +9,7 @@ publish = false
 workspace = true
 
 [dependencies]
-pilotage-instrument-state = { workspace = true }
+indicate-instrument-state = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }

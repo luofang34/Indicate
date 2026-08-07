@@ -2,7 +2,7 @@
 //!
 //! Encodes the shared posture fixtures with the same Rust codec the
 //! runtime uses and writes one lowercase-hex line per fixture into
-//! `crates/pilotage-instrument-state/fixtures/` — inside the crate that
+//! `crates/indicate-instrument-state/fixtures/` — inside the crate that
 //! owns the codec, so the fixtures travel with it. The Rust golden test
 //! and downstream state writers (the Pilotage browser shell's
 //! `state-abi.js` among them) pin against these committed files, so the
@@ -10,8 +10,8 @@
 
 use std::path::{Path, PathBuf};
 
-use pilotage_instrument_state::AircraftState;
-use pilotage_instrument_state::abi::v6::{CAPACITY, encode_state, fixtures};
+use indicate_instrument_state::AircraftState;
+use indicate_instrument_state::abi::v6::{CAPACITY, encode_state, fixtures};
 
 use crate::error::XtaskError;
 use crate::output::print_line;
@@ -48,10 +48,10 @@ fn repo_root() -> PathBuf {
 pub fn run() -> Result<(), XtaskError> {
     let dir = repo_root()
         .join("crates")
-        .join("pilotage-instrument-state")
+        .join("indicate-instrument-state")
         .join("fixtures");
     std::fs::create_dir_all(&dir).map_err(|source| XtaskError::Io {
-        context: "creating crates/pilotage-instrument-state/fixtures",
+        context: "creating crates/indicate-instrument-state/fixtures",
         source,
     })?;
     for (stem, build) in FIXTURES {

@@ -15,7 +15,7 @@ cargo xtask <command>
 Commands:
   gen-state-fixture
       Regenerate the committed state-ABI golden frames in
-      crates/pilotage-instrument-state/fixtures/ from the shared
+      crates/indicate-instrument-state/fixtures/ from the shared
       posture fixtures.
   help
       Show this message.";

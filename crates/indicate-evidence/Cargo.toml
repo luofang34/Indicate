@@ -1,0 +1,21 @@
+[package]
+name = "indicate-evidence"
+description = "Standard-neutral lifecycle evidence graph and scoped no-orphan gate (ASSURE-01, SIM / NOT FOR FLIGHT engineering tooling; establishes no DO-178C/ISO-26262/ECSS/TSO/certification claim)"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+# Git blob identity (`git-blob:<sha1>`) of the test sources a recorded result
+# was produced from — SHA-1 because that is git's object id, not a security
+# boundary; the content it names is separately pinned by sha2 digests.
+sha1 = "0.10.6"
+
+[[bin]]
+name = "evidence-gate"
+path = "src/bin/evidence-gate.rs"

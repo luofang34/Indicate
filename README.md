@@ -25,12 +25,12 @@ The dependency closure contains no wire protocol, no host, no client:
 consumers (the Pilotage cockpit, avionics-link, native shells) pin this
 repository by git rev and integrate through three published surfaces:
 
-- the state ABI (`pilotage-instrument-state::abi::v6`) — a
+- the state ABI (`indicate-instrument-state::abi::v6`) — a
   self-delimiting tagged-group frame; presence is meaning, sources with
   different group sets drive the same panels;
-- the scene IR (`pilotage-instrument-scene`) — the opcode vocabulary a
+- the scene IR (`indicate-instrument-scene`) — the opcode vocabulary a
   backend interprets;
-- the registry (`pilotage-instrument-registry`) — panel descriptors,
+- the registry (`indicate-instrument-registry`) — panel descriptors,
   required groups, baselines, and the cross-shell scene digest.
 
 CI enforces the direction: a step fails if the closure ever reaches a
@@ -45,7 +45,7 @@ Aviate and Navigate). The pilot of a change that moves the cross-shell
 scene digest advances the pin in the consuming repositories as part of
 that change; the advance is complete exactly when every consumer
 reproduces the new digest. The scene-conformance corpus
-(`crates/pilotage-instrument-scene/corpus/`) is versioned and
+(`crates/indicate-instrument-scene/corpus/`) is versioned and
 sha256-pinned by every interpreter, so a corpus edit here turns pinned
 consumers red at their next advance instead of drifting silently.
 

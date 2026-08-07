@@ -1,19 +1,19 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/pilotage-frames",
-    "crates/pilotage-alerts",
-    "crates/pilotage-sha256",
-    "crates/pilotage-instrument-scene",
-    "crates/pilotage-instrument-state",
-    "crates/pilotage-instrument-glyphs",
-    "crates/pilotage-instrument-symbology",
-    "crates/pilotage-instrument-panels",
-    "crates/pilotage-instrument-raster",
-    "crates/pilotage-instrument-conformance",
-    "crates/pilotage-instrument-feeder",
-    "crates/pilotage-instrument-registry",
-    "crates/pilotage-evidence",
+    "crates/indicate-frames",
+    "crates/indicate-alerts",
+    "crates/indicate-sha256",
+    "crates/indicate-instrument-scene",
+    "crates/indicate-instrument-state",
+    "crates/indicate-instrument-glyphs",
+    "crates/indicate-instrument-symbology",
+    "crates/indicate-instrument-panels",
+    "crates/indicate-instrument-raster",
+    "crates/indicate-instrument-conformance",
+    "crates/indicate-instrument-feeder",
+    "crates/indicate-instrument-registry",
+    "crates/indicate-evidence",
     "tools/instrument-bench",
     "tools/xtask",
 ]
@@ -28,18 +28,18 @@ proptest = "1.11.0"
 sha2 = "0.10.9"
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
-pilotage-frames = { path = "crates/pilotage-frames" }
-pilotage-alerts = { path = "crates/pilotage-alerts" }
-pilotage-sha256 = { path = "crates/pilotage-sha256" }
-pilotage-instrument-scene = { path = "crates/pilotage-instrument-scene" }
-pilotage-instrument-state = { path = "crates/pilotage-instrument-state" }
-pilotage-instrument-glyphs = { path = "crates/pilotage-instrument-glyphs" }
-pilotage-instrument-symbology = { path = "crates/pilotage-instrument-symbology" }
-pilotage-instrument-panels = { path = "crates/pilotage-instrument-panels" }
-pilotage-instrument-raster = { path = "crates/pilotage-instrument-raster" }
-pilotage-instrument-conformance = { path = "crates/pilotage-instrument-conformance" }
-pilotage-instrument-feeder = { path = "crates/pilotage-instrument-feeder" }
-pilotage-instrument-registry = { path = "crates/pilotage-instrument-registry" }
+indicate-frames = { path = "crates/indicate-frames" }
+indicate-alerts = { path = "crates/indicate-alerts" }
+indicate-sha256 = { path = "crates/indicate-sha256" }
+indicate-instrument-scene = { path = "crates/indicate-instrument-scene" }
+indicate-instrument-state = { path = "crates/indicate-instrument-state" }
+indicate-instrument-glyphs = { path = "crates/indicate-instrument-glyphs" }
+indicate-instrument-symbology = { path = "crates/indicate-instrument-symbology" }
+indicate-instrument-panels = { path = "crates/indicate-instrument-panels" }
+indicate-instrument-raster = { path = "crates/indicate-instrument-raster" }
+indicate-instrument-conformance = { path = "crates/indicate-instrument-conformance" }
+indicate-instrument-feeder = { path = "crates/indicate-instrument-feeder" }
+indicate-instrument-registry = { path = "crates/indicate-instrument-registry" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -12,9 +12,9 @@ trap 'rm -rf "$tmp_dir"' EXIT
 
 run_checker() {
     env \
-        "PILOTAGE_STANDARDS_REGISTRY=$1" \
-        "PILOTAGE_STANDARDS_MATRIX=$2" \
-        PILOTAGE_STANDARDS_SELFTEST_CHILD=1 \
+        "INDICATE_STANDARDS_REGISTRY=$1" \
+        "INDICATE_STANDARDS_MATRIX=$2" \
+        INDICATE_STANDARDS_SELFTEST_CHILD=1 \
         bash "$checker"
 }
 

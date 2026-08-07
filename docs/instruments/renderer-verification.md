@@ -13,12 +13,12 @@ engineering conformance for the simulator; it makes no certification claim.
 
 | Backend | Where | Determinism gate |
 |---|---|---|
-| Reference software rasterizer | `pilotage-instrument-raster::render` | Bit-exact: pinned SHA-256 frame hashes (`src/raster/tests/frame_hashes.rs`), reproducible via `libm` + IEEE-754 `f32`. |
+| Reference software rasterizer | `indicate-instrument-raster::render` | Bit-exact: pinned SHA-256 frame hashes (`src/raster/tests/frame_hashes.rs`), reproducible via `libm` + IEEE-754 `f32`. |
 | Browser Canvas2D | Pilotage repository, `clients/web/instruments.js` (`interpretScene`) | Semantic conformance + documented, limited tolerances. **Not** pixel-deterministic — Canvas2D anti-aliasing and font/geometry rounding are platform-owned. |
 | wgpu / embedded framebuffer | future | Consume the identical scene IR; verified by the same corpus when they land. |
 
 Both backends share one authoritative structural gate: the strong layer contract
-`pilotage-instrument-scene::validate_layers`. In the browser it runs inside the
+`indicate-instrument-scene::validate_layers`. In the browser it runs inside the
 wasm renderer (the Pilotage repository's instrument wasm bundle) on the scene
 the wasm itself produced, before any bytes reach `interpretScene`;
 `interpretScene` re-checks framing (`validateSceneStructure`) as defence in
@@ -26,8 +26,8 @@ depth.
 
 ## Resource budgets
 
-Pinned from the crate constants (`pilotage-instrument-scene::layer`,
-`pilotage-instrument-raster`), and mirrored in the golden manifest's `budgets`
+Pinned from the crate constants (`indicate-instrument-scene::layer`,
+`indicate-instrument-raster`), and mirrored in the golden manifest's `budgets`
 block so both sides gate against the same numbers. Exceeding any of these fails
 the whole frame before anything becomes visible.
 
@@ -59,7 +59,7 @@ constant.
 
 The reference rasterizer is straight-line over the scene and framebuffer with no
 I/O and only documented-bounded loops (see the crate docs on
-`pilotage-instrument-raster::render`), so its work is a pure function of scene
+`indicate-instrument-raster::render`), so its work is a pure function of scene
 bytes and framebuffer dimensions. That work is now *counted*, not just bounded:
 every `RenderReport` carries a `RenderWork` record with
 
@@ -92,7 +92,7 @@ selected yet — the USB CDC scan (`scripts/detect-target.sh`) detects a
 connected target and attempts an identity handshake rather than asking — so
 the shipped model is the named conservative bound recorded, with its
 assumptions and derivation, in
-`crates/pilotage-instrument-raster/evidence/target-timing.txt`; a drift guard
+`crates/indicate-instrument-raster/evidence/target-timing.txt`; a drift guard
 keeps that artifact equal to the shipped constants. A measured model must bind
 the firmware/build identity, MCU, clock and memory configuration, compiler
 flags, and raw output; only then does the envelope become a WCET and the
@@ -101,9 +101,9 @@ simulator-only) latches a stalled panel as `LIVENESS` past its deadline.
 
 ## The conformance corpus
 
-`crates/pilotage-instrument-scene/corpus/scene-conformance-corpus.json`
+`crates/indicate-instrument-scene/corpus/scene-conformance-corpus.json`
 is a reviewed, versioned golden. The
-reference rasterizer authors it (`pilotage-instrument-raster`, module
+reference rasterizer authors it (`indicate-instrument-raster`, module
 `src/raster/tests/conformance`); downstream interpreters replay it (the
 Pilotage browser shell's `scene-conformance.test.mjs` among them). Every side
 pins to it, and a SHA-256 over the concatenated case bytes (`corpusSha256`)
@@ -205,7 +205,7 @@ A change is a reviewed action:
 1. Edit the corpus (`.../conformance/corpus`).
 2. Bump `CORPUS_VERSION` and update `REVIEW_REASON` in
    `.../conformance/manifest.rs`.
-3. Regenerate: `REGEN_CONFORMANCE_CORPUS=1 cargo test -p pilotage-instrument-raster regenerate_golden_when_requested`.
+3. Regenerate: `REGEN_CONFORMANCE_CORPUS=1 cargo test -p indicate-instrument-raster regenerate_golden_when_requested`.
 4. Review the diff and commit.
 
 `golden_matches_reference` fails CI if the checked-in file is not exactly the
@@ -232,7 +232,7 @@ failure page and an independent DOM fault surface.
 ## CI integration
 
 The reference-side tests run under the existing `cargo test -p
-pilotage-instrument-raster` step (they include the drift guard, coverage, budget,
+indicate-instrument-raster` step (they include the drift guard, coverage, budget,
 and fail-safe tests). The browser-side conformance test is a step in the
 Pilotage repository's workflow, not this one:
 

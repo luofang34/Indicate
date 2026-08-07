@@ -5,7 +5,7 @@ set -euo pipefail
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root_dir"
 
-document_dir="${PILOTAGE_INSTRUMENT_DOCUMENT_DIR:-docs/instruments}"
+document_dir="${INDICATE_INSTRUMENT_DOCUMENT_DIR:-docs/instruments}"
 catalog="$document_dir/requirements.md"
 status=0
 tmp_dir="$(mktemp -d)"
@@ -150,7 +150,7 @@ while IFS= read -r id; do
     fi
 done < <(cut -f1 "$definitions")
 
-if [ "${PILOTAGE_INSTRUMENT_SELFTEST_CHILD:-0}" != "1" ]; then
+if [ "${INDICATE_INSTRUMENT_SELFTEST_CHILD:-0}" != "1" ]; then
     "$root_dir/scripts/test-instrument-requirements.sh" || status=1
 fi
 

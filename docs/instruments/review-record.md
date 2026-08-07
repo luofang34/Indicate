@@ -67,7 +67,7 @@ subsequent aircraft-specific validation.
 
 ## Machine-readable record entries
 
-The evidence gate (`pilotage-evidence`) resolves the specific entry a review
+The evidence gate (`indicate-evidence`) resolves the specific entry a review
 names, by anchor, and verifies that entry's fields. A `PENDING` reviewer or date,
 a disposition that is not a closed outcome, or a reviewed node the entry does not
 cover means the entry — and therefore the review — is not complete.
