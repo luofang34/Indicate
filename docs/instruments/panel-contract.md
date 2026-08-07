@@ -12,8 +12,10 @@ blurs "checked" into "expected" teaches authors to trust the wrong
 things.
 
 The worked example is a real crate: `sets/indicate-instrument-template`
-is the smallest panel that passes admission, it is admitted by its own
-test in CI, and its comments explain each field where it stands. Read it
+is the smallest panel that exercises the honesty rules below — a panel
+claiming nothing passes admission more easily and teaches less — it is
+admitted by its own test in CI, and its comments explain each field
+where it stands. Read it
 alongside this document; if the two ever disagree, the crate is right,
 because the crate is the one that has to compile.
 
@@ -21,11 +23,17 @@ because the crate is the one that has to compile.
 
 Under `sets/`, one crate per set, exporting one `PanelSet`. A set's
 normal dependencies are kernel-only — `crates/README.md` states the tier
-law and `check-structure.sh` enforces it, so a set cannot depend on the
-registry, the rasterizer, or the conformance harness that judges it. The
-registry is permitted as a **dev**-dependency, which is what lets a set
-pin its own scene digest and run its own admission test without standing
-up a shell.
+law and `check-structure.sh` enforces it, so a set cannot *ship* against
+the registry, the rasterizer, or the conformance harness that judges it.
+The whole verification tier is permitted as **dev**-dependencies, and a
+set needs two of them: the registry to compose itself and pin its own
+scene digest, and the conformance harness to run its own admission test.
+Neither reaches the shipped artifact.
+
+A set is `no_std`. CI compiles every set for `thumbv7em-none-eabihf` in
+the closure check, so reaching for `std` outside `#[cfg(test)]` breaks
+the build; the template shows the `#[cfg(test)] extern crate std` idiom
+that keeps tests comfortable without loosening the crate.
 
 A set can therefore live outside this repository entirely. Nothing in
 the mechanism requires a panel to be written here.
@@ -104,11 +112,12 @@ Two corollaries fall out of the same machinery:
 
 `Opaque` and `Cedeable` both promise a full-frame opaque cover, and
 admission proves it against the ink rather than taking the word: it
-looks for one axis-aligned, unclipped, full-alpha rect fill covering the
-whole design frame in the `Background` band. A ground assembled from
-polygons, painted at alpha below full, drawn under a rotated transform,
-or under a clip that does not contain the frame **does not count**, and
-fails as `BackgroundContract`. Coverage is exact, not conservative.
+looks for one axis-aligned, full-alpha rect fill covering the whole
+design frame in the `Background` band. A ground assembled from polygons,
+painted at alpha below full, drawn under a rotated transform, or under a
+clip that does not contain the frame **does not count**, and fails as
+`BackgroundContract`. A clip that does contain the frame is fine.
+Coverage is exact, not conservative.
 
 A panel that paints nothing in the background band declares `NotUsed`
 and composes as an overlay.
@@ -146,16 +155,28 @@ then once per withheld group — the harness checks that the draw returns,
 that the scene decodes and satisfies the layer envelope, that every
 required layer is present, that the background claim holds, that every
 glyph is in the controlled vocabulary, and that the provenance rules
-above hold. Ink outside the design frame is **counted and ratcheted, not
-refused**: warnings are allowed to exist but never to grow.
+above hold. Ink outside the design frame is **counted, not refused** —
+and the ratchet that keeps the count from growing is an assertion *you*
+write in your own admission test, not something the harness does for
+you. A new set has no ratchet until its author pins one.
 
-Two limits worth knowing, because they bound what a green run means:
+Three limits worth knowing, because they bound what a green run means:
 
-- The harness tests *withholding*, not resolved status. Nothing forces
-  the "source unusable, draw dashes" branch, so your dash-out path is
-  contract-required and harness-invisible. Test it yourself.
-- Admission draws the empty config, so no configured behaviour is
-  covered by it at all.
+- **A green run does not mean your failure cues are painted.** The
+  canonical corpus does drive the degraded branches — `nothing-fed` and
+  `source-unusable` are two of the four states every panel meets, so
+  your dash-out path really is drawn and its output really is policed
+  for untagged numerals, glyphs, layers, and background. What no check
+  asserts is that anything appears there at all: delete the contents of
+  your dash branch and admission still passes. Drawing nothing where a
+  dash belongs is admissible, and it is a defect.
+- **The provenance check fires against withholding, not against
+  resolved status.** A stale value painted with its group's claim in
+  `source-unusable`, with nothing withheld, is not what
+  `FabricatedNumeral` looks for. Cover that with your own tests.
+- **Admission draws the empty config and no alerts.** No configured
+  behaviour is covered by it at all, and neither is any alert-driven
+  drawing — the digest passes no alerts either.
 
 ## Symbology you may not invent
 
@@ -167,8 +188,12 @@ the point is that a future theme cannot make them skinnable.
 reaches for the palette aliases; use the `safety::` constants.
 
 Text is equally constrained: the glyph pack is a controlled vocabulary,
-and a character outside it fails admission rather than falling back to a
-substitute.
+and a character outside it fails admission as `GlyphCoverage` rather
+than falling back to a substitute. It is `PANEL_VOCABULARY` in
+`indicate-instrument-glyphs`, and it is smaller than it looks — space,
+`-`, `.`, `°`, the digits, the uppercase letters, and of the lowercase
+only `k` and `t`. A label reading `kts`, `fpm`, `%`, or `/` fails; check
+the vocabulary before inventing one.
 
 ## Digests, baselines, and who re-pins them
 
@@ -204,6 +229,22 @@ composition layer, not for a transform — the answer is a finer-grained
 panel placed at its own frame, not a scaled replay of a coarser one.
 Sub-instrument reuse is therefore a decision about which panels a set
 exports, never a change to the opcode vocabulary.
+
+## Wiring a set into this repository
+
+A set written here needs four registrations, each of which is a CI
+failure if missed — which is the discovery-by-red-build this contract
+exists to replace:
+
+- `members` and `[workspace.dependencies]` in the root `Cargo.toml`;
+- a row in `crates/README.md` under the Sets tier, which
+  `check-structure.sh` requires for every crate;
+- the `-p` list of the `thumbv7em-none-eabihf` closure step in CI;
+- the `known` allowlist of the downstream-agnostic step in CI.
+
+A set published elsewhere needs none of them, and rewrites the
+`workspace = true` inheritance the template uses for its edition,
+dependencies, and lints.
 
 ## The worked example
 

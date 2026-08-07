@@ -62,9 +62,10 @@ fn draw_template_panel(
     config.require_schema(TEMPLATE_DESCRIPTOR.config_schema)?;
 
     // `Opaque` is a promise to a compositor, and this is how it is kept:
-    // one axis-aligned, unclipped, full-alpha rect over the whole frame.
-    // A ground assembled from polygons, or drawn under a clip, does not
-    // satisfy the check however opaque it looks.
+    // one axis-aligned, full-alpha rect over the whole frame. A ground
+    // assembled from polygons, painted below full alpha, or drawn under
+    // a rotated transform does not satisfy the check however opaque it
+    // looks. A clip is fine only if it contains the frame.
     scene.begin_layer(LayerId::Background)?;
     scene.fill_color(palette::BLACK)?;
     scene.rect(PaintMode::Fill, 0.0, 0.0, FRAME_W, FRAME_H)?;
