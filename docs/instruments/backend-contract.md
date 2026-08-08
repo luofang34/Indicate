@@ -291,7 +291,7 @@ once, with the reason recorded in the change.
 
 ## Feeding: sources declare, panels require
 
-A source declares the state groups it supplies (ABI v6 tagged groups —
+A source declares the state groups it supplies (ABI v7 tagged groups —
 presence is meaning); a panel descriptor declares the groups it
 requires. An unfed group renders `Missing` by construction, not because
 a producer remembered to flag it. Sources with different group sets — a

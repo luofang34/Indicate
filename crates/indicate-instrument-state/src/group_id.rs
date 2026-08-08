@@ -148,7 +148,8 @@ pub fn withhold_group(state: &AircraftState, group: GroupId) -> AircraftState {
         GroupId::Kinematics => {
             out.kinematics = Default::default();
             out.valid.position = false;
-            out.valid.velocity = false;
+            out.valid.velocity_horizontal = false;
+            out.valid.velocity_vertical = false;
         }
         GroupId::Air => out.air = Default::default(),
         GroupId::Nav => out.nav = Default::default(),

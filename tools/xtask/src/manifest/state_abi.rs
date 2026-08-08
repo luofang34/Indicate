@@ -7,7 +7,7 @@
 //! than that script matches it. A Rust program cannot
 //! enumerate the modules of a crate it links, so it names one and the
 //! guard here refuses to emit a manifest once a newer module exists:
-//! adding `v7` fails the generator instead of silently pinning `v6`
+//! adding `v8` fails the generator instead of silently pinning `v7`
 //! while the changelog moves on.
 
 #[cfg(test)]
@@ -15,19 +15,19 @@ mod tests;
 
 use std::path::Path;
 
-use indicate_instrument_state::abi::v6::VERSION;
+use indicate_instrument_state::abi::v7::VERSION;
 
 use crate::error::XtaskError;
 
 /// The module this generator reads [`VERSION`] from.
-const COMPILED_MODULE: u32 = 6;
+const COMPILED_MODULE: u32 = 7;
 
 /// Where the crate declares its ABI modules, relative to the workspace root.
 const MODULE_SOURCE: &str = "crates/indicate-instrument-state/src/abi.rs";
 
 /// The ABI module in force and the version constant it declares.
 pub struct StateAbi {
-    /// The module name, `v6` and so on.
+    /// The module name, `v7` and so on.
     pub module: String,
     /// The wire version that module declares.
     pub version: u8,

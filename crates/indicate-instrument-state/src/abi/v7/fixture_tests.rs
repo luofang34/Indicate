@@ -1,5 +1,5 @@
 //! Golden-frame pinning: the committed hex fixtures in
-//! `crates/indicate-instrument-state/fixtures/` are the canonical v6
+//! `crates/indicate-instrument-state/fixtures/` are the canonical v7
 //! encodings of the shared
 //! posture fixtures, byte for byte. The JS state writer is pinned
 //! against the same files, so a drift on either side of the boundary
@@ -15,15 +15,15 @@ use std::vec::Vec;
 
 const FULL_HEX: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/fixtures/state-abi-v6.full.hex"
+    "/fixtures/state-abi-v7.full.hex"
 ));
 const GATEWAY_HEX: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/fixtures/state-abi-v6.data-gateway.hex"
+    "/fixtures/state-abi-v7.data-gateway.hex"
 ));
 const FC_HEX: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/fixtures/state-abi-v6.flight-controller.hex"
+    "/fixtures/state-abi-v7.flight-controller.hex"
 ));
 
 fn hex_of(bytes: &[u8]) -> String {

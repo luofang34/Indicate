@@ -68,7 +68,8 @@ fn state_from_quat(quat: Quat) -> AircraftState {
         attitude: true,
         rates: true,
         position: true,
-        velocity: true,
+        velocity_horizontal: true,
+        velocity_vertical: true,
         ..ValidFlags::default()
     };
     state.kinematics = Stamped {

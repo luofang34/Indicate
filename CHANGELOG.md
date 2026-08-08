@@ -13,7 +13,7 @@ it was written to remove.
 
 | Value | Where it lives |
 |---|---|
-| State ABI | `abi::v6::VERSION` in `indicate-instrument-state` |
+| State ABI | `abi::v7::VERSION` in `indicate-instrument-state` |
 | Scene format | `SCENE_FORMAT_VERSION` in `indicate-instrument-scene` |
 | Corpus | `corpusVersion` in `corpus/scene-conformance-corpus.json` |
 | Composition digest | `BUILTIN_SCENE_DIGEST` in `indicate-instrument-panels` |
@@ -42,6 +42,60 @@ below it is the second kind, and says so.
 Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
+
+## [0.4.0] — 2026-08-08
+
+The state ABI moves to v7: velocity validity splits into a horizontal
+and a vertical declaration. A source with a horizontal solution and no
+vertical-speed estimate could not say so, and both ways of writing the
+frame anyway were wrong — a zeroed down component painted a live VSI
+needle at 0 fpm, and a non-finite one took groundspeed and track down
+with it. The split is at the seam consumers differ at, not per
+component: no panel reads north or east alone.
+
+| Value | This release |
+|---|---|
+| State ABI | 7 |
+| Scene format | 1 |
+| Corpus | 4 |
+| Composition digest | `9a80dbcdcd2e437160763975e6d75a8af9850ff3f86434d4ad3b600ce17d1efd` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no.
+
+### State ABI v7 ([#30](https://github.com/luofang34/Indicate/issues/30))
+
+- **`ValidFlags::velocity` becomes `velocity_horizontal` and
+  `velocity_vertical`.** On the wire, bit 3 now means horizontal
+  velocity and bit 8 means vertical speed; bits 0–7 keep their v6
+  assignments and bits 9–15 are spare. The trust payload stays eight
+  bytes — the new bit sits in the existing `u16`.
+- **`StateIntegrity::velocity` becomes `velocity_horizontal` and
+  `velocity_vertical`.** The horizontal check is finiteness of north and
+  east, the vertical of down, so a NaN down component faults vertical
+  alone.
+- **`gs_kt` and `track_rad` fold the horizontal status; `vsi_fpm` folds
+  the vertical one.** The `GroupId::Kinematics` group status is the
+  worst of position and both axes, unchanged in spirit: a group with
+  several members reports its worst member.
+- **v7 replaces v6.** `abi::v6` is gone rather than kept alongside, and
+  the golden frames are now `state-abi-v7.*.hex`. Fail-closed defaults
+  are unchanged: an absent trust group declares nothing valid, and the
+  encoder still omits the group exactly when it equals that default.
+
+### Notes for anyone re-pinning
+
+- **Both digests moved and no paint did.** The composition digest hashes
+  the ABI version byte, and the screen-composition digest hashes the
+  composition digest beneath it, so `9a80dbcd…` and `34dc4332…` are the
+  version byte and nothing else. The three REN-03 raster baselines, the
+  criticality bands, the glyph pack, and the corpus are byte-identical:
+  every canonical state declares both velocity axes valid, so resolved
+  output for the corpus is what it was.
+- **A feeder must set both bits to keep its VSI.** A writer that set the
+  old bit 3 and stopped now declares horizontal velocity only, and its
+  vertical speed resolves `Failed`. That is the fail-closed direction,
+  but it is a behaviour change for any source that meant both.
 
 ## [0.3.0] — 2026-08-08
 

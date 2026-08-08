@@ -1,4 +1,4 @@
-//! v6 frame codec behavior: canonical round-trips, the fail-closed
+//! v7 frame codec behavior: canonical round-trips, the fail-closed
 //! decode table, and the two forward-compatibility axes (unknown tags,
 //! appended payload tails).
 
@@ -6,7 +6,7 @@
 
 use super::fixtures;
 use super::{AbiError, CAPACITY, VERSION, decode_state, encode_state};
-use crate::aircraft::AircraftState;
+use crate::aircraft::{AircraftState, ValidFlags};
 use crate::group_id::GroupId;
 use crate::validate::{GroupFault, validate_state};
 use std::vec::Vec;
@@ -266,6 +266,75 @@ fn unknown_variants_encode_as_255_and_round_trip_explicitly() {
     assert_eq!(frame[trust_payload], 255, "unknown quality byte");
     let report = decode_state(&frame).expect("decodes");
     assert_eq!(report.state, state, "Unknown round-trips as Unknown");
+}
+
+/// The valid-flag word of a canonical frame's trust group.
+fn valid_flags_word(state: &AircraftState) -> u16 {
+    let frame = encode(state);
+    let payload = locate_payload(&frame, 0x07).expect("trust present");
+    u16::from_le_bytes([frame[payload + 2], frame[payload + 3]])
+}
+
+/// Horizontal velocity is bit 3 and vertical speed is bit 8, so a
+/// source can declare either axis without the other.
+#[test]
+fn the_velocity_axes_occupy_separate_wire_bits() {
+    let axis = |valid: ValidFlags| AircraftState {
+        valid,
+        ..AircraftState::default()
+    };
+    let horizontal = axis(ValidFlags {
+        velocity_horizontal: true,
+        ..ValidFlags::default()
+    });
+    let vertical = axis(ValidFlags {
+        velocity_vertical: true,
+        ..ValidFlags::default()
+    });
+    assert_eq!(valid_flags_word(&horizontal), 0x0008);
+    assert_eq!(valid_flags_word(&vertical), 0x0100);
+    for state in [horizontal, vertical] {
+        let report = decode_state(&encode(&state)).expect("decodes");
+        assert_eq!(report.state.valid, state.valid);
+    }
+}
+
+/// Fail-closed defaults survive the added bit: an absent trust group
+/// declares nothing valid, and the encoder omits the group exactly when
+/// it equals that default — a source that declares only the new bit
+/// still writes a tag.
+#[test]
+fn an_absent_trust_group_declares_neither_velocity_axis() {
+    assert_eq!(
+        ValidFlags::default(),
+        ValidFlags {
+            attitude: false,
+            rates: false,
+            position: false,
+            velocity_horizontal: false,
+            velocity_vertical: false,
+            heading: false,
+            variation: false,
+            turn: false,
+            slip: false,
+        }
+    );
+    let frame = encode(&AircraftState::default());
+    assert!(
+        locate_payload(&frame, 0x07).is_none(),
+        "default omits trust"
+    );
+
+    let only_vertical = AircraftState {
+        valid: ValidFlags {
+            velocity_vertical: true,
+            ..ValidFlags::default()
+        },
+        ..AircraftState::default()
+    };
+    assert!(locate_payload(&encode(&only_vertical), 0x07).is_some());
+    let decoded = decode_state(&encode(&only_vertical)).expect("decodes");
+    assert_eq!(decoded.state.valid, only_vertical.valid);
 }
 
 #[test]

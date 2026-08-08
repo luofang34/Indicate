@@ -59,7 +59,8 @@ fn trusted_full_state() -> AircraftState {
             attitude: true,
             rates: true,
             position: true,
-            velocity: true,
+            velocity_horizontal: true,
+            velocity_vertical: true,
             ..Default::default()
         },
         ..AircraftState::default()
@@ -129,7 +130,29 @@ fn non_finite_values_fault_exactly_their_own_group() {
         }
         let report = validate_state(&s);
         assert_eq!(report.position, Some(GroupFault::NonFinite));
-        assert_eq!(report.velocity, None);
+        assert_eq!(report.velocity_horizontal, None);
+        assert_eq!(report.velocity_vertical, None);
+
+        // The velocity axes fault independently: a non-finite down
+        // component leaves the horizontal solution the source really
+        // supplies untouched, and the converse holds.
+        let mut s = trusted_full_state();
+        if let Some(kin) = s.kinematics.data.as_mut() {
+            kin.vel_ned_mps[2] = bad;
+        }
+        let report = validate_state(&s);
+        assert_eq!(report.velocity_vertical, Some(GroupFault::NonFinite));
+        assert_eq!(report.velocity_horizontal, None);
+        assert_eq!(report.position, None);
+
+        let mut s = trusted_full_state();
+        if let Some(kin) = s.kinematics.data.as_mut() {
+            kin.vel_ned_mps[1] = bad;
+        }
+        let report = validate_state(&s);
+        assert_eq!(report.velocity_horizontal, Some(GroupFault::NonFinite));
+        assert_eq!(report.velocity_vertical, None);
+        assert_eq!(report.position, None);
 
         let mut s = trusted_full_state();
         if let Some(air) = s.air.data.as_mut() {

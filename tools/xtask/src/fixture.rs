@@ -9,7 +9,7 @@
 //! sides of that boundary can only drift by turning a consumer's CI red.
 
 use indicate_instrument_state::AircraftState;
-use indicate_instrument_state::abi::v6::{CAPACITY, encode_state, fixtures};
+use indicate_instrument_state::abi::v7::{CAPACITY, encode_state, fixtures};
 
 use crate::error::XtaskError;
 use crate::output::print_line;
@@ -20,10 +20,10 @@ type FixtureBuilder = fn() -> AircraftState;
 
 /// The committed fixtures: stable file stem and the state behind it.
 const FIXTURES: [(&str, FixtureBuilder); 3] = [
-    ("state-abi-v6.full", fixtures::full),
-    ("state-abi-v6.data-gateway", fixtures::data_gateway),
+    ("state-abi-v7.full", fixtures::full),
+    ("state-abi-v7.data-gateway", fixtures::data_gateway),
     (
-        "state-abi-v6.flight-controller",
+        "state-abi-v7.flight-controller",
         fixtures::flight_controller,
     ),
 ];

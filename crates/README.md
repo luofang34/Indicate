@@ -62,7 +62,7 @@ kernel only.
 | `indicate-frames` | Frame and rotation vocabulary (`Quat`); dependency-free leaf. |
 | `indicate-alerts` | Alert model (`AlertOutput`, stack semantics); leaf. |
 | `indicate-sha256` | Streaming SHA-256 (`Sha256Ctx`) for `no_std` digest pinning; leaf. |
-| `indicate-instrument-state` | Aircraft display state, the self-delimiting tagged-group ABI (`abi::v6`), group statuses, posture fixtures. |
+| `indicate-instrument-state` | Aircraft display state, the self-delimiting tagged-group ABI (`abi::v7`), group statuses, posture fixtures. |
 | `indicate-instrument-scene` | Scene IR: layers, opcodes, budgets, structural validation; owns the scene-conformance corpus (`corpus/`). |
 | `indicate-instrument-glyphs` | Controlled glyph pack: manifest, integrity hashes, coverage requirements. |
 | `indicate-instrument-symbology` | Shared symbology: palette, never-skinnable safety constants, status paint, annunciations. |
