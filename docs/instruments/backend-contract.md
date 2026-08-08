@@ -77,6 +77,115 @@ frame a conforming shell may ask any of them for is 480×360.
   reviewed decision — never drift. Fixing overflowing paint moves frame
   hashes and is its own change, at which point the ratchet steps down.
 
+## Screen composition
+
+Several panels may share one surface ([`AIR-OUT-011`](requirements.md#air-out-011)).
+A `CompositionDescriptor` in `indicate-instrument-registry` declares the
+logical screen and an ordered list of `Slot`s — a panel id, a rect in
+screen units, and the `occludes` list naming the panels below whose
+ordinary symbology this slot is allowed to cover. **Slot index is z**,
+exactly as `LayerId`'s discriminant is z within a scene: later slots
+paint above earlier ones, and declaration order is paint order
+everywhere.
+
+What a backend does with it:
+
+- **Paint slots in index order.** Per slot: clip to the slot rect,
+  translate to the slot origin, and replay that panel's validated scene.
+  That is the whole of the placement — the `stride_bytes` sub-window the
+  reference rasterizer already supports, generalized to overlap.
+- **One global uniform mapping** from screen-logical units to the
+  surface. A slot gets no mapping of its own; there is no per-slot
+  rotation, and no slot is scaled to fit its rect. The slot's dimensions
+  *are* the frame its panel was asked to emit, which is why
+  `validate_composition` refuses a slot sized outside the panel's
+  declared frame range.
+- **No offscreen surfaces and no retained graph.** A slot's cost is a
+  function of its own scene and never of what lies beneath it, so
+  overdraw from stacking is bounded by construction. The ceilings are
+  sums: total encoded bytes at most `MAX_COMPOSITION_SLOTS ×
+  MAX_SCENE_BYTES`, composed-frame work at most the sum of the per-slot
+  `RenderWork` budgets, and the composed timing envelope the sum of the
+  slot envelopes against the same liveness-derived deadline (REN-04).
+- **One resolved snapshot and one `AlertOutput` per composed frame**,
+  fanned to every slot. Two overlapping panels disagreeing because they
+  resolved different snapshots is a misleading display
+  ([`AIR-BAS-007`](requirements.md#air-bas-007)); resolving once is the
+  rule, not an optimization.
+- **A slot that fails at run time paints its failure inside its own rect
+  and nowhere else,** and suppresses, delays, and alters nothing in any
+  other slot.
+- **Per-slot configuration is shell-supplied at draw time,** not
+  declared in the composition. The descriptor declares layout; the feed
+  supplies data and configuration. It therefore does not join the
+  screen-composition digest, and a shell that reconfigures a panel still
+  composes the same screen.
+
+What `validate_composition` refuses at init, before first paint — a
+composition fault is a declaration error, never a rendering curiosity:
+an unregistered panel id; a rect that is not finite, is degenerate, or
+leaves the screen; a slot sized to a frame its panel does not support;
+more than `MAX_COMPOSITION_SLOTS` (8) slots; a slot wholly covered by
+the opaque slots above it; and undeclared obscuration.
+
+Overlap rides `BackgroundCapability` rather than any new alpha
+mechanism. `Opaque` and `Cedeable` panels prove a full-frame opaque
+cover at admission, so they occlude their whole rect and count toward
+burying a slot below; a `NotUsed` panel paints nothing in the background
+band and functions as an overlay through which lower slots show.
+
+**The obscuration floor.** Two rules, and the difference between them is
+what [`AIR-OUT-011`](requirements.md#air-out-011) requires:
+
+| What may be covered | Where it comes from | Rule |
+|---|---|---|
+| Ordinary symbology | the lower panel's declared `group_regions`, placed at its slot origin | covered only where the covering slot names the lower panel in `occludes` |
+| Criticality content | the *measured* union `Annunciation`/`Failure` ink bound, per panel × frame | may not be covered at all |
+
+A declaration reaches the first row and never the second:
+
+> **Declaring buys you readouts, never warnings.**
+
+Naming a panel in `occludes` permits covering its ordinary symbology; it
+does not permit covering its warnings or its failure indications,
+because a declaration that could conceal a warning would be a
+declaration that the warning does not matter. The criticality bound is
+measured rather than declared for the same reason: a panel able to name
+its own warning surface could also understate it.
+
+**The floor is exactly the two bands, and no wider.** It protects what a
+panel paints into `Annunciation` and `Failure`, whatever that is, and it
+does not protect anything a panel paints elsewhere, whatever that says.
+Two consequences worth stating rather than discovering:
+
+- The simulation labelling [`AIR-BAS-001`](requirements.md#air-bas-001)
+  and [`AIR-FLAG-007`](requirements.md#air-flag-007) require is covered
+  by this floor **only if the panel paints it into a criticality band**.
+  No shipped panel emits that labelling at all today, so this is an
+  obligation on a panel author, not a property the composition layer
+  supplies.
+- A band is only as wide as the cases that measured it. A failure cue no
+  corpus or extreme state drives is not in the bound and is not
+  protected; `panel-contract.md` says the same thing to the author who
+  can fix it.
+
+The bound a composition validates against is what admission measured
+over the whole canonical × extreme × withheld case matrix, pinned beside
+the raster baselines. A panel with no band pinned at the size its slot
+asks for is refused rather than assumed quiet.
+
+The **screen-composition digest** has its own domain string and covers
+the screen frame, the ordered slots — panel id, rect, and `occludes`
+list — and the scene digest beneath, so it is strictly stronger than the
+scene digest: two shells agreeing here agree both about what their
+panels paint and about where. Slot rects are in it from day one, so
+relaxing which rects are admissible changes what validates and never
+what the digest covers. Pin-advance discipline is the same as for the
+scene digest.
+
+Composition does not change a panel: its modes, its reversion, and its
+failure presentation are what they were standalone.
+
 ## Where the vocabulary deliberately stops
 
 Two properties of the opcode set decide what an instrument can be. One

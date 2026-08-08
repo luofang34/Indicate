@@ -82,6 +82,67 @@ pub struct Region {
     pub height: f32,
 }
 
+impl Region {
+    /// The whole of `frame`, as a region at its origin.
+    pub const fn of(frame: DesignFrame) -> Region {
+        Region {
+            x: 0.0,
+            y: 0.0,
+            width: frame.width,
+            height: frame.height,
+        }
+    }
+
+    /// Right edge.
+    pub fn right(&self) -> f32 {
+        self.x + self.width
+    }
+
+    /// Bottom edge.
+    pub fn bottom(&self) -> f32 {
+        self.y + self.height
+    }
+
+    /// Whether every coordinate is finite and both extents are
+    /// positive. A degenerate region names no surface, so it cannot be
+    /// a readout's or a slot's.
+    pub fn is_sound(&self) -> bool {
+        self.x.is_finite()
+            && self.y.is_finite()
+            && self.width.is_finite()
+            && self.height.is_finite()
+            && self.width > 0.0
+            && self.height > 0.0
+    }
+
+    /// Whether the two overlap on a positive area; sharing only an edge
+    /// does not count.
+    pub fn intersects(&self, other: &Region) -> bool {
+        self.x < other.right()
+            && other.x < self.right()
+            && self.y < other.bottom()
+            && other.y < self.bottom()
+    }
+
+    /// Whether `other` lies wholly inside this region.
+    pub fn contains(&self, other: &Region) -> bool {
+        other.x >= self.x
+            && other.y >= self.y
+            && other.right() <= self.right()
+            && other.bottom() <= self.bottom()
+    }
+
+    /// The same region moved by `(dx, dy)` — a panel's own design-space
+    /// rectangle placed at a composition slot's origin.
+    pub fn translated(&self, dx: f32, dy: f32) -> Region {
+        Region {
+            x: self.x + dx,
+            y: self.y + dy,
+            ..*self
+        }
+    }
+}
+
 /// A panel-contributed extreme state for conformance and digest runs:
 /// the panel names the situations that stress it beyond the shared
 /// canonical set.
@@ -137,11 +198,25 @@ pub struct PanelDescriptor {
     /// Configuration keys this panel understands; a shell refuses a
     /// blob carrying any other key.
     pub config_schema: &'static [ConfigKey],
-    /// Where each consumed group paints its readout — a forward
-    /// declaration for a shell that presents readout ownership or a
-    /// dash-out check. Structurally validated; no shipped consumer
-    /// reads it today (honest status is proven by provenance claims on
-    /// the runs, not by regions).
+    /// Where each consumed group's *value* is drawn: the pointed
+    /// readout, the data box — not the scale ladder or the tick labels
+    /// beside it, which carry the same group's claim because a numeral
+    /// must carry one.
+    ///
+    /// Validated for geometry here — inside [`PanelDescriptor::frame_min`],
+    /// non-degenerate, only for required groups — and asserted by the
+    /// admission harness for non-vacuity: every declared region must be
+    /// populated by claimed ink somewhere in the panel's case matrix. A
+    /// region over blank space is what the assertion is for, because
+    /// screen composition plans obscuration around these rectangles and
+    /// would protect a surface the readout does not use.
+    ///
+    /// Silence is a declaration too: a group with no region here is not
+    /// judged positionally, because some readouts share a strip with a
+    /// neighbouring group's ink and no geometry separates them.
+    ///
+    /// Criticality content is bounded separately and by measurement
+    /// rather than declaration ([`crate::PanelCriticality`]).
     pub group_regions: &'static [(GroupId, Region)],
     /// Panel-contributed stress fixtures beyond the canonical states.
     pub extreme_states: &'static [ExtremeState],

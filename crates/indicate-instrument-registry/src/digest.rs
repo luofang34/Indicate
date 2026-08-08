@@ -160,14 +160,14 @@ fn digest_frame_scene(
 /// A frame is two fixed-width words, so it needs no length prefix; the
 /// role tag that precedes a frame item keeps it from aliasing anything
 /// else in the stream.
-fn digest_frame(ctx: &mut Sha256Ctx, frame: DesignFrame) {
+pub(crate) fn digest_frame(ctx: &mut Sha256Ctx, frame: DesignFrame) {
     ctx.update(&frame.width.to_le_bytes());
     ctx.update(&frame.height.to_le_bytes());
 }
 
 /// Role-tagged, length-prefixed (`u32` LE) update: framing keeps
 /// adjacent fields and different item roles from aliasing each other.
-fn update_framed(ctx: &mut Sha256Ctx, role: u8, bytes: &[u8]) {
+pub(crate) fn update_framed(ctx: &mut Sha256Ctx, role: u8, bytes: &[u8]) {
     ctx.update(&[role]);
     ctx.update(&(bytes.len() as u32).to_le_bytes());
     ctx.update(bytes);

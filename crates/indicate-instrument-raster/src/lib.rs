@@ -70,6 +70,7 @@
 #[cfg(test)]
 extern crate std;
 
+mod composition;
 mod curve;
 mod error;
 mod fixed;
@@ -83,6 +84,7 @@ mod text;
 pub mod timing;
 mod transform;
 
+pub use composition::{CompositionInputs, render_composition};
 pub use error::RasterError;
 pub use raster::render;
 pub use report::{FrameId, FramebufferDims, RenderReport, RenderStatus, RenderWork};

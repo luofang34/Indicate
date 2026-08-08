@@ -454,6 +454,13 @@ fn raster_class(e: &RasterError) -> String {
         RasterError::TooManyVertices { .. } => "TooManyVertices",
         RasterError::StackOverflow { .. } => "StackOverflow",
         RasterError::UnbalancedRestore => "UnbalancedRestore",
+        // Composition faults, which the single-scene conformance corpus
+        // cannot reach: a corpus case is one scene, and these name a
+        // slot. Spelled out rather than caught by a wildcard so a new
+        // single-scene fault still has to be classified deliberately.
+        RasterError::SlotPanelMissing { .. } => "SlotPanelMissing",
+        RasterError::SlotDraw { .. } => "SlotDraw",
+        RasterError::SlotSceneBuffer { .. } => "SlotSceneBuffer",
     }
     .to_string()
 }

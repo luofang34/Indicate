@@ -1,19 +1,20 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_instrument_panels::BUILTIN_PANELS;
+use indicate_instrument_panels::{BUILTIN_CRITICALITY_BANDS, BUILTIN_PANELS};
 use indicate_instrument_registry::{
     BackgroundCapability, DesignFrame, GroupSet, PanelDescriptor, Registry,
 };
 
-use super::admit;
+use super::{admit, criticality_bands};
 
 #[test]
 fn builtin_panels_pass_admission() {
     let registry = Registry::new(BUILTIN_PANELS).expect("composes");
     let report = admit(&registry).expect("shipped panels must be admissible");
     // PFD: (4 canonical + 3 extreme) states × (1 fed + 8 withheld);
-    // HSI: (4 + 2) × 8; monitor: 5 × 2.
-    assert_eq!(report.cases, 121);
+    // HSI: (4 + 2) × 8; monitor: 5 × 2 — each drawn twice, quiet and
+    // with the saturated alert stack.
+    assert_eq!(report.cases, 242);
     // Every warning is the PFD's groundspeed or baro readout: their
     // boxes are 90 units wide but a wide value at size 16 has ~107
     // units of nominal ink, so the run overhangs its box and the frame
@@ -22,15 +23,30 @@ fn builtin_panels_pass_admission() {
     // corpus and extreme state; fixing the paint moves frame hashes and
     // is its own change. The ratchet makes any NEW unclipped off-frame
     // text a deliberate decision.
-    assert_eq!(report.warnings.len(), 83);
+    // Twice the quiet-frame count, because the overhanging runs are the
+    // groundspeed and baro readouts, which the alert stack does not
+    // touch: each overhangs on both sides of the alert axis.
+    assert_eq!(report.warnings.len(), 166);
     assert!(report.warnings.iter().all(|w| matches!(
         w,
         super::AdmissionWarning::FrameOverflow { panel: "pfd", text, .. }
             if text.starts_with("GS ") || text.starts_with("SET ")
     )));
 }
+
+/// The pinned bands must be what the emitted scenes actually measure:
+/// a composition validates obscuration against the pin, so a paint
+/// change that moves a warning has to move the pin in the same change.
+#[test]
+fn the_pinned_criticality_bands_are_the_measured_ones() {
+    let registry = Registry::new(BUILTIN_PANELS).expect("composes");
+    let measured = criticality_bands(&registry).expect("measures");
+    assert_eq!(measured, BUILTIN_CRITICALITY_BANDS.panels);
+}
+
 mod background_checks;
 mod provenance_checks;
+mod region_checks;
 
 /// The one frame every fixture panel below declares: a degenerate
 /// range, so each fixture is drawn exactly once per case and the counts

@@ -24,6 +24,63 @@ from a rewritten one. Entries are newest first, and the tag's message
 repeats the same five values so `git show <tag>` answers the question
 without a checkout. `CONTRIBUTING.md` has the release steps.
 
+## [Unreleased]
+
+Screen composition ([`AIR-OUT-011`](docs/instruments/requirements.md)).
+None of the five values above moved, so this is not a release — but a
+consumer gains a sixth pinnable value and two new refusals, and both are
+worth knowing before the next one is cut.
+
+- **New pinnable value: the screen-composition digest.** Its own domain
+  string (`pilotage-screen-composition-digest-v1`), covering the screen
+  frame, the ordered slots (panel id, rect, `occludes`), and the scene
+  digest beneath. `tools/instrument-bench` composes a fixture screen and
+  reproduces `071bd35c…`. Per-slot configuration is shell-supplied at
+  draw time and is deliberately not in it.
+- **New ceiling: `MAX_COMPOSITION_SLOTS` = 8.** Every composed-frame
+  budget is a sum over slots, so this is what makes those sums finite.
+  The value is a declared ceiling, not a measured one: no full-screen
+  six-pack has been benched against it.
+- **`group_regions` became load-bearing.** Admission asserts
+  non-vacuity: every declared region must be populated by a visible run
+  claiming its group, somewhere in the panel's case matrix, at
+  `frame_min`. A region over blank space fails as `GroupRegionEmpty`.
+  What is deliberately *not* asserted is that all of a group's claimed
+  ink sits inside its regions — a numeral must carry a claim, so every
+  ladder rung and compass tick carries its group's, and those sit
+  outside the readout box by design. All three shipped panels satisfy
+  the rule as authored; no region and no panel changed.
+- **New pinned data: `BUILTIN_CRITICALITY_BANDS`.** The measured
+  `Annunciation`/`Failure` ink bound per panel × canonical frame, which
+  a composition validates obscuration against. The monitor's is `None`,
+  which is a measurement rather than an omission.
+- **The criticality band now folds in the alert stack, and this is a
+  safety fix.** Admission drew every case with no alerts, so the
+  measured `Annunciation`/`Failure` bound excluded the shared alert
+  stack entirely — while a composed frame fans one `AlertOutput` to
+  every slot. A declared obscuration could therefore cover warning rows,
+  which is exactly what AIR-OUT-011 forbids and what the contract says
+  is impossible. The case matrix gains an alert axis (each case drawn
+  quiet and with a saturated stack), so admission runs 242 cases instead
+  of 121 and counts 166 frame-overflow warnings instead of 83. All three
+  `BUILTIN_CRITICALITY_BANDS` entries moved; the monitor's is no longer
+  `None`.
+- **An unwitnessed band refuses obscuration.** A band measured empty is
+  the absence of a witness, not a proof of absence, and it now refuses
+  any overlap (`CriticalityUnwitnessed`) instead of admitting it.
+- **New pinned data: three composed-frame hashes.** The reference
+  rasterizer gains `render_composition`, which paints a validated
+  composition into one framebuffer, and pins REN-03-style hashes for a
+  side-by-side screen, an opaque inset over a PFD, and a `NotUsed`
+  overlay. The inset and overlay fixtures moved above the PFD's band
+  once alerts were folded in, so two of the three hashes are new. The overlay's show-through is asserted as a property, not
+  only as a hash. `indicate-instrument-raster` gains normal
+  dependencies on the registry, the state crate, and the alert model;
+  the arrow points that way and no crate gained a dependency on the
+  rasterizer.
+- The scene digest, the corpus, the screen-composition digest, and every
+  REN-03 per-panel frame hash are unchanged.
+
 ## [0.2.0] — 2026-08-07
 
 The design frame becomes an emission input. `DrawFn` gains a

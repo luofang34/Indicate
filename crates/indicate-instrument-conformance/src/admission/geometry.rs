@@ -2,8 +2,12 @@
 //! semantics the reference rasterizer applies (post-multiplied
 //! translate/rotate, y-down clockwise rotation), with rotated shapes
 //! reduced to conservative axis-aligned bounds.
+//!
+//! The graphics state here mirrors the rasterizer's own: `Save` pushes
+//! transform, clip, and paint together and `Restore` pops all three, so
+//! a check that walks a scene sees what a backend would.
 
-use indicate_instrument_scene::{HAlign, VAlign, nominal_text_ink_width};
+use indicate_instrument_scene::{Cmd, HAlign, VAlign, nominal_text_ink_width};
 
 /// An axis-aligned rectangle in design-frame units.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -15,6 +19,39 @@ pub(super) struct Rect {
 }
 
 impl Rect {
+    /// A rectangle covering nothing, so unioning it in changes nothing.
+    pub(super) const EMPTY: Rect = Rect {
+        min_x: f32::INFINITY,
+        min_y: f32::INFINITY,
+        max_x: f32::NEG_INFINITY,
+        max_y: f32::NEG_INFINITY,
+    };
+
+    pub(super) fn is_empty(&self) -> bool {
+        !(self.max_x > self.min_x && self.max_y > self.min_y)
+    }
+
+    /// The smallest rectangle containing both.
+    pub(super) fn union(&self, other: &Rect) -> Rect {
+        Rect {
+            min_x: self.min_x.min(other.min_x),
+            min_y: self.min_y.min(other.min_y),
+            max_x: self.max_x.max(other.max_x),
+            max_y: self.max_y.max(other.max_y),
+        }
+    }
+
+    /// Grows every edge outward by `margin` — a stroked shape inks half
+    /// its line width beyond the geometry it is drawn from.
+    pub(super) fn inflate(&self, margin: f32) -> Rect {
+        Rect {
+            min_x: self.min_x - margin,
+            min_y: self.min_y - margin,
+            max_x: self.max_x + margin,
+            max_y: self.max_y + margin,
+        }
+    }
+
     pub(super) fn intersects(&self, other: &Rect) -> bool {
         self.min_x < other.max_x
             && other.min_x < self.max_x
@@ -115,6 +152,85 @@ impl Ctm {
             out.max_y = out.max_y.max(y);
         }
         out
+    }
+}
+
+/// Graphics state as the real state machine carries it: Save pushes
+/// transform, clip, and paint state together; Restore pops all three.
+#[derive(Clone, Copy)]
+pub(super) struct Gs {
+    pub(super) ctm: Ctm,
+    pub(super) clip: Option<Rect>,
+    pub(super) fill_alpha: u8,
+    pub(super) stroke_width: f32,
+}
+
+impl Gs {
+    /// The state a scene starts in, matching the rasterizer's own
+    /// defaults.
+    pub(super) const DEFAULT: Self = Self {
+        ctm: Ctm::IDENTITY,
+        clip: None,
+        fill_alpha: 255,
+        stroke_width: 1.0,
+    };
+
+    /// How far a stroked shape inks beyond its geometry.
+    pub(super) fn stroke_margin(&self) -> f32 {
+        (self.stroke_width / 2.0).max(0.0)
+    }
+}
+
+/// Applies one command to the graphics-state stack, exactly as the real
+/// state machine would. Drawing commands leave it untouched.
+pub(super) fn track_state(stack: &mut Vec<Gs>, cmd: &Cmd<'_>) {
+    match *cmd {
+        Cmd::Save => {
+            if let Some(top) = stack.last().copied() {
+                stack.push(top);
+            }
+        }
+        Cmd::Restore => {
+            stack.pop();
+            if stack.is_empty() {
+                stack.push(Gs::DEFAULT);
+            }
+        }
+        Cmd::Translate { x, y } => {
+            if let Some(gs) = stack.last_mut() {
+                gs.ctm.translate(x, y);
+            }
+        }
+        Cmd::Rotate { radians } => {
+            if let Some(gs) = stack.last_mut() {
+                gs.ctm.rotate(radians);
+            }
+        }
+        Cmd::FillColor { color } => {
+            if let Some(gs) = stack.last_mut() {
+                gs.fill_alpha = color.a;
+            }
+        }
+        Cmd::Stroke { width, .. } => {
+            if let Some(gs) = stack.last_mut() {
+                gs.stroke_width = width;
+            }
+        }
+        Cmd::ClipRect { x, y, w, h } => {
+            if let Some(gs) = stack.last_mut() {
+                let mapped = gs.ctm.map_rect(&Rect {
+                    min_x: x,
+                    min_y: y,
+                    max_x: x + w,
+                    max_y: y + h,
+                });
+                gs.clip = Some(match gs.clip {
+                    None => mapped,
+                    Some(previous) => previous.intersect(&mapped),
+                });
+            }
+        }
+        _ => {}
     }
 }
 

@@ -8,6 +8,7 @@
 //! survives a failure.
 
 use indicate_instrument_glyphs::GlyphError;
+use indicate_instrument_registry::PanelDrawError;
 use indicate_instrument_scene::{DecodeError, LayerError};
 
 /// Why a render did not produce a valid frame.
@@ -77,4 +78,27 @@ pub enum RasterError {
     /// A restore was issued with no matching save.
     #[error("restore with no matching save")]
     UnbalancedRestore,
+    /// A composition slot names a panel the registry does not compose.
+    /// `validate_composition` refuses this at init; reaching it here
+    /// means a composition was painted that was never admitted.
+    #[error("composition slot names panel {panel}, which this registry does not compose")]
+    SlotPanelMissing {
+        /// The name the slot gave.
+        panel: &'static str,
+    },
+    /// A slot's panel refused to draw the composed frame.
+    #[error("panel {panel} failed to draw its composition slot")]
+    SlotDraw {
+        /// The refusing panel.
+        panel: &'static str,
+        /// The panel's own reason.
+        #[source]
+        source: PanelDrawError,
+    },
+    /// The caller's scene scratch cannot hold a slot's scene.
+    #[error("the scene scratch buffer cannot hold panel {panel}'s slot scene")]
+    SlotSceneBuffer {
+        /// The panel whose scene did not fit.
+        panel: &'static str,
+    },
 }

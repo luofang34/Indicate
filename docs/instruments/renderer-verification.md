@@ -14,6 +14,7 @@ engineering conformance for the simulator; it makes no certification claim.
 | Backend | Where | Determinism gate |
 |---|---|---|
 | Reference software rasterizer | `indicate-instrument-raster::render` | Bit-exact: pinned SHA-256 frame hashes (`src/raster/tests/frame_hashes.rs`), reproducible via `libm` + IEEE-754 `f32`. |
+| Reference composition harness | `indicate-instrument-raster::render_composition` | Bit-exact: pinned SHA-256 composed-frame hashes (`src/composition/tests.rs`), plus the overlay show-through property. |
 | Browser Canvas2D | Pilotage repository, `clients/web/instruments.js` (`interpretScene`) | Semantic conformance + documented, limited tolerances. **Not** pixel-deterministic — Canvas2D anti-aliasing and font/geometry rounding are platform-owned. |
 | wgpu / embedded framebuffer | future | Consume the identical scene IR; verified by the same corpus when they land. |
 
@@ -98,6 +99,80 @@ the firmware/build identity, MCU, clock and memory configuration, compiler
 flags, and raw output; only then does the envelope become a WCET and the
 deadline a display refresh requirement. The browser watchdog (`PanelHealth`,
 simulator-only) latches a stalled panel as `LIVENESS` past its deadline.
+
+## Composed frames
+
+A screen composition places several validated panel scenes on one surface
+([`AIR-OUT-011`](requirements.md#air-out-011)); `backend-contract.md` states the
+rule and `render_composition` executes it. The harness is the evidence that the
+rule is implementable rather than merely declarable: one framebuffer cleared
+once, slots painted in index order, each clipped to its rect and translated to
+its origin, one global 1:1 mapping, no offscreen surface and no retained graph.
+
+Placement reuses the single-panel painting path. A slot's origin and rect enter
+through the same translate and clip commands any scene may issue, so a slot
+inherits the same Q8.8 snapping and the same conservative clip bound — there is
+no second geometry path to keep in agreement. That is the `stride_bytes`
+sub-window idea generalized: a slot is a window onto a shared surface, differing
+from a strided sub-buffer only in that slots may overlap.
+
+One snapshot and one `AlertOutput` are fanned to every slot, so the harness also
+demonstrates the single-resolve rule two overlapping panels depend on
+([`AIR-BAS-007`](requirements.md#air-bas-007)).
+
+### Pinned composed-frame hashes
+
+Three shapes, because placement, opaque overlap, and overlay show-through fail
+differently. All are tight-stride RGBA8 at 1:1 over the shared canonical
+`typical` state, asserted reproducible (rendered twice) before being compared to
+the pin, exactly as the per-panel baselines are.
+
+| Fixture | Screen | Slots |
+|---|---|---|
+| Side by side | 960x360 | `pfd` at (0, 0), `hsi` at (480, 0), neither overlapping |
+| Opaque inset over a PFD | 480x360 | `pfd` full-frame, an `Opaque` 200x32 fixture panel inset at (140, 4) |
+| `NotUsed` overlay | 480x360 | the same geometry with a `NotUsed` fixture panel, which opens no background band |
+
+The inset rect sits in the narrow strip *above* the PFD's measured criticality
+band — which, once alerts are folded into the measurement, runs from y 38 to the
+bottom of the alert stack at y 352 — and clear of the readout regions the PFD
+declares, so neither fixture needs an `occludes` entry. That a PFD-sized panel
+has so little surface a slot may sit on is the floor working, not a fixture
+inconvenience. It is asserted by running `validate_composition` over each
+fixture rather than reasoned about in prose, and the PFD band the fixtures use
+is asserted equal to the pinned `BUILTIN_CRITICALITY_BANDS` entry.
+
+### The obscuration floor, measured in pixels
+
+`src/composition/tests/obscuration.rs` holds two compositions that a declared
+`occludes` entry once admitted and that must now be refused: a panel placed over
+a PFD's alert stack, and one placed over the monitor's annunciation band. Both
+assert `CriticalityObscured`. A third test measures where the shared alert stack
+actually inks — by diffing a rendered quiet frame against an alerted one — and
+asserts every shipped panel's pinned band contains it, so the pin cannot drift
+away from the ink it is supposed to bound.
+
+### What the hashes do not prove
+
+A hash proves reproducibility. Two property tests prove the behaviour that makes
+overlap safe, and they are the reason the overlay fixture exists:
+
+- **Opaque slots replace.** Every pixel of the inset's rect differs from the
+  PFD-alone frame, so an `Opaque` slot owns its whole rect rather than merely
+  painting into transparent gaps.
+- **`NotUsed` slots show through.** The overlay's scene is rendered alone on
+  transparent black to establish which of its pixels are its own ink. Then, for
+  **every** pixel of the rect: where the overlay's alpha is zero the composed
+  frame equals the PFD-alone frame exactly, and where it is not, the composed
+  frame equals the overlay's own ink. Both halves are asserted non-empty, so
+  neither can pass vacuously.
+
+Scope, stated plainly: the harness is a determinism instrument, not a
+flight-worthy compositor. A slot fault here spoils the whole frame, as every
+reference render does, because a bit-exact harness that painted a partial frame
+would pin a hash of undefined content. The per-slot in-rect failure presentation
+the contract requires of a real backend is a runtime obligation of the shell
+above it.
 
 ## The conformance corpus
 

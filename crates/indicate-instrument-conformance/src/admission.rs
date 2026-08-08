@@ -1,4 +1,4 @@
-//! The admission matrix and its five check families.
+//! The admission matrix and its check families.
 //!
 //! The matrix runs at every canonical frame a panel pins, and every
 //! geometry check is expressed against the frame being drawn rather
@@ -16,13 +16,16 @@
 //! numeric run must claim the state group its value derives from
 //! ([`Cmd::Attribute`]), and a claimed run may not be visible when its
 //! group shows no value — wherever it is drawn. Declared
-//! `group_regions` no longer drive this family; they remain the
-//! descriptor's statement of which readout surface belongs to which
-//! group (the dash-out declaration a shell may present).
+//! `group_regions` are a separate family with a separate purpose: each
+//! declared readout surface must be one the group's readout really
+//! uses, so a compositor above plans obscuration against a populated
+//! declaration rather than an empty rectangle.
 
+use indicate_alerts::AlertOutput;
 use indicate_instrument_glyphs::PANEL_VOCABULARY;
 use indicate_instrument_registry::{
-    CANONICAL_STATES, DesignFrame, EMPTY_CONFIG, PanelDescriptor, PanelDrawError, Registry,
+    CANONICAL_STATES, DesignFrame, EMPTY_CONFIG, PanelCriticality, PanelDescriptor, PanelDrawError,
+    Registry,
 };
 use indicate_instrument_scene::{
     Cmd, LayerError, MAX_SCENE_BYTES, SceneCmds, SceneWriter, validate_layers,
@@ -31,13 +34,23 @@ use indicate_instrument_state::{
     AircraftState, FreshnessPolicy, GroupId, PanelData, resolve, withhold_group,
 };
 
+mod alerts;
 mod background;
+mod criticality;
+mod error;
 mod geometry;
+mod ink;
 mod provenance;
+mod regions;
 
+use alerts::saturated_stack;
 use background::check_background;
 use geometry::{Ctm, Rect, text_rect};
 use provenance::check_provenance;
+use regions::check_non_vacuity;
+
+pub use criticality::criticality_bands;
+pub use error::AdmissionError;
 
 /// One admission run's outcome: how much was covered, and what was
 /// tolerated. Failures are typed errors, never entries here.
@@ -47,6 +60,9 @@ pub struct AdmissionReport {
     pub cases: usize,
     /// Tolerated-but-counted observations.
     pub warnings: Vec<AdmissionWarning>,
+    /// The measured criticality band of every panel × canonical frame,
+    /// for a consumer to pin and a composition to plan around.
+    pub criticality: Vec<PanelCriticality>,
 }
 
 /// A tolerated observation, counted so growth is visible.
@@ -63,147 +79,13 @@ pub enum AdmissionWarning {
         state: &'static str,
         /// The frame the panel was drawn at.
         frame: DesignFrame,
+        /// Whether the alert stack was drawn in this case. A run that
+        /// overhangs only with alerts fed is a different fact from one
+        /// that overhangs on a quiet frame, and the ratchet counts them
+        /// separately.
+        alerted: bool,
         /// The text run's content.
         text: String,
-    },
-}
-
-/// Why a panel failed admission.
-#[derive(Debug, Clone, PartialEq, thiserror::Error)]
-pub enum AdmissionError {
-    /// The panel refused to draw a corpus case.
-    #[error("panel {panel} failed to draw state {state} (withheld: {withheld:?})")]
-    Draw {
-        /// The refusing panel.
-        panel: &'static str,
-        /// The corpus state.
-        state: &'static str,
-        /// The withheld group, if the case withholds one.
-        withheld: Option<GroupId>,
-        /// The panel's own reason.
-        #[source]
-        source: PanelDrawError,
-    },
-    /// The emitted scene violates the layer contract.
-    #[error("panel {panel} scene for {state} (withheld: {withheld:?}) breaks the layer contract")]
-    LayerContract {
-        /// The drawing panel.
-        panel: &'static str,
-        /// The corpus state.
-        state: &'static str,
-        /// The withheld group, if any.
-        withheld: Option<GroupId>,
-    },
-    /// A required layer band is absent from the emitted scene.
-    #[error(
-        "panel {panel} scene for {state} (withheld: {withheld:?}) is missing required layers {missing:#04x}"
-    )]
-    MissingRequiredLayers {
-        /// The drawing panel.
-        panel: &'static str,
-        /// The corpus state.
-        state: &'static str,
-        /// The withheld group, if any.
-        withheld: Option<GroupId>,
-        /// Required-but-absent layer bits.
-        missing: u8,
-    },
-    /// The scene does not decode.
-    #[error("panel {panel} scene for {state} does not decode")]
-    Decode {
-        /// The drawing panel.
-        panel: &'static str,
-        /// The corpus state.
-        state: &'static str,
-    },
-    /// A text run uses a character outside the controlled vocabulary.
-    #[error("panel {panel} draws {ch:?} in {state}, outside the controlled vocabulary")]
-    GlyphCoverage {
-        /// The drawing panel.
-        panel: &'static str,
-        /// The corpus state.
-        state: &'static str,
-        /// The uncovered character.
-        ch: char,
-    },
-    /// A visible run claims a group that shows no value in the drawn
-    /// state — the panel painted a number for data it was not given.
-    #[error(
-        "panel {panel} shows {text:?} claimed from {group:?} in {state} while {group:?} shows no value"
-    )]
-    FabricatedNumeral {
-        /// The drawing panel.
-        panel: &'static str,
-        /// The corpus state.
-        state: &'static str,
-        /// The claimed group.
-        group: GroupId,
-        /// The offending run.
-        text: String,
-    },
-    /// A numeric run carries no provenance claim. Totality is what
-    /// makes the claim rule sound: an unclaimed numeral would escape
-    /// every withholding case.
-    #[error("panel {panel} draws numeric text {text:?} in {state} with no provenance claim")]
-    UntaggedNumeral {
-        /// The drawing panel.
-        panel: &'static str,
-        /// The corpus state.
-        state: &'static str,
-        /// The unclaimed run.
-        text: String,
-    },
-    /// A run claims a group outside the panel's required set (or an
-    /// unknown tag) — a claim the withholding matrix could never test.
-    #[error(
-        "panel {panel} claims tag {tag:#04x} for {text:?} in {state}, outside its required groups"
-    )]
-    ForeignClaim {
-        /// The drawing panel.
-        panel: &'static str,
-        /// The corpus state.
-        state: &'static str,
-        /// The claimed tag byte.
-        tag: u8,
-        /// The claiming run.
-        text: String,
-    },
-    /// A visible run claims configuration provenance under the
-    /// harness's fixed empty configuration — it derives from nothing.
-    #[error(
-        "panel {panel} shows {text:?} in {state} claiming configuration provenance under the empty configuration"
-    )]
-    ConfigClaim {
-        /// The drawing panel.
-        panel: &'static str,
-        /// The corpus state.
-        state: &'static str,
-        /// The claiming run.
-        text: String,
-    },
-    /// A provenance claim not immediately followed by the text run it
-    /// covers — a dangling or stacked claim is structurally malformed.
-    #[error("panel {panel} scene for {state} carries a provenance claim that covers no text run")]
-    MisplacedClaim {
-        /// The drawing panel.
-        panel: &'static str,
-        /// The corpus state.
-        state: &'static str,
-    },
-    /// The Background band contradicts the declared capability: a
-    /// compositor plans around this declaration, so both directions are
-    /// refused — painting a band declared `NotUsed`, and failing to
-    /// opaquely cover a band declared owned.
-    #[error("panel {panel} declares background {declared} but its {state} scene {defect} the band")]
-    BackgroundContract {
-        /// The drawing panel.
-        panel: &'static str,
-        /// The corpus state.
-        state: &'static str,
-        /// The declared capability.
-        declared: &'static str,
-        /// What the scene actually did: "paints" or "does not cover".
-        defect: &'static str,
     },
 }
 
@@ -214,8 +96,8 @@ struct TextRun {
     text: String,
     /// The provenance claim prefixing the run, if any.
     attribution: Option<u8>,
-    /// Whether a clip was active when the run painted.
-    clipped: bool,
+    /// The clip in force when the run painted, if any.
+    clip: Option<Rect>,
     /// Whether the ink rectangle intersects the active clip — a tape
     /// label scrolled past its strip's clip edge paints nothing.
     visible: bool,
@@ -225,11 +107,30 @@ impl TextRun {
     fn numeric(&self) -> bool {
         self.text.chars().any(|c| c.is_ascii_digit())
     }
+
+    fn clipped(&self) -> bool {
+        self.clip.is_some()
+    }
+
+    /// The ink that reaches the surface: the nominal run rectangle
+    /// cropped by whatever clip was in force.
+    fn painted_rect(&self) -> Rect {
+        match self.clip {
+            None => self.rect,
+            Some(clip) => self.rect.intersect(&clip),
+        }
+    }
 }
 
 /// Runs the full admission matrix over `registry`.
 pub fn admit(registry: &Registry) -> Result<AdmissionReport, AdmissionError> {
-    let mut report = AdmissionReport::default();
+    // Bands are measured before the judgements, so a report that
+    // survives the matrix always carries them, and so the measurement
+    // itself depends on nothing the matrix decides.
+    let mut report = AdmissionReport {
+        criticality: criticality_bands(registry)?,
+        ..AdmissionReport::default()
+    };
     for panel in registry.panels() {
         admit_panel(panel, &mut report)?;
     }
@@ -243,7 +144,10 @@ fn admit_panel(
     for frame in panel.canonical_frames {
         admit_panel_at_frame(panel, *frame, report)?;
     }
-    Ok(())
+    // A per-panel fact rather than a per-case one: the witness a region
+    // needs may only appear in one case of the matrix, so the verdict
+    // waits until every case has been drawn.
+    check_non_vacuity(panel)
 }
 
 fn admit_panel_at_frame(
@@ -251,33 +155,77 @@ fn admit_panel_at_frame(
     frame: DesignFrame,
     report: &mut AdmissionReport,
 ) -> Result<(), AdmissionError> {
-    let states = CANONICAL_STATES
-        .iter()
-        .map(|s| (s.id, s.build))
-        .chain(panel.extreme_states.iter().map(|e| (e.id, e.build)));
-    for (state_id, build) in states {
-        check_case(panel, state_id, None, build(), frame, report)?;
-        for group in GroupId::ALL {
-            if panel.required_groups.contains(group) {
-                let withheld = withhold_group(&build(), group);
-                check_case(panel, state_id, Some(group), withheld, frame, report)?;
-            }
-        }
+    for case in case_matrix(panel) {
+        check_case(panel, &case, frame, report)?;
     }
     Ok(())
 }
 
-fn check_case(
-    panel: &'static PanelDescriptor,
+/// One case of the admission matrix.
+struct Case {
     state_id: &'static str,
     withheld: Option<GroupId>,
     state: AircraftState,
+    /// The alert state fed to the draw. `None` is the quiet frame; the
+    /// saturated stack is the other end of the axis.
+    alerts: Option<AlertOutput>,
+}
+
+impl Case {
+    /// Whether alerts were fed, for the error and warning context: a
+    /// defect that only appears with the stack drawn is a different
+    /// fact from one that appears without it.
+    fn alerted(&self) -> bool {
+        self.alerts.is_some()
+    }
+}
+
+/// Every case one panel is judged over: each canonical and extreme
+/// state fully fed, then once per declared group with that group
+/// withheld — and each of those twice, quiet and with the saturated
+/// alert stack.
+///
+/// The alert axis is not decoration. A composed frame fans one
+/// `AlertOutput` to every slot, so a band measured only on quiet frames
+/// would omit the shared stack and licence covering warning rows.
+fn case_matrix(panel: &'static PanelDescriptor) -> Vec<Case> {
+    let states = CANONICAL_STATES
+        .iter()
+        .map(|s| (s.id, s.build))
+        .chain(panel.extreme_states.iter().map(|e| (e.id, e.build)));
+    let saturated = saturated_stack();
+    let mut cases = Vec::new();
+    for (state_id, build) in states {
+        let mut withholdings = vec![(None, build())];
+        for group in GroupId::ALL {
+            if panel.required_groups.contains(group) {
+                withholdings.push((Some(group), withhold_group(&build(), group)));
+            }
+        }
+        for (withheld, state) in withholdings {
+            for alerts in [None, Some(saturated)] {
+                cases.push(Case {
+                    state_id,
+                    withheld,
+                    state,
+                    alerts,
+                });
+            }
+        }
+    }
+    cases
+}
+
+fn check_case(
+    panel: &'static PanelDescriptor,
+    case: &Case,
     frame: DesignFrame,
     report: &mut AdmissionReport,
 ) -> Result<(), AdmissionError> {
-    let data = resolve(&state, &FreshnessPolicy::default());
-    let runs = draw_runs(panel, state_id, withheld, &data, frame)?;
-    check_provenance(panel, state_id, withheld, &runs)?;
+    let state_id = case.state_id;
+    let data = resolve(&case.state, &FreshnessPolicy::default());
+    let runs = draw_runs(panel, case, &data, frame)?;
+    check_provenance(panel, state_id, case.withheld, &runs)?;
     let bounds = Rect {
         min_x: 0.0,
         min_y: 0.0,
@@ -294,11 +242,12 @@ fn check_case(
                 });
             }
         }
-        if !bounds.contains(&run.rect) && !run.clipped {
+        if !bounds.contains(&run.rect) && !run.clipped() {
             report.warnings.push(AdmissionWarning::FrameOverflow {
                 panel: panel.id,
                 state: state_id,
                 frame,
+                alerted: case.alerted(),
                 text: run.text.clone(),
             });
         }
@@ -309,18 +258,21 @@ fn check_case(
 
 fn draw_runs(
     panel: &'static PanelDescriptor,
-    state_id: &'static str,
-    withheld: Option<GroupId>,
+    case: &Case,
     data: &PanelData,
     frame: DesignFrame,
 ) -> Result<Vec<TextRun>, AdmissionError> {
+    let state_id = case.state_id;
     let mut buf = vec![0u8; MAX_SCENE_BYTES];
     let scene =
-        draw_scene(panel, data, frame, &mut buf).map_err(|source| AdmissionError::Draw {
-            panel: panel.id,
-            state: state_id,
-            withheld,
-            source,
+        draw_scene(panel, data, case.alerts.as_ref(), frame, &mut buf).map_err(|source| {
+            AdmissionError::Draw {
+                panel: panel.id,
+                state: state_id,
+                withheld: case.withheld,
+                alerted: case.alerted(),
+                source,
+            }
         })?;
     let layers = validate_layers(scene).map_err(|error| match error {
         LayerError::Decode(_) => AdmissionError::Decode {
@@ -330,7 +282,8 @@ fn draw_runs(
         _ => AdmissionError::LayerContract {
             panel: panel.id,
             state: state_id,
-            withheld,
+            withheld: case.withheld,
+            alerted: case.alerted(),
         },
     })?;
     let missing = panel.required_layers & !layers.present;
@@ -338,7 +291,8 @@ fn draw_runs(
         return Err(AdmissionError::MissingRequiredLayers {
             panel: panel.id,
             state: state_id,
-            withheld,
+            withheld: case.withheld,
+            alerted: case.alerted(),
             missing,
         });
     }
@@ -365,11 +319,12 @@ enum RunsDefect {
 fn draw_scene<'b>(
     panel: &PanelDescriptor,
     data: &PanelData,
+    alerts: Option<&AlertOutput>,
     frame: DesignFrame,
     buf: &'b mut [u8],
 ) -> Result<&'b [u8], PanelDrawError> {
     let mut writer = SceneWriter::new(buf)?;
-    (panel.draw)(data, &EMPTY_CONFIG, None, frame, &mut writer)?;
+    (panel.draw)(data, &EMPTY_CONFIG, alerts, frame, &mut writer)?;
     let used = writer.finish();
     Ok(buf.get(..used).unwrap_or(&[]))
 }
@@ -405,7 +360,7 @@ fn collect_runs(scene: &[u8]) -> Result<Vec<TextRun>, RunsDefect> {
                     rect,
                     text: text.to_string(),
                     attribution: pending.take(),
-                    clipped: clip.is_some(),
+                    clip,
                 });
             }
             Ok(Cmd::Save) => stack.push(stack.last().copied().ok_or(RunsDefect::Decode)?),

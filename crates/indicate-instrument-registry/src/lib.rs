@@ -23,14 +23,19 @@
 #[cfg(test)]
 extern crate std;
 
+mod composition;
 mod digest;
 mod registry;
 
+pub use composition::{
+    COMPOSITION_DIGEST_DOMAIN, CompositionDescriptor, CompositionError, MAX_COMPOSITION_SLOTS,
+    Slot, composition_digest, validate_composition,
+};
 pub use digest::{DigestError, SCENE_DIGEST_DOMAIN, scene_digest};
 pub use indicate_instrument_descriptor::states;
 pub use indicate_instrument_descriptor::{
     BackgroundCapability, CANONICAL_STATES, CONFIG_BLOB_MAX, CanonicalState, ConfigBlob,
-    ConfigError, ConfigKey, DesignFrame, DrawFn, EMPTY_CONFIG, ExtremeState, GroupSet,
-    PanelDescriptor, PanelDrawError, PanelSet, Region, keys,
+    ConfigError, ConfigKey, CriticalityBands, DesignFrame, DrawFn, EMPTY_CONFIG, ExtremeState,
+    GroupSet, PanelCriticality, PanelDescriptor, PanelDrawError, PanelSet, Region, keys,
 };
 pub use registry::{Panels, Registry, RegistryError};

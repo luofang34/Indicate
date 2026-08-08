@@ -208,6 +208,7 @@ dependencies = [
 name = "indicate-instrument-raster"
 version = "0.1.0"
 dependencies = [
+ "indicate-alerts",
  "indicate-instrument-glyphs",
  "indicate-instrument-panels",
  "indicate-instrument-registry",

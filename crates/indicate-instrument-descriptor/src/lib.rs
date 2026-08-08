@@ -23,12 +23,14 @@
 extern crate std;
 
 mod config;
+mod criticality;
 mod descriptor;
 mod group_set;
 mod set;
 pub mod states;
 
 pub use config::{CONFIG_BLOB_MAX, ConfigBlob, ConfigError, ConfigKey, EMPTY_CONFIG, keys};
+pub use criticality::{CriticalityBands, PanelCriticality};
 pub use descriptor::{
     BackgroundCapability, DesignFrame, DrawFn, ExtremeState, PanelDescriptor, PanelDrawError,
     Region,

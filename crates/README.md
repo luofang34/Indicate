@@ -19,9 +19,14 @@ hashed or pinned by someone downstream, and do not track what the crates
 are called. Rewriting one buys a tidier grep and costs every consumer a
 re-pin for no change in what is painted.
 
-| Survivor | Why it stays |
+A new identifier of that kind is minted in the same scheme rather than a
+fresh one, so the table below is the whole convention and not a list of
+exceptions to it.
+
+| String | Why it reads `pilotage` |
 |---|---|
 | `SCENE_DIGEST_DOMAIN` (`b"pilotage-scene-digest-v1"`) | Hashed into every composition digest; changing it moves `BUILTIN_SCENE_DIGEST` and reddens every consumer pin. |
+| `COMPOSITION_DIGEST_DOMAIN` (`b"pilotage-screen-composition-digest-v1"`) | **Newly minted**, not carried over: a domain separator's whole job is to be one fixed string consumers pin, so it was spelled to match the row above rather than starting a second convention. |
 | `sha256(b"pilotage")` in the sha256 unit tests | A hash input, not a name. The vector and its expected digest are self-consistent whatever the bytes spell. |
 | Recorded run records that were not re-executed — the reference CDC capture notes, and the evidence crate's own fixtures | A record is a statement about a run that happened. Records whose suites *were* re-run under the new names were re-captured instead, and say so. |
 | `Pilotage` in prose naming the cockpit, its repository, or its browser shell | Correct — those name a consumer, which is what the word is for. |
@@ -73,7 +78,7 @@ normal dependency of one.**
 | Crate | Role |
 |---|---|
 | `indicate-instrument-registry` | Composition of descriptors into a validated registry, and the cross-shell scene digest. |
-| `indicate-instrument-raster` | Reference software rasterizer: bit-exact pinned frame hashes, corpus authorship, target-timing evidence (`evidence/`). |
+| `indicate-instrument-raster` | Reference software rasterizer: bit-exact pinned frame hashes, the composed-screen harness, corpus authorship, target-timing evidence (`evidence/`). |
 | `indicate-instrument-conformance` | Panel admission harness (host-side, allocates; deliberately outside the `no_std` closure). |
 | `indicate-evidence` | Standard-neutral lifecycle evidence graph and gate (`evidence-gate` binary); guards `docs/instruments/evidence-graph.evg`. |
 
