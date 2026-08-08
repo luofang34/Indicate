@@ -35,7 +35,8 @@ fn heading_only(heading_rad: f32) -> PanelData {
             attitude: true,
             rates: true,
             position: true,
-            velocity: true,
+            velocity_horizontal: true,
+            velocity_vertical: true,
             heading: true,
             ..Default::default()
         },
@@ -178,7 +179,8 @@ fn track_only(vel_n: f32, vel_e: f32) -> PanelData {
         quality: indicate_instrument_state::EstimateQuality::Good,
         valid: indicate_instrument_state::ValidFlags {
             position: true,
-            velocity: true,
+            velocity_horizontal: true,
+            velocity_vertical: true,
             ..Default::default()
         },
         ..Default::default()

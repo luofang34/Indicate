@@ -1,7 +1,5 @@
 //! Resolution from raw input state to display-ready signals.
 
-use libm::{atan2f, sqrtf};
-
 use crate::aircraft::{
     AircraftState, EstimateQuality, NavData, NavSource, Selections, SnapshotCoherence, Wind,
 };
@@ -9,12 +7,8 @@ use crate::altitude::{AltitudeClass, OriginId};
 use crate::dynamics::TurnBasis;
 use crate::presentation::{AirframeDisplayProfile, AttitudePresentation, UnusualAttitudeState};
 use crate::signal::{FreshnessPolicy, Sig, SignalStatus};
-use crate::units::{M_TO_FT, MPS_TO_FPM, MPS_TO_KT};
+use crate::units::MPS_TO_KT;
 use crate::validate::{StateIntegrity, validate_quat, validate_state};
-
-/// Below this groundspeed the track angle is geometrically meaningless
-/// and resolves `Missing` instead of jittering.
-const TRACK_MIN_GS_MPS: f32 = 0.5;
 
 /// Resolved navigation guidance for the HSI.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -235,27 +229,13 @@ pub fn resolve_stateful(
     let att_fresh = group_freshness(policy, has_att, state.attitude.age_ms);
     let att_status = trust.fold(has_att, att_fresh, integrity.attitude, state.valid.attitude);
 
-    let has_kin = state.kinematics.data.is_some();
-    let kin_fresh = group_freshness(policy, has_kin, state.kinematics.age_ms);
-    let pos_status = trust.fold(has_kin, kin_fresh, integrity.position, state.valid.position);
-    let vel_status = trust.fold(has_kin, kin_fresh, integrity.velocity, state.valid.velocity);
-    let (rel_alt_ft, vsi_fpm, gs_kt, track_rad, gs_mps) = kinematics_geometry(state);
-    let track_status = if !(gs_mps.is_finite() && gs_mps >= TRACK_MIN_GS_MPS) {
-        SignalStatus::Missing
-    } else {
-        vel_status
-    };
+    let kin = kinematic_signals(state, policy, &trust, &integrity);
 
     let (ias, baro) = air_signals(state, policy, trust.quality, &integrity);
     let heading = heading_resolved(state, policy, &trust, &integrity);
-    let basis = rose_basis(&heading, track_status.shows_value());
+    let basis = rose_basis(&heading, kin.track_rad.status.shows_value());
     let rose = basis.display_reference(heading.reference);
-    let track = presented_true(
-        Sig::with_status(track_rad, track_status),
-        rose,
-        state,
-        policy,
-    );
+    let track = presented_true(kin.track_rad, rose, state, policy);
     let wind = presented_wind(wind_signal(state, policy, &integrity), rose, state, policy);
     let groups = group_status::group_statuses(state, policy, &trust, &integrity);
     let bug = presented_angle(
@@ -276,9 +256,16 @@ pub fn resolve_stateful(
         turn: turn_resolved(state, policy, &trust, &integrity),
         slip_lat_mps2: slip_resolved(state, policy, &trust, &integrity),
         ias_kt: finite(ias),
-        gs_kt: finite(Sig::with_status(gs_kt, vel_status)),
-        altitude: altitude_resolved(state, policy, &trust, &integrity, pos_status, rel_alt_ft),
-        vsi_fpm: finite(Sig::with_status(vsi_fpm, vel_status)),
+        gs_kt: finite(kin.gs_kt),
+        altitude: altitude_resolved(
+            state,
+            policy,
+            &trust,
+            &integrity,
+            kin.position,
+            kin.rel_alt_ft,
+        ),
+        vsi_fpm: finite(kin.vsi_fpm),
         track_rad: finite(track),
         baro_hpa: finite(baro),
         wind,
@@ -369,21 +356,6 @@ fn attitude_geometry(
             unusual.reset();
             AttitudePresentation::default()
         }
-    }
-}
-
-fn kinematics_geometry(state: &AircraftState) -> (f32, f32, f32, f32, f32) {
-    match state.kinematics.data {
-        Some(kin) => {
-            let alt = -kin.pos_ned_m[2] * M_TO_FT;
-            let vsi = -kin.vel_ned_mps[2] * MPS_TO_FPM;
-            let gs_mps = sqrtf(
-                kin.vel_ned_mps[0] * kin.vel_ned_mps[0] + kin.vel_ned_mps[1] * kin.vel_ned_mps[1],
-            );
-            let track = atan2f(kin.vel_ned_mps[1], kin.vel_ned_mps[0]);
-            (alt, vsi, gs_mps * MPS_TO_KT, track, gs_mps)
-        }
-        None => (0.0, 0.0, 0.0, 0.0, 0.0),
     }
 }
 
@@ -480,8 +452,10 @@ fn wind_signal(
 mod altitude_signal;
 mod dynamics_signal;
 mod group_status;
+mod kinematics_signal;
 use altitude_signal::altitude_resolved;
 use dynamics_signal::{slip_resolved, turn_resolved};
+use kinematics_signal::kinematic_signals;
 mod heading_signal;
 pub use heading_signal::{ResolvedHeading, RoseBasis};
 mod director_signal;

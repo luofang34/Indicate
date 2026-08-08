@@ -1,9 +1,9 @@
-//! Tagged-group state ABI, version 6 (ADR-0029 extensible state groups).
+//! Tagged-group state ABI, version 7 (ADR-0029 extensible state groups).
 //!
 //! The frame is self-delimiting:
 //!
 //! ```text
-//! [0] u8 version (= 6)
+//! [0] u8 version (= 7)
 //! [1] u8 group count (N)
 //! then N groups, each:
 //!     u8  group id        (strictly ascending across the frame)
@@ -38,14 +38,14 @@ mod monitor;
 mod stamped;
 
 /// Version stamped in the frame's first byte.
-pub const VERSION: u8 = 6;
+pub const VERSION: u8 = 7;
 
 /// Buffer capacity a feeder allocates. This is an allocation bound, not
 /// wire shape: the frame is self-delimiting, and growing the capacity is
 /// not a wire break because consumers read it at runtime.
 pub const CAPACITY: usize = 1024;
 
-/// Why a v6 frame failed to encode or decode.
+/// Why a v7 frame failed to encode or decode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum AbiError {
     /// The buffer ends before the announced content does.
@@ -147,7 +147,7 @@ fn encode_group(
     }
 }
 
-/// Decodes a v6 frame.
+/// Decodes a v7 frame.
 pub fn decode_state(buf: &[u8]) -> Result<DecodeReport, AbiError> {
     let version = *buf.first().ok_or(AbiError::Truncated)?;
     if version != VERSION {
@@ -192,7 +192,7 @@ pub fn decode_state(buf: &[u8]) -> Result<DecodeReport, AbiError> {
     Ok(report)
 }
 
-/// Encodes `state` as a canonical v6 frame — present groups only, in
+/// Encodes `state` as a canonical v7 frame — present groups only, in
 /// ascending tag order — returning the used length.
 pub fn encode_state(state: &AircraftState, buf: &mut [u8]) -> Result<usize, AbiError> {
     if buf.len() < 2 {

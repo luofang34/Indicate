@@ -9,13 +9,13 @@ use super::newest_module;
 
 #[test]
 fn reads_the_only_declared_module() {
-    assert_eq!(newest_module("pub mod v6;\n"), Some(6));
+    assert_eq!(newest_module("pub mod v7;\n"), Some(7));
 }
 
 #[test]
 fn takes_the_highest_of_several() {
-    let source = "//! doc\npub mod v6;\npub mod v7;\npub mod v5;\n";
-    assert_eq!(newest_module(source), Some(7));
+    let source = "//! doc\npub mod v7;\npub mod v8;\npub mod v5;\n";
+    assert_eq!(newest_module(source), Some(8));
 }
 
 #[test]
@@ -25,8 +25,8 @@ fn compares_numerically_not_lexically() {
 
 #[test]
 fn ignores_unversioned_modules() {
-    let source = "pub mod version;\nmod vault;\npub mod v6;\n";
-    assert_eq!(newest_module(source), Some(6));
+    let source = "pub mod version;\nmod vault;\npub mod v7;\n";
+    assert_eq!(newest_module(source), Some(7));
 }
 
 #[test]
@@ -42,7 +42,7 @@ fn the_shipped_crate_declares_the_module_this_generator_reads() {
     let root = crate::workspace::repo_root();
     let abi = super::read(&root).expect("the shipped abi.rs declares the compiled module");
     assert_eq!(abi.module, format!("v{}", super::COMPILED_MODULE));
-    assert_eq!(abi.version, indicate_instrument_state::abi::v6::VERSION);
+    assert_eq!(abi.version, indicate_instrument_state::abi::v7::VERSION);
 }
 
 /// A declaration is not hidden by anything following the semicolon. A
@@ -51,16 +51,16 @@ fn the_shipped_crate_declares_the_module_this_generator_reads() {
 #[test]
 fn a_trailing_comment_does_not_hide_a_newer_module() {
     for line in [
-        "pub mod v7;",
-        "pub mod v7; // staged",
-        "pub mod v7;// staged",
-        "    pub mod v7;\t// indented and tabbed",
+        "pub mod v8;",
+        "pub mod v8; // staged",
+        "pub mod v8;// staged",
+        "    pub mod v8;\t// indented and tabbed",
     ] {
-        let source = std::format!("pub mod v6;\n{line}\n");
+        let source = std::format!("pub mod v7;\n{line}\n");
         assert_eq!(
             super::newest_module(&source),
-            Some(7),
-            "{line:?} declares v7"
+            Some(8),
+            "{line:?} declares v8"
         );
     }
 }
@@ -69,7 +69,7 @@ fn a_trailing_comment_does_not_hide_a_newer_module() {
 /// be read as one.
 #[test]
 fn only_versioned_modules_are_counted() {
-    for line in ["pub mod validate;", "pub mod v;", "pub mod v7x;"] {
+    for line in ["pub mod validate;", "pub mod v;", "pub mod v8x;"] {
         assert_eq!(
             super::newest_module(line),
             None,

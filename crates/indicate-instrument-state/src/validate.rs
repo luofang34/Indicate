@@ -51,8 +51,12 @@ pub struct StateIntegrity {
     pub rates: Option<GroupFault>,
     /// NED position fault.
     pub position: Option<GroupFault>,
-    /// NED velocity fault.
-    pub velocity: Option<GroupFault>,
+    /// North/east velocity fault; ground speed and track fold this.
+    pub velocity_horizontal: Option<GroupFault>,
+    /// Down velocity fault; vertical speed folds this. A non-finite
+    /// down component faults here alone, leaving a horizontal solution
+    /// the source really supplies untouched.
+    pub velocity_vertical: Option<GroupFault>,
     /// Air-data fault.
     pub air: Option<GroupFault>,
     /// Navigation-guidance fault.
@@ -141,8 +145,12 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
         if !all_finite(&kinematics.pos_ned_m) {
             integrity.position = Some(GroupFault::NonFinite);
         }
-        if !all_finite(&kinematics.vel_ned_mps) {
-            integrity.velocity = Some(GroupFault::NonFinite);
+        let [vel_north, vel_east, vel_down] = kinematics.vel_ned_mps;
+        if !all_finite(&[vel_north, vel_east]) {
+            integrity.velocity_horizontal = Some(GroupFault::NonFinite);
+        }
+        if !vel_down.is_finite() {
+            integrity.velocity_vertical = Some(GroupFault::NonFinite);
         }
     }
     if let Some(air) = &state.air.data

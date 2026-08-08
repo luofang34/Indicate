@@ -163,8 +163,14 @@ pub struct ValidFlags {
     pub rates: bool,
     /// NED position is valid.
     pub position: bool,
-    /// NED velocity is valid.
-    pub velocity: bool,
+    /// The north/east velocity components are valid — the pair ground
+    /// speed and track are read from. A source with a horizontal
+    /// solution and no vertical-speed estimate declares this alone.
+    pub velocity_horizontal: bool,
+    /// The down velocity component is valid — the one vertical speed is
+    /// read from, declared independently of the horizontal pair so
+    /// neither can borrow the other's trust.
+    pub velocity_vertical: bool,
     /// The heading sample is declared valid.
     pub heading: bool,
     /// The variation sample is declared valid.

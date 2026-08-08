@@ -118,7 +118,8 @@ fn all_valid() -> ValidFlags {
         attitude: true,
         rates: true,
         position: true,
-        velocity: true,
+        velocity_horizontal: true,
+        velocity_vertical: true,
         heading: true,
         variation: true,
         turn: true,
@@ -211,7 +212,8 @@ pub fn data_gateway() -> AircraftState {
         quality: EstimateQuality::Good,
         valid: ValidFlags {
             position: true,
-            velocity: true,
+            velocity_horizontal: true,
+            velocity_vertical: true,
             ..ValidFlags::default()
         },
         snapshot: SnapshotMeta {

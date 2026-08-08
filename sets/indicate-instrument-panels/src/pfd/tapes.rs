@@ -379,6 +379,14 @@ pub fn vsi(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneErr
         scene.line(466.0, CENTER_Y + dy, 474.0, CENTER_Y + dy)?;
     }
     if !v.status.shows_value() {
+        // Dashes rather than an empty strip. Every other readout on this
+        // panel says "I have no value" out loud, and a blank scale reads
+        // as zero vertical speed to anyone scanning it — which is the
+        // fabrication this signal's own validity exists to prevent. The
+        // dash path stays unclaimed, like the others: it is the honest
+        // degraded display, not a value derived from a withheld group.
+        scene.fill_color(palette::WHITE)?;
+        scene.text(452.0, CENTER_Y, 12.0, Anchor::CENTER, "---")?;
         return Ok(());
     }
     // ±1500 fpm full scale over 180 px.

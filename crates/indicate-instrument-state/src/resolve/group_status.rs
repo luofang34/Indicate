@@ -88,8 +88,13 @@ fn group_status(
                 has: state.kinematics.data.is_some(),
                 age_ms: state.kinematics.age_ms,
             },
-            integrity.position.or(integrity.velocity),
-            state.valid.position && state.valid.velocity,
+            integrity
+                .position
+                .or(integrity.velocity_horizontal)
+                .or(integrity.velocity_vertical),
+            state.valid.position
+                && state.valid.velocity_horizontal
+                && state.valid.velocity_vertical,
         ),
         GroupId::Air => fold(&Ctx::of(policy, trust, &state.air), integrity.air, true),
         GroupId::Nav => fold(&Ctx::of(policy, trust, &state.nav), integrity.nav, true),

@@ -13,8 +13,9 @@
 //! | trust | quality u8; coherence u8; valid flags u16; generation u32 | 8 |
 //! | altitude | class u8; geoid model u8; 0×2; sample f32; origin u32 | 12 |
 //!
-//! Trust valid-flag bits: 0 attitude, 1 rates, 2 position, 3 velocity,
-//! 4 heading, 5 variation, 6 turn, 7 slip; bits 8–15 spare (zero).
+//! Trust valid-flag bits: 0 attitude, 1 rates, 2 position, 3 horizontal
+//! velocity, 4 heading, 5 variation, 6 turn, 7 slip, 8 vertical speed;
+//! bits 9–15 spare (zero).
 
 use super::{AbiError, get_f32, get_u8, get_u16, get_u32, put_f32, put_u8, put_u16, put_u32};
 use crate::abi::{opt, or_nan};
@@ -78,11 +79,12 @@ pub(super) fn decode_trust(state: &mut AircraftState, p: &[u8]) {
         attitude: flags & 0x0001 != 0,
         rates: flags & 0x0002 != 0,
         position: flags & 0x0004 != 0,
-        velocity: flags & 0x0008 != 0,
+        velocity_horizontal: flags & 0x0008 != 0,
         heading: flags & 0x0010 != 0,
         variation: flags & 0x0020 != 0,
         turn: flags & 0x0040 != 0,
         slip: flags & 0x0080 != 0,
+        velocity_vertical: flags & 0x0100 != 0,
     };
     state.snapshot = SnapshotMeta {
         generation: get_u32(p, 4),
@@ -125,11 +127,12 @@ pub(super) fn encode_trust(
     let flags = u16::from(v.attitude)
         | (u16::from(v.rates) << 1)
         | (u16::from(v.position) << 2)
-        | (u16::from(v.velocity) << 3)
+        | (u16::from(v.velocity_horizontal) << 3)
         | (u16::from(v.heading) << 4)
         | (u16::from(v.variation) << 5)
         | (u16::from(v.turn) << 6)
-        | (u16::from(v.slip) << 7);
+        | (u16::from(v.slip) << 7)
+        | (u16::from(v.velocity_vertical) << 8);
     put_u16(p, 2, flags);
     put_u32(p, 4, state.snapshot.generation);
     Ok(Some(8))

@@ -49,7 +49,8 @@ fn state_at(alt_ft: f32, ias_kt: f32) -> AircraftState {
         attitude: true,
         rates: true,
         position: true,
-        velocity: true,
+        velocity_horizontal: true,
+        velocity_vertical: true,
         ..ValidFlags::default()
     };
     state.kinematics = Stamped {
