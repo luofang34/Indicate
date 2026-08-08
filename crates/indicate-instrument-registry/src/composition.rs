@@ -23,7 +23,7 @@
 
 use indicate_instrument_descriptor::{BackgroundCapability, CriticalityBands, DesignFrame, Region};
 
-use crate::registry::{Registry, frame_supported};
+use crate::registry::Registry;
 
 mod coverage;
 mod digest;
@@ -167,7 +167,7 @@ fn validate_slot(
         });
     }
     let frame = slot_frame(slot);
-    if !frame_supported(panel, frame) {
+    if panel.accepts(frame).is_err() {
         return Err(CompositionError::SlotFrameUnsupported {
             slot: index,
             panel: slot.panel,

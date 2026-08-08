@@ -60,6 +60,21 @@ still *contain* an in-range, on-grid frame that violates the aspect
 bounds. Choosing a frame inside the range, and clamping to what the
 panel supports, is the shell's job — nothing in the draw path re-checks
 the argument.
+
+**Do not re-derive the rule.** `PanelDescriptor::accepts(DesignFrame)`
+is the predicate over those fields, and it is the only copy of it. It
+returns a typed `FrameRefusal` naming the bound that was violated —
+`Degenerate`, `OutOfRange`, `OffStep`, or `Aspect` — so a shell can tell
+its operator what to ask for instead, and the diagnostic reads the same
+on every shell. The step tolerance is `FRAME_STEP_TOLERANCE`, which is
+zero, decided once where the constants live: a step that cannot express
+a frame exactly is a declaration to fix, not a rounding to absorb.
+
+A shell that writes its own version of this rule will differ from
+another shell's — on the tolerance, on whether a bound is inclusive, on
+whether the step is measured from the minimum or from zero — and each
+will be locally green, because each only ever tests its own. The panel
+is the one thing that knows which frames it accepts, so ask the panel.
 Every shipped panel currently declares a degenerate range —
 `frame_min == frame_max == 480×360`, one canonical frame — so the only
 frame a conforming shell may ask any of them for is 480×360.

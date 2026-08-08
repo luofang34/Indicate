@@ -8,7 +8,6 @@ mod error;
 mod frame_range;
 
 pub use error::RegistryError;
-pub(crate) use frame_range::supports as frame_supported;
 
 /// How a shell named the panels it composed.
 ///

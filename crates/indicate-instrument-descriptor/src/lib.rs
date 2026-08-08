@@ -25,6 +25,7 @@ extern crate std;
 mod config;
 mod criticality;
 mod descriptor;
+mod frame;
 mod group_set;
 mod set;
 pub mod states;
@@ -35,6 +36,7 @@ pub use descriptor::{
     BackgroundCapability, DesignFrame, DrawFn, ExtremeState, PanelDescriptor, PanelDrawError,
     Region,
 };
+pub use frame::{FRAME_STEP_TOLERANCE, FrameRefusal};
 pub use group_set::GroupSet;
 pub use set::PanelSet;
 pub use states::{CANONICAL_STATES, CanonicalState};
