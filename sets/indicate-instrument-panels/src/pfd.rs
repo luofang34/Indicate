@@ -1,6 +1,6 @@
 //! The Primary Flight Display: attitude ball, speed/altitude tapes, VSI,
 //! and turn-rate cue, composed in fixed layers (background → attitude →
-//! tapes → symbology → annunciation, ADR-0017).
+//! tapes → guidance → annunciation, ADR-0017).
 
 use indicate_alerts::AlertOutput;
 use indicate_instrument_descriptor::DesignFrame;

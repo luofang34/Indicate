@@ -124,12 +124,31 @@ ascending layer order. `layer_profile_doc_tests` in
 column disagrees with the descriptor it describes, so a mask change must
 arrive with its row. The section holds this one table and no other.
 
-A panel requires a band when it opens that band on *every* frame, not when the
-band always carries content. The PFD requires `Guidance` on those terms: it
-opens the band unconditionally so the layer contract holds under every
-degradation, and the flight-director command bars inside it disappear when the
-director is disengaged, invalid, or decluttered by the unusual-attitude tier.
-A backend must therefore not read an empty `Guidance` band as a missing one.
+Among the bands above `Background`, a panel requires one when it opens that
+band on *every* frame, not when the band always carries content. The PFD
+requires `Guidance` on those terms: it opens the band unconditionally so the
+layer contract holds under every degradation, and the flight-director command
+bars inside it disappear when the director is disengaged, invalid, or
+decluttered by the unusual-attitude tier. A backend must therefore not read an
+empty `Guidance` band as a missing one.
+
+`Background` is deliberately outside that rule and appears in no panel's
+required mask, which is why it sits in the optional column of every row above
+— including the HSI's and the monitor's, both of which do open it on every
+frame. The mask is what a host enforces before visible commit, and requiring
+the one band a compositor may replace or drop would forbid the composition
+that band exists for. What a panel owes in that band is stated by its
+`BackgroundCapability` instead, and proven by the admission harness: an
+`Opaque` or `Cedeable` panel must lay a full-frame opaque cover there in every
+case the harness draws, which it draws at the empty config. That is a stronger
+obligation than the mask could express, so for an `Opaque` panel the band is
+mandatory in practice and optional in the mask, and both are correct.
+
+A `Cedeable` panel is the case the mask suits exactly. It owes the cover at its
+default and may drop the band on request — the PFD does, under a synthetic-
+vision or no-background configuration — so the band is genuinely absent from
+some of its frames. Requiring it would forbid the only configuration the
+capability exists to allow.
 
 A well-framed prefix that ends at a layer boundary is a smaller structural
 scene, not proof of a complete panel frame. Missing a required layer is a
