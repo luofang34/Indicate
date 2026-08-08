@@ -162,12 +162,23 @@ fn empty_state_still_renders_a_scene() {
 
 // ---- layer contract ----------------------------------------------------------
 
-use indicate_instrument_scene::{LayerId, validate_layers};
+use indicate_instrument_scene::{LAYER_COUNT, LayerId, validate_layers};
 use indicate_instrument_state::SignalStatus;
 
 use super::BackgroundMode;
 
-const PFD_CRITICAL: [LayerId; 3] = [LayerId::Attitude, LayerId::Tapes, LayerId::Annunciation];
+/// The bands the descriptor requires, read from the descriptor rather
+/// than restated. A second copy of this list is a second thing to drift,
+/// and it did: it once omitted `Guidance`, so the band a shell refuses a
+/// frame for lacking went unasserted here.
+fn pfd_critical() -> impl Iterator<Item = LayerId> {
+    let required = super::super::PFD_DESCRIPTOR.required_layers;
+    (0..LAYER_COUNT as u8)
+        .filter_map(LayerId::from_u8)
+        .filter(move |layer| {
+            layer != &LayerId::Background && required & (1u8 << layer.to_u8()) != 0
+        })
+}
 
 #[test]
 fn scenes_are_layered_for_every_attitude_status() {
@@ -184,7 +195,7 @@ fn scenes_are_layered_for_every_attitude_status() {
         let scene = render(&data, &PfdConfig::default());
         let report = validate_layers(&scene).expect("layered scene validates");
         assert!(report.contains(LayerId::Background), "{status:?}");
-        for layer in PFD_CRITICAL {
+        for layer in pfd_critical() {
             assert!(report.contains(layer), "{status:?} missing {layer:?}");
         }
     }
@@ -213,7 +224,7 @@ fn critical_overlay_is_byte_identical_without_background() {
         let horizon_report = validate_layers(&with_horizon).expect("validates");
         let bare_report = validate_layers(&without).expect("validates");
         assert!(!bare_report.contains(LayerId::Background));
-        for layer in PFD_CRITICAL {
+        for layer in pfd_critical() {
             let (hs, he) = horizon_report.ranges[layer.to_u8() as usize].expect("range");
             let (bs, be) = bare_report.ranges[layer.to_u8() as usize].expect("range");
             assert_eq!(

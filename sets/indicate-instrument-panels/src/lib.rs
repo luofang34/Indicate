@@ -1,4 +1,5 @@
-//! PFD and HSI panels as pure state→scene functions (ADR-0017).
+//! The shipped panels — PFD, HSI, and monitor — as pure state→scene
+//! functions (ADR-0017).
 //!
 //! Each panel is a function from resolved display state
 //! ([`indicate_instrument_state::PanelData`]) and a logical frame to
