@@ -140,9 +140,15 @@ the one band a compositor may replace or drop would forbid the composition
 that band exists for. What a panel owes in that band is stated by its
 `BackgroundCapability` instead, and proven by the admission harness: an
 `Opaque` or `Cedeable` panel must lay a full-frame opaque cover there in every
-case, which is a stronger obligation than the mask could express. So for those
-panels the band is mandatory in practice and optional in the mask, and both are
-correct.
+case the harness draws, which it draws at the empty config. That is a stronger
+obligation than the mask could express, so for an `Opaque` panel the band is
+mandatory in practice and optional in the mask, and both are correct.
+
+A `Cedeable` panel is the case the mask suits exactly. It owes the cover at its
+default and may drop the band on request — the PFD does, under a synthetic-
+vision or no-background configuration — so the band is genuinely absent from
+some of its frames. Requiring it would forbid the only configuration the
+capability exists to allow.
 
 A well-framed prefix that ends at a layer boundary is a smaller structural
 scene, not proof of a complete panel frame. Missing a required layer is a
