@@ -115,10 +115,26 @@ What the registry checks at init:
   480×360-to-600×450 range on both axes and is a shape a 4:3 layout
   never declared, which is what the aspect check is for.
 
-A fixed-layout panel declares `frame_min == frame_max`, one canonical
-frame, and any positive step — the honest statement that a shell may
-only ask for the size the geometry was authored for. Every shipped panel
-does exactly that today.
+**A panel may treat its `DesignFrame` as a constant.** Nothing in the
+framework lays out for you, and no author owes a size-adaptive layout.
+The honest way to say so is a degenerate range: `frame_min ==
+frame_max`, one canonical frame, and any positive step. A shell may then
+only ask for the size the geometry was authored for, and asking for
+anything else is refused by `accepts` before you are called. Every
+shipped panel does exactly that today.
+
+What is refused is declaring a range and not using it. Admission renders
+a non-degenerate panel at both ends of its range and requires the bytes
+to differ, so a panel that takes the parameter and ignores it fails
+rather than passing on the strength of a range it does not honour. A
+shell asking for the larger frame is owed more instrument, not the same
+picture for the backend to stretch.
+
+Differing bytes are a weak proof of a good layout and a sufficient proof
+of the thing that was otherwise unprovable: that the argument reached
+the geometry at all. What each axis should *extend* — tape range versus
+tick density, line count, radius versus margin — is a content policy per
+panel, and belongs beside the panel that adopts a range.
 
 ### The honesty rules, and their asymmetry
 

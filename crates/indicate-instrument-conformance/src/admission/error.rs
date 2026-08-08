@@ -170,4 +170,17 @@ pub enum AdmissionError {
         /// search ran at.
         frame: DesignFrame,
     },
+    /// A panel declares a range of frames and emits the same bytes at
+    /// both ends of it.
+    #[error(
+        "panel {panel} emits identically at {min:?} and {max:?}, so it does not use the frame it is given"
+    )]
+    FrameIgnored {
+        /// The declaring panel.
+        panel: &'static str,
+        /// The smallest frame it accepts.
+        min: DesignFrame,
+        /// The largest frame it accepts.
+        max: DesignFrame,
+    },
 }
