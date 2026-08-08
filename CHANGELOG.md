@@ -58,7 +58,7 @@ component: no panel reads north or east alone.
 | State ABI | 7 |
 | Scene format | 1 |
 | Corpus | 4 |
-| Composition digest | `9a80dbcdcd2e437160763975e6d75a8af9850ff3f86434d4ad3b600ce17d1efd` |
+| Composition digest | `f82d905643b48822de25665761ad3e29daa334d937f18b1e98a3e215353cb704` |
 | Panel set | `pfd`, `hsi`, `monitor` |
 
 Panel set changed since the previous release: no.
@@ -84,6 +84,13 @@ Panel set changed since the previous release: no.
   encoder still omits the group exactly when it equals that default.
 
 ### Notes for anyone re-pinning
+
+- A shell that gates a panel on `groups.status(GroupId::Kinematics)`
+  will blank the whole group for exactly the source this release
+  enables. That status folds both axes and is `Failed` for a
+  horizontal-only source **by design** — fail-closed at the group level
+  while `gs_kt`, `track_rad`, and `altitude` each read `Valid`. Gate on
+  the signal you are drawing, not on the group.
 
 - **Both digests moved and no paint did.** The composition digest hashes
   the ABI version byte, and the screen-composition digest hashes the

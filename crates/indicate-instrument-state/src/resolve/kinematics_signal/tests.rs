@@ -162,3 +162,39 @@ fn a_stationary_horizontal_solution_still_shows_groundspeed_without_a_track() {
     assert_eq!(data.gs_kt.status, SignalStatus::Valid);
     assert_eq!(data.track_rad.status, SignalStatus::Missing);
 }
+
+/// The converse, which is the half the split makes newly possible: a
+/// non-finite horizontal component no longer taints a vertical speed
+/// that is finite and declared. Neither axis borrows the other's trust,
+/// and that has to hold in both directions or it is not a split.
+#[test]
+fn a_non_finite_horizontal_component_fails_only_the_horizontal_signals() {
+    let state = AircraftState {
+        kinematics: Stamped {
+            data: Some(Kinematics {
+                pos_ned_m: [1200.0, 340.0, -305.0],
+                vel_ned_mps: [f32::NAN, 9.0, -4.0],
+            }),
+            age_ms: Some(20.0),
+        },
+        quality: EstimateQuality::Good,
+        valid: both_axes(),
+        snapshot: SnapshotMeta {
+            generation: 1,
+            coherence: SnapshotCoherence::Coherent,
+        },
+        ..AircraftState::default()
+    };
+    let data = resolve(&state, &FreshnessPolicy::default());
+    assert_eq!(
+        data.vsi_fpm.status,
+        SignalStatus::Valid,
+        "a finite, declared vertical speed keeps its trust"
+    );
+    // The horizontal pair only has to stop showing a value; which
+    // unusable status it lands on is the finite-value wrapper's
+    // business, and asserting the variant would pin something this
+    // test is not about.
+    assert!(!data.gs_kt.status.shows_value());
+    assert!(!data.track_rad.status.shows_value());
+}

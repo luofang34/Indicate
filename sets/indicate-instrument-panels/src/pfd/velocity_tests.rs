@@ -118,7 +118,11 @@ fn a_horizontal_only_source_paints_no_vsi_and_a_live_groundspeed() {
         Vec::new(),
         "no needle may be painted for a vertical speed nobody supplied"
     );
-    assert_eq!(texts_at(&scene, VSI_LABEL_X), Vec::<String>::new());
+    assert_eq!(
+        texts_at(&scene, VSI_LABEL_X),
+        std::vec![String::from("---")],
+        "the strip dashes out rather than reading blank, which scans as zero"
+    );
 
     let (gs_x, gs_y) = GS_TEXT_XY;
     let gs = texts_where(&scene, |x, y| x == gs_x && y == gs_y);
