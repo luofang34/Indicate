@@ -8,7 +8,9 @@ use indicate_instrument_state::GroupId;
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum AdmissionError {
     /// The panel refused to draw a corpus case.
-    #[error("panel {panel} failed to draw state {state} (withheld: {withheld:?})")]
+    #[error(
+        "panel {panel} failed to draw state {state} (withheld: {withheld:?}, alerts: {alerted})"
+    )]
     Draw {
         /// The refusing panel.
         panel: &'static str,
@@ -16,12 +18,16 @@ pub enum AdmissionError {
         state: &'static str,
         /// The withheld group, if the case withholds one.
         withheld: Option<GroupId>,
+        /// Whether the saturated alert stack was fed.
+        alerted: bool,
         /// The panel's own reason.
         #[source]
         source: PanelDrawError,
     },
     /// The emitted scene violates the layer contract.
-    #[error("panel {panel} scene for {state} (withheld: {withheld:?}) breaks the layer contract")]
+    #[error(
+        "panel {panel} scene for {state} (withheld: {withheld:?}, alerts: {alerted}) breaks the layer contract"
+    )]
     LayerContract {
         /// The drawing panel.
         panel: &'static str,
@@ -29,10 +35,12 @@ pub enum AdmissionError {
         state: &'static str,
         /// The withheld group, if any.
         withheld: Option<GroupId>,
+        /// Whether the saturated alert stack was fed.
+        alerted: bool,
     },
     /// A required layer band is absent from the emitted scene.
     #[error(
-        "panel {panel} scene for {state} (withheld: {withheld:?}) is missing required layers {missing:#04x}"
+        "panel {panel} scene for {state} (withheld: {withheld:?}, alerts: {alerted}) is missing required layers {missing:#04x}"
     )]
     MissingRequiredLayers {
         /// The drawing panel.
@@ -41,6 +49,8 @@ pub enum AdmissionError {
         state: &'static str,
         /// The withheld group, if any.
         withheld: Option<GroupId>,
+        /// Whether the saturated alert stack was fed.
+        alerted: bool,
         /// Required-but-absent layer bits.
         missing: u8,
     },

@@ -17,6 +17,8 @@ use std::string::String;
 use std::vec;
 use std::vec::Vec;
 
+mod obscuration;
+
 use super::{CompositionInputs, render_composition};
 use crate::{FrameId, FramebufferDims, RasterError, RenderStatus};
 
@@ -29,29 +31,35 @@ use crate::{FrameId, FramebufferDims, RasterError, RenderStatus};
 /// Each covers a different composition shape, because placement, opaque
 /// overlap, and overlay show-through fail in different ways.
 const SIDE_BY_SIDE_HASH: &str = "ce6b4347e9ccc2e58447ebcad733a287ee4e98eca7c1b6d9f631267fe4430a16";
-const OPAQUE_INSET_HASH: &str = "5779b1a9a8acb12e2e023a10873640463805e6a2fdc08d37b3155bc14a822344";
-const OVERLAY_HASH: &str = "f1065a413363f7a668df49a3bece465ee432dfed9651802f2613fa2a453285b9";
+const OPAQUE_INSET_HASH: &str = "3e9eeb272b232ba6f4be465aa7402ef0fb0b95a88233b2e6dfa0e8d05304b898";
+const OVERLAY_HASH: &str = "4a5cc9228d78bdbc72671e53ac8bfc03bfc30071aa19b43fa61e42e877089e19";
 
-const PANEL_FRAME: DesignFrame = DesignFrame {
+pub(super) const PANEL_FRAME: DesignFrame = DesignFrame {
     width: 480.0,
     height: 360.0,
 };
 
 /// The inset and overlay both occupy this rect on the PFD: the strip
-/// below the PFD's measured criticality band (which ends at y 292) and
-/// above its bottom data boxes (which start at y 335 and sit at the far
-/// left and right). `validate_composition` proves that reading rather
-/// than this comment — see [`the_fixtures_are_admissible_compositions`].
+/// above the PFD's measured criticality band, which begins at y 38 and
+/// runs to the bottom of the alert stack at y 352. That leaves the top
+/// band of the frame, clear also of the VSI readout strip at x 440.
+///
+/// The rect is deliberately small. Once a panel's warnings are measured
+/// with alerts fed, a PFD-sized panel has very little surface a slot
+/// may sit on at all, and that is the floor working rather than a
+/// fixture inconvenience. `validate_composition` proves the reading
+/// rather than this comment — see
+/// [`the_fixtures_are_admissible_compositions`].
 const INSET_RECT: Region = Region {
     x: 140.0,
-    y: 296.0,
+    y: 4.0,
     width: 200.0,
-    height: 60.0,
+    height: 32.0,
 };
 
 const INSET_FRAME: DesignFrame = DesignFrame {
     width: 200.0,
-    height: 60.0,
+    height: 32.0,
 };
 
 fn no_config(config: &ConfigBlob<'_>) -> Result<(), PanelDrawError> {
@@ -102,7 +110,7 @@ fn marker_band(scene: &mut SceneWriter<'_>) -> Result<(), PanelDrawError> {
     scene.begin_layer(LayerId::Tapes)?;
     scene.save()?;
     scene.fill_color(Rgba8::rgb(255, 208, 0))?;
-    scene.rect(PaintMode::Fill, 12.0, 12.0, 80.0, 20.0)?;
+    scene.rect(PaintMode::Fill, 12.0, 8.0, 80.0, 16.0)?;
     scene.restore()?;
     scene.end_layer(LayerId::Tapes)?;
     Ok(())
@@ -121,8 +129,8 @@ const fn fixture(
         frame_min: INSET_FRAME,
         frame_max: INSET_FRAME,
         frame_step: (1.0, 1.0),
-        aspect_min: 3.3,
-        aspect_max: 3.4,
+        aspect_min: 6.2,
+        aspect_max: 6.3,
         canonical_frames: &[INSET_FRAME],
         background,
         config_schema: &[],
@@ -153,7 +161,7 @@ const PFD_BAND: PanelCriticality = PanelCriticality {
         x: 6.0,
         y: 38.0,
         width: 468.0,
-        height: 254.0,
+        height: 314.0,
     }),
 };
 
@@ -228,7 +236,7 @@ const OVERLAY: CompositionDescriptor = CompositionDescriptor {
 
 /// The shared canonical "typical" state, the same fixture the per-panel
 /// frame hashes and the scene digest draw.
-fn typical() -> PanelData {
+pub(super) fn typical() -> PanelData {
     resolve(
         &indicate_instrument_registry::states::typical(),
         &FreshnessPolicy::default(),

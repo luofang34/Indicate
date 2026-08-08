@@ -93,11 +93,18 @@ pub struct CompositionDescriptor {
 ///   placed at its slot's origin — may be covered, but only where the
 ///   covering slot names the lower panel in `occludes`.
 /// - **Criticality content** — the measured `Annunciation`/`Failure`
-///   band, which carries the warnings, the failure indications, and the
-///   labelling that identifies the surface as simulation — may not be
-///   covered at all. No declaration licences it, because a declaration
-///   that could conceal a warning would be a declaration that the
-///   warning does not matter.
+///   band — may not be covered at all. No declaration licences it,
+///   because a declaration that could conceal a warning would be a
+///   declaration that the warning does not matter.
+///
+/// The floor protects what is *in* those two bands, and nothing else.
+/// It is therefore exactly as wide as the panels make it: content a
+/// panel paints into a lower band is ordinary symbology as far as this
+/// is concerned, whatever it says. A panel carrying the simulation
+/// labelling AIR-BAS-001 and AIR-FLAG-007 require must paint it into a
+/// criticality band for the floor to reach it; no shipped panel emits
+/// that labelling today, so the obligation is the author's and this
+/// does not pretend otherwise.
 pub fn validate_composition(
     registry: &Registry,
     composition: &CompositionDescriptor,
@@ -270,8 +277,16 @@ fn check_criticality(
     let Some(entry) = criticality.entry(below.panel, slot_frame(below)) else {
         return Ok(());
     };
+    // A band nothing was ever witnessed in is *unknown*, not empty. It
+    // does not say the panel puts no warnings anywhere; it says no case
+    // that ran drew one. Reading it as empty would make an unexercised
+    // failure cue the easiest thing on the screen to cover.
     let Some(band) = entry.band else {
-        return Ok(());
+        return Err(CompositionError::CriticalityUnwitnessed {
+            upper,
+            lower,
+            panel: below.panel,
+        });
     };
     let placed = band.translated(below.rect.x, below.rect.y);
     if above.rect.intersects(&placed) {

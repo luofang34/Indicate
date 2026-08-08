@@ -15,8 +15,12 @@ fn the_template_set_passes_admission() {
     let registry = Registry::from_sets(&SETS).expect("the template set composes");
     let report = admit(&registry).expect("the template must be admissible");
     // Four canonical states x (one fed case + one per required group
-    // withheld); the panel contributes no extreme states of its own.
-    assert_eq!(report.cases, 12);
+    // withheld) x (quiet, alerted); the panel contributes no extreme
+    // states of its own. The alert axis is not optional: a composed
+    // screen fans one AlertOutput to every slot, so a panel's
+    // criticality band is only honest if it was measured with the stack
+    // drawn.
+    assert_eq!(report.cases, 24);
     // A set copied from this template starts with nothing tolerated:
     // every run's nominal ink sits inside the design frame, so no
     // frame-overflow observation is counted. Keeping the line at zero is

@@ -220,22 +220,37 @@ than a tolerance:
 
 A panel does not declare where its warnings go. The admission harness
 measures it: the union design-space ink of the `Annunciation` and
-`Failure` bands across the whole canonical × extreme × withheld matrix,
-per canonical frame, exposed on the admission report and pinned beside
-the raster baselines. A composition above uses that bound and no
-declaration, because a panel able to name its own warning surface could
-also understate it.
+`Failure` bands across the whole canonical × extreme × withheld ×
+**alerted** matrix, per canonical frame, exposed on the admission report
+and pinned beside the raster baselines. A composition above uses that
+bound and no declaration, because a panel able to name its own warning
+surface could also understate it.
 
-Two things follow for an author:
+The alert axis matters more than it looks. A composed frame fans one
+`AlertOutput` to every slot, so every panel that draws the shared alert
+stack draws it at run time; the harness therefore draws every case twice,
+once quiet and once with a saturated stack, and folds both into the
+bound. A band measured only on quiet frames would exclude every alert
+row and tell a composition it may cover warnings.
+
+Three things follow for an author:
 
 - **Paint your warnings in `Annunciation` or `Failure`.** A caution
   drawn into `Tapes` is outside the measured band, and a composition
-  will be told it may be covered.
-- **A band measured empty is an honest empty, and a weak one.** If no
-  corpus or extreme state drives your failure cue, nothing is measured
-  and nothing is protected. The shipped monitor panel is in that
-  position: its `MON` flag is gated on a channel status no corpus state
-  produces, so its band is `None`. Contribute an extreme state that
+  will be told it may be covered. The floor is the two bands and nothing
+  else — including the simulation labelling
+  [`AIR-BAS-001`](requirements.md#air-bas-001) and
+  [`AIR-FLAG-007`](requirements.md#air-flag-007) require, which is
+  protected exactly when you paint it into a criticality band and not
+  otherwise.
+- **A band nothing was witnessed in refuses obscuration outright.** An
+  empty measurement is the absence of a witness, not a proof of absence,
+  so composition treats it as unknown and refuses any overlap. That is
+  fail-closed, and it is not a substitute for measuring.
+- **A cue no case drives is not in your band.** The shipped monitor is
+  the example: its `MON` flag and full-frame failure X are gated on a
+  channel status no corpus or extreme state produces, so its band covers
+  its alert stack and nothing else. Contribute an extreme state that
   drives the cue if you want the protection.
 
 ## What the admission harness actually asserts

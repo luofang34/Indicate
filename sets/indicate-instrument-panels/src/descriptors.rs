@@ -370,20 +370,25 @@ pub const BUILTIN_SCENE_DIGEST: &str =
 /// The measured criticality bands of [`BUILTIN_PANELS`], pinned beside
 /// the raster baselines: the union `Annunciation`/`Failure` ink bound
 /// per panel × canonical frame, over the whole canonical × extreme ×
-/// withheld case matrix. A screen composition validates its obscuration
-/// against these.
+/// withheld × alerted case matrix. A screen composition validates its
+/// obscuration against these.
+///
+/// The alert axis is what makes these honest. A composed frame fans one
+/// `AlertOutput` to every slot, and all three panels draw the shared
+/// alert stack into `Annunciation`; a band measured only on quiet
+/// frames would exclude every alert row and licence covering warnings.
+/// Each band below therefore reaches y 352, the stack's bottom row.
 ///
 /// A shell holds this as data. The admission harness re-derives the
 /// same values from the emitted scenes and its test refuses a
 /// disagreement, so a paint change that moves a warning moves the pin
 /// deliberately rather than silently widening what may be covered.
 ///
-/// The monitor's band is `None`, and that is a measurement rather than
-/// an omission: its `MON` flag and failure X are gated on a channel
-/// status no corpus state produces, so nothing was ever drawn in either
-/// band. Nothing may be *proven* coverable there either — a composition
-/// that covers the monitor covers no measured warning, which is exactly
-/// as strong a statement as the corpus supports.
+/// Read the monitor's band for what it is: the alert stack, and only
+/// that. Its own `MON` flag and full-frame failure X are gated on a
+/// channel status no corpus or extreme state produces, so they were
+/// never drawn and are not in the bound. A set that wants them
+/// protected contributes a state that drives them.
 pub const BUILTIN_CRITICALITY_BANDS: CriticalityBands = CriticalityBands {
     panels: &[
         PanelCriticality {
@@ -393,7 +398,7 @@ pub const BUILTIN_CRITICALITY_BANDS: CriticalityBands = CriticalityBands {
                 x: 6.0,
                 y: 38.0,
                 width: 468.0,
-                height: 254.0,
+                height: 314.0,
             }),
         },
         PanelCriticality {
@@ -403,13 +408,18 @@ pub const BUILTIN_CRITICALITY_BANDS: CriticalityBands = CriticalityBands {
                 x: 98.0,
                 y: 48.0,
                 width: 284.0,
-                height: 284.0,
+                height: 304.0,
             }),
         },
         PanelCriticality {
             panel: "monitor",
             frame: BUILTIN_FRAME,
-            band: None,
+            band: Some(Region {
+                x: 100.0,
+                y: 276.0,
+                width: 90.85715,
+                height: 76.0,
+            }),
         },
     ],
 };

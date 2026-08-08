@@ -54,11 +54,26 @@ worth knowing before the next one is cut.
   `Annunciation`/`Failure` ink bound per panel × canonical frame, which
   a composition validates obscuration against. The monitor's is `None`,
   which is a measurement rather than an omission.
+- **The criticality band now folds in the alert stack, and this is a
+  safety fix.** Admission drew every case with no alerts, so the
+  measured `Annunciation`/`Failure` bound excluded the shared alert
+  stack entirely — while a composed frame fans one `AlertOutput` to
+  every slot. A declared obscuration could therefore cover warning rows,
+  which is exactly what AIR-OUT-011 forbids and what the contract says
+  is impossible. The case matrix gains an alert axis (each case drawn
+  quiet and with a saturated stack), so admission runs 242 cases instead
+  of 121 and counts 166 frame-overflow warnings instead of 83. All three
+  `BUILTIN_CRITICALITY_BANDS` entries moved; the monitor's is no longer
+  `None`.
+- **An unwitnessed band refuses obscuration.** A band measured empty is
+  the absence of a witness, not a proof of absence, and it now refuses
+  any overlap (`CriticalityUnwitnessed`) instead of admitting it.
 - **New pinned data: three composed-frame hashes.** The reference
   rasterizer gains `render_composition`, which paints a validated
   composition into one framebuffer, and pins REN-03-style hashes for a
   side-by-side screen, an opaque inset over a PFD, and a `NotUsed`
-  overlay. The overlay's show-through is asserted as a property, not
+  overlay. The inset and overlay fixtures moved above the PFD's band
+  once alerts were folded in, so two of the three hashes are new. The overlay's show-through is asserted as a property, not
   only as a hash. `indicate-instrument-raster` gains normal
   dependencies on the registry, the state crate, and the alert model;
   the arrow points that way and no crate gained a dependency on the

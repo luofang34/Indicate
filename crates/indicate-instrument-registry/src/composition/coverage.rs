@@ -99,7 +99,7 @@ fn dedup(edges: &mut [f32]) -> usize {
         }
         if let Some(slot) = edges.get_mut(kept) {
             *slot = value;
-            kept += 1;
+            kept = kept.wrapping_add(1);
         }
     }
     kept

@@ -114,6 +114,15 @@ fn ink_bounds(cmd: &Cmd<'_>, margin: f32) -> Option<Rect> {
             anchor.v,
             text.chars().count(),
         )),
+        // State and structure commands ink nothing, and so does
+        // `Cmd::Unknown` — today. That is safe only because every
+        // painting opcode this revision defines is matched above, and
+        // an unknown opcode is by definition one no backend in the
+        // family paints. The opcode set is append-only, so the day a
+        // new *painting* opcode is added, a band measured by an older
+        // build of this harness would silently understate itself:
+        // adding a painting opcode means adding its arm here, in the
+        // same change.
         _ => None,
     }
 }

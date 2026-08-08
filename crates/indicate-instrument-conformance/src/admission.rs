@@ -21,6 +21,7 @@
 //! uses, so a compositor above plans obscuration against a populated
 //! declaration rather than an empty rectangle.
 
+use indicate_alerts::AlertOutput;
 use indicate_instrument_glyphs::PANEL_VOCABULARY;
 use indicate_instrument_registry::{
     CANONICAL_STATES, DesignFrame, EMPTY_CONFIG, PanelCriticality, PanelDescriptor, PanelDrawError,
@@ -33,6 +34,7 @@ use indicate_instrument_state::{
     AircraftState, FreshnessPolicy, GroupId, PanelData, resolve, withhold_group,
 };
 
+mod alerts;
 mod background;
 mod criticality;
 mod error;
@@ -41,6 +43,7 @@ mod ink;
 mod provenance;
 mod regions;
 
+use alerts::saturated_stack;
 use background::check_background;
 use geometry::{Ctm, Rect, text_rect};
 use provenance::check_provenance;
@@ -76,6 +79,11 @@ pub enum AdmissionWarning {
         state: &'static str,
         /// The frame the panel was drawn at.
         frame: DesignFrame,
+        /// Whether the alert stack was drawn in this case. A run that
+        /// overhangs only with alerts fed is a different fact from one
+        /// that overhangs on a quiet frame, and the ratchet counts them
+        /// separately.
+        alerted: bool,
         /// The text run's content.
         text: String,
     },
@@ -147,28 +155,61 @@ fn admit_panel_at_frame(
     frame: DesignFrame,
     report: &mut AdmissionReport,
 ) -> Result<(), AdmissionError> {
-    for (state_id, withheld, state) in case_matrix(panel) {
-        check_case(panel, state_id, withheld, state, frame, report)?;
+    for case in case_matrix(panel) {
+        check_case(panel, &case, frame, report)?;
     }
     Ok(())
 }
 
+/// One case of the admission matrix.
+struct Case {
+    state_id: &'static str,
+    withheld: Option<GroupId>,
+    state: AircraftState,
+    /// The alert state fed to the draw. `None` is the quiet frame; the
+    /// saturated stack is the other end of the axis.
+    alerts: Option<AlertOutput>,
+}
+
+impl Case {
+    /// Whether alerts were fed, for the error and warning context: a
+    /// defect that only appears with the stack drawn is a different
+    /// fact from one that appears without it.
+    fn alerted(&self) -> bool {
+        self.alerts.is_some()
+    }
+}
+
 /// Every case one panel is judged over: each canonical and extreme
 /// state fully fed, then once per declared group with that group
-/// withheld.
-fn case_matrix(
-    panel: &'static PanelDescriptor,
-) -> Vec<(&'static str, Option<GroupId>, AircraftState)> {
+/// withheld — and each of those twice, quiet and with the saturated
+/// alert stack.
+///
+/// The alert axis is not decoration. A composed frame fans one
+/// `AlertOutput` to every slot, so a band measured only on quiet frames
+/// would omit the shared stack and licence covering warning rows.
+fn case_matrix(panel: &'static PanelDescriptor) -> Vec<Case> {
     let states = CANONICAL_STATES
         .iter()
         .map(|s| (s.id, s.build))
         .chain(panel.extreme_states.iter().map(|e| (e.id, e.build)));
+    let saturated = saturated_stack();
     let mut cases = Vec::new();
     for (state_id, build) in states {
-        cases.push((state_id, None, build()));
+        let mut withholdings = vec![(None, build())];
         for group in GroupId::ALL {
             if panel.required_groups.contains(group) {
-                cases.push((state_id, Some(group), withhold_group(&build(), group)));
+                withholdings.push((Some(group), withhold_group(&build(), group)));
+            }
+        }
+        for (withheld, state) in withholdings {
+            for alerts in [None, Some(saturated)] {
+                cases.push(Case {
+                    state_id,
+                    withheld,
+                    state,
+                    alerts,
+                });
             }
         }
     }
@@ -177,15 +218,14 @@ fn case_matrix(
 
 fn check_case(
     panel: &'static PanelDescriptor,
-    state_id: &'static str,
-    withheld: Option<GroupId>,
-    state: AircraftState,
+    case: &Case,
     frame: DesignFrame,
     report: &mut AdmissionReport,
 ) -> Result<(), AdmissionError> {
-    let data = resolve(&state, &FreshnessPolicy::default());
-    let runs = draw_runs(panel, state_id, withheld, &data, frame)?;
-    check_provenance(panel, state_id, withheld, &runs)?;
+    let state_id = case.state_id;
+    let data = resolve(&case.state, &FreshnessPolicy::default());
+    let runs = draw_runs(panel, case, &data, frame)?;
+    check_provenance(panel, state_id, case.withheld, &runs)?;
     let bounds = Rect {
         min_x: 0.0,
         min_y: 0.0,
@@ -207,6 +247,7 @@ fn check_case(
                 panel: panel.id,
                 state: state_id,
                 frame,
+                alerted: case.alerted(),
                 text: run.text.clone(),
             });
         }
@@ -217,18 +258,21 @@ fn check_case(
 
 fn draw_runs(
     panel: &'static PanelDescriptor,
-    state_id: &'static str,
-    withheld: Option<GroupId>,
+    case: &Case,
     data: &PanelData,
     frame: DesignFrame,
 ) -> Result<Vec<TextRun>, AdmissionError> {
+    let state_id = case.state_id;
     let mut buf = vec![0u8; MAX_SCENE_BYTES];
     let scene =
-        draw_scene(panel, data, frame, &mut buf).map_err(|source| AdmissionError::Draw {
-            panel: panel.id,
-            state: state_id,
-            withheld,
-            source,
+        draw_scene(panel, data, case.alerts.as_ref(), frame, &mut buf).map_err(|source| {
+            AdmissionError::Draw {
+                panel: panel.id,
+                state: state_id,
+                withheld: case.withheld,
+                alerted: case.alerted(),
+                source,
+            }
         })?;
     let layers = validate_layers(scene).map_err(|error| match error {
         LayerError::Decode(_) => AdmissionError::Decode {
@@ -238,7 +282,8 @@ fn draw_runs(
         _ => AdmissionError::LayerContract {
             panel: panel.id,
             state: state_id,
-            withheld,
+            withheld: case.withheld,
+            alerted: case.alerted(),
         },
     })?;
     let missing = panel.required_layers & !layers.present;
@@ -246,7 +291,8 @@ fn draw_runs(
         return Err(AdmissionError::MissingRequiredLayers {
             panel: panel.id,
             state: state_id,
-            withheld,
+            withheld: case.withheld,
+            alerted: case.alerted(),
             missing,
         });
     }
@@ -273,11 +319,12 @@ enum RunsDefect {
 fn draw_scene<'b>(
     panel: &PanelDescriptor,
     data: &PanelData,
+    alerts: Option<&AlertOutput>,
     frame: DesignFrame,
     buf: &'b mut [u8],
 ) -> Result<&'b [u8], PanelDrawError> {
     let mut writer = SceneWriter::new(buf)?;
-    (panel.draw)(data, &EMPTY_CONFIG, None, frame, &mut writer)?;
+    (panel.draw)(data, &EMPTY_CONFIG, alerts, frame, &mut writer)?;
     let used = writer.finish();
     Ok(buf.get(..used).unwrap_or(&[]))
 }

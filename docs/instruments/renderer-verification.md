@@ -130,14 +130,27 @@ the pin, exactly as the per-panel baselines are.
 | Fixture | Screen | Slots |
 |---|---|---|
 | Side by side | 960x360 | `pfd` at (0, 0), `hsi` at (480, 0), neither overlapping |
-| Opaque inset over a PFD | 480x360 | `pfd` full-frame, an `Opaque` 200x60 fixture panel inset at (140, 296) |
+| Opaque inset over a PFD | 480x360 | `pfd` full-frame, an `Opaque` 200x32 fixture panel inset at (140, 4) |
 | `NotUsed` overlay | 480x360 | the same geometry with a `NotUsed` fixture panel, which opens no background band |
 
-The inset rect sits in the strip below the PFD's measured criticality band and
-clear of every readout region it declares, so neither fixture needs an
-`occludes` entry. That is asserted by running `validate_composition` over each
+The inset rect sits in the narrow strip *above* the PFD's measured criticality
+band — which, once alerts are folded into the measurement, runs from y 38 to the
+bottom of the alert stack at y 352 — and clear of the readout regions the PFD
+declares, so neither fixture needs an `occludes` entry. That a PFD-sized panel
+has so little surface a slot may sit on is the floor working, not a fixture
+inconvenience. It is asserted by running `validate_composition` over each
 fixture rather than reasoned about in prose, and the PFD band the fixtures use
 is asserted equal to the pinned `BUILTIN_CRITICALITY_BANDS` entry.
+
+### The obscuration floor, measured in pixels
+
+`src/composition/tests/obscuration.rs` holds two compositions that a declared
+`occludes` entry once admitted and that must now be refused: a panel placed over
+a PFD's alert stack, and one placed over the monitor's annunciation band. Both
+assert `CriticalityObscured`. A third test measures where the shared alert stack
+actually inks — by diffing a rendered quiet frame against an alerted one — and
+asserts every shipped panel's pinned band contains it, so the pin cannot drift
+away from the ink it is supposed to bound.
 
 ### What the hashes do not prove
 

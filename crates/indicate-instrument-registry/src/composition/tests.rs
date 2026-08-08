@@ -127,9 +127,11 @@ pub(super) const BANDS: CriticalityBands = CriticalityBands {
     ],
 };
 
-/// Bands with no warning ink anywhere, for the rules that must fire
-/// without the criticality floor firing first.
-pub(super) const QUIET_BANDS: CriticalityBands = CriticalityBands {
+/// Bands no case ever witnessed ink in. Since an empty measurement is
+/// the absence of a witness rather than a proof of absence, a
+/// composition validated against these refuses every overlap — which is
+/// what [`an_unwitnessed_band_refuses_obscuration`] is for.
+pub(super) const UNWITNESSED_BANDS: CriticalityBands = CriticalityBands {
     panels: &[
         PanelCriticality {
             panel: "low",
@@ -331,16 +333,20 @@ fn a_slot_buried_under_opaque_slots_is_refused() {
         ],
     };
     assert_eq!(
-        validate_composition(&registry(), &COMPOSITION, &QUIET_BANDS),
+        validate_composition(&registry(), &COMPOSITION, &UNWITNESSED_BANDS),
         Err(CompositionError::DeadSlot { slot: 0 })
     );
 }
 
+/// The dead-slot rule counts opaque covers only, and this is the pair
+/// that proves it: byte-identical geometry to the case above, differing
+/// only in the covering panel's `background`. An `Opaque` cover buries
+/// the slot and is refused as `DeadSlot`; a `NotUsed` cover does not
+/// bury it, so rule 5 stays silent and the refusal comes from the
+/// criticality floor instead — full-rect coverage of a panel that paints
+/// warnings is never admissible, whoever declares it.
 #[test]
 fn an_overlay_does_not_bury_the_slot_beneath_it() {
-    // Same geometry as the dead-slot case, but the covering panel
-    // declares `NotUsed`: it paints no background, so the slot below
-    // shows through and is alive.
     const COMPOSITION: CompositionDescriptor = CompositionDescriptor {
         screen: SCREEN,
         slots: &[
@@ -352,8 +358,12 @@ fn an_overlay_does_not_bury_the_slot_beneath_it() {
             },
         ],
     };
-    validate_composition(&registry(), &COMPOSITION, &QUIET_BANDS)
-        .expect("an overlay leaves the slot beneath it visible");
+    let refusal = validate_composition(&registry(), &COMPOSITION, &BANDS)
+        .expect_err("the overlay covers the warning band beneath it");
+    assert!(
+        matches!(refusal, CompositionError::CriticalityObscured { .. }),
+        "an overlay must not read as a dead-slot cover, got {refusal:?}"
+    );
 }
 
 #[test]
@@ -366,7 +376,7 @@ fn covering_a_readout_without_declaring_it_is_refused() {
         ],
     };
     assert_eq!(
-        validate_composition(&registry(), &COMPOSITION, &QUIET_BANDS),
+        validate_composition(&registry(), &COMPOSITION, &BANDS),
         Err(CompositionError::UndeclaredOcclusion {
             upper: 1,
             lower: 0,
@@ -389,8 +399,35 @@ fn declaring_the_occlusion_permits_covering_a_readout() {
             },
         ],
     };
-    validate_composition(&registry(), &COMPOSITION, &QUIET_BANDS)
+    validate_composition(&registry(), &COMPOSITION, &BANDS)
         .expect("a declared obscuration may cover ordinary symbology");
+}
+
+/// An empty measurement is the absence of a witness, not a proof of
+/// absence. A panel whose band no case ever drew ink in refuses
+/// obscuration outright — the alternative would make an unexercised
+/// failure cue the easiest thing on a screen to cover.
+#[test]
+fn an_unwitnessed_band_refuses_obscuration() {
+    const COMPOSITION: CompositionDescriptor = CompositionDescriptor {
+        screen: SCREEN,
+        slots: &[
+            slot("low", rect(0.0, 0.0, 480.0, 360.0)),
+            Slot {
+                panel: "badge",
+                rect: rect(0.0, 0.0, 200.0, 100.0),
+                occludes: &["low"],
+            },
+        ],
+    };
+    assert_eq!(
+        validate_composition(&registry(), &COMPOSITION, &UNWITNESSED_BANDS),
+        Err(CompositionError::CriticalityUnwitnessed {
+            upper: 1,
+            lower: 0,
+            panel: "low",
+        })
+    );
 }
 
 #[test]

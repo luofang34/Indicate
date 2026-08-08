@@ -49,28 +49,33 @@ fn measure(
     buf: &mut [u8],
 ) -> Result<PanelCriticality, AdmissionError> {
     let mut bound: Option<Rect> = None;
-    for (state_id, withheld, state) in case_matrix(panel) {
-        let data = resolve(&state, &FreshnessPolicy::default());
+    for case in case_matrix(panel) {
+        let state_id = case.state_id;
+        let data = resolve(&case.state, &FreshnessPolicy::default());
         let scene =
-            draw_scene(panel, &data, frame, buf).map_err(|source| AdmissionError::Draw {
-                panel: panel.id,
-                state: state_id,
-                withheld,
-                source,
+            draw_scene(panel, &data, case.alerts.as_ref(), frame, buf).map_err(|source| {
+                AdmissionError::Draw {
+                    panel: panel.id,
+                    state: state_id,
+                    withheld: case.withheld,
+                    alerted: case.alerted(),
+                    source,
+                }
             })?;
         let report = validate_layers(scene).map_err(|_| AdmissionError::LayerContract {
             panel: panel.id,
             state: state_id,
-            withheld,
+            withheld: case.withheld,
+            alerted: case.alerted(),
         })?;
-        let case = criticality_ink(scene, &report, frame).map_err(|_| AdmissionError::Decode {
+        let ink = criticality_ink(scene, &report, frame).map_err(|_| AdmissionError::Decode {
             panel: panel.id,
             state: state_id,
         })?;
-        bound = match (bound, case) {
-            (Some(union), Some(case)) => Some(union.union(&case)),
+        bound = match (bound, ink) {
+            (Some(union), Some(ink)) => Some(union.union(&ink)),
             (existing, None) => existing,
-            (None, case) => case,
+            (None, ink) => ink,
         };
     }
     Ok(PanelCriticality {

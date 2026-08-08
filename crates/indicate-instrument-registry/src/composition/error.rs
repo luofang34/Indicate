@@ -102,11 +102,28 @@ pub enum CompositionError {
         /// The covered surface, in screen units.
         region: Region,
     },
+    /// A slot overlaps a lower panel whose criticality band was
+    /// measured empty. An empty measurement is the absence of a
+    /// witness, not a proof of absence: no case that ran drew warning
+    /// ink, which says nothing about where warning ink goes.
+    #[error(
+        "slot {upper} overlaps {panel} in slot {lower}, whose criticality band no case ever witnessed"
+    )]
+    CriticalityUnwitnessed {
+        /// The covering slot.
+        upper: usize,
+        /// The covered slot.
+        lower: usize,
+        /// The covered panel.
+        panel: &'static str,
+    },
     /// A slot covers a lower panel's criticality band. Declaring an
     /// obscuration does not licence this and no list can: a declared
-    /// obscuration may cover ordinary symbology, never a warning, a
-    /// failure indication, or the labelling that identifies the surface
-    /// as simulation (AIR-OUT-011).
+    /// obscuration may cover ordinary symbology, never a warning or a
+    /// failure indication (AIR-OUT-011). The band is what was measured
+    /// in the `Annunciation` and `Failure` layers, so a panel's
+    /// simulation labelling is protected exactly when the panel paints
+    /// it there.
     #[error(
         "slot {upper} covers the criticality band {band:?} of {panel} in slot {lower}; no declaration permits this"
     )]

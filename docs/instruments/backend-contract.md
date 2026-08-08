@@ -147,12 +147,27 @@ A declaration reaches the first row and never the second:
 > **Declaring buys you readouts, never warnings.**
 
 Naming a panel in `occludes` permits covering its ordinary symbology; it
-does not permit covering its warnings, its failure indications, or the
-labelling that identifies the surface as simulation, because a
-declaration that could conceal a warning would be a declaration that the
-warning does not matter. The criticality bound is measured rather than
-declared for the same reason: a panel able to name its own warning
-surface could also understate it.
+does not permit covering its warnings or its failure indications,
+because a declaration that could conceal a warning would be a
+declaration that the warning does not matter. The criticality bound is
+measured rather than declared for the same reason: a panel able to name
+its own warning surface could also understate it.
+
+**The floor is exactly the two bands, and no wider.** It protects what a
+panel paints into `Annunciation` and `Failure`, whatever that is, and it
+does not protect anything a panel paints elsewhere, whatever that says.
+Two consequences worth stating rather than discovering:
+
+- The simulation labelling [`AIR-BAS-001`](requirements.md#air-bas-001)
+  and [`AIR-FLAG-007`](requirements.md#air-flag-007) require is covered
+  by this floor **only if the panel paints it into a criticality band**.
+  No shipped panel emits that labelling at all today, so this is an
+  obligation on a panel author, not a property the composition layer
+  supplies.
+- A band is only as wide as the cases that measured it. A failure cue no
+  corpus or extreme state drives is not in the bound and is not
+  protected; `panel-contract.md` says the same thing to the author who
+  can fix it.
 
 The bound a composition validates against is what admission measured
 over the whole canonical × extreme × withheld case matrix, pinned beside

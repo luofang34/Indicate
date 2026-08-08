@@ -9,6 +9,7 @@ publish = false
 workspace = true
 
 [dependencies]
+indicate-alerts = { workspace = true }
 indicate-instrument-glyphs = { workspace = true }
 indicate-instrument-registry = { workspace = true }
 indicate-instrument-scene = { workspace = true }
@@ -16,5 +17,4 @@ indicate-instrument-state = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-indicate-alerts = { workspace = true }
 indicate-instrument-panels = { workspace = true }

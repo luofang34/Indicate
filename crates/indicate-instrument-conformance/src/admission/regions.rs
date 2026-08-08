@@ -56,9 +56,9 @@ pub(super) fn check_non_vacuity(panel: &'static PanelDescriptor) -> Result<(), A
     }
     let frame = panel.frame_min;
     let mut populated = vec![false; panel.group_regions.len()];
-    for (state_id, withheld, state) in case_matrix(panel) {
-        let data = resolve(&state, &FreshnessPolicy::default());
-        let runs = draw_runs(panel, state_id, withheld, &data, frame)?;
+    for case in case_matrix(panel) {
+        let data = resolve(&case.state, &FreshnessPolicy::default());
+        let runs = draw_runs(panel, &case, &data, frame)?;
         witness(panel, &runs, &mut populated);
     }
     for (index, (group, region)) in panel.group_regions.iter().enumerate() {
