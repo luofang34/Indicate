@@ -118,17 +118,21 @@ What the registry checks at init:
 **A panel may treat its `DesignFrame` as a constant.** Nothing in the
 framework lays out for you, and no author owes a size-adaptive layout.
 The honest way to say so is a degenerate range: `frame_min ==
-frame_max`, one canonical frame, and any positive step. A shell may then
-only ask for the size the geometry was authored for, and asking for
-anything else is refused by `accepts` before you are called. Every
-shipped panel does exactly that today.
+frame_max`, one canonical frame, and any positive step. The only size a
+*conforming* shell may then ask for is the one the geometry was authored
+for — `accepts` is the predicate that says so, and a shell is expected
+to consult it, but nothing in the draw path re-checks the argument. Every
+shipped panel declares a degenerate range today.
 
 What is refused is declaring a range and not using it. Admission renders
-a non-degenerate panel at both ends of its range and requires the bytes
-to differ, so a panel that takes the parameter and ignores it fails
-rather than passing on the strength of a range it does not honour. A
-shell asking for the larger frame is owed more instrument, not the same
-picture for the backend to stretch.
+a non-degenerate panel at both ends of its range, across the whole case
+matrix, and requires the bytes to differ in at least one case. One
+witness settles it, so a panel whose `nothing-fed` frame is a fixed
+placard is not accused, and neither is one whose size only shows under
+an alert or in an extreme state. A panel that takes the parameter and
+ignores it fails rather than passing on the strength of a range it does
+not honour: a shell asking for the larger frame is owed more instrument,
+not the same picture for the backend to stretch.
 
 Differing bytes are a weak proof of a good layout and a sufficient proof
 of the thing that was otherwise unprovable: that the argument reached

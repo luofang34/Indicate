@@ -8,42 +8,49 @@
 //! compares the answers.
 //!
 //! A panel is free to ignore it — that is what a degenerate range
-//! declares, and every shipped panel declares one today. What is
-//! refused is declaring a range and then not varying across it: a shell
-//! that asks for the larger frame is owed more instrument, not the same
-//! picture stretched by the backend.
+//! declares. What is refused is declaring a range and then not varying
+//! across it: a shell that asks for the larger frame is owed more
+//! instrument, not the same picture stretched by the backend.
+//!
+//! The search runs over the whole case matrix rather than the canonical
+//! states alone. A panel may read its frame and only *show* it under an
+//! alert, in an extreme state, or with a group withheld, and refusing
+//! such a panel would be a false accusation.
 
 use indicate_instrument_registry::{DesignFrame, PanelDescriptor};
 use indicate_instrument_scene::MAX_SCENE_BYTES;
 use indicate_instrument_state::{FreshnessPolicy, resolve};
 
 use super::error::AdmissionError;
-use super::{CANONICAL_STATES, draw_scene};
-
-/// Whether the panel declared more than one frame it can be asked for.
-fn range_is_degenerate(panel: &PanelDescriptor) -> bool {
-    panel.frame_min == panel.frame_max
-}
+use super::{Case, case_matrix, draw_scene};
 
 /// Requires the emitted bytes to differ between the smallest and
-/// largest frames a panel accepts.
+/// largest frames a panel accepts, in at least one case of the matrix.
 ///
 /// Differing bytes are a weak proof of a good layout and a sufficient
 /// proof of the thing that was unprovable before: that the argument
-/// reached the geometry at all. A panel whose two frames encode
-/// identically either ignored the parameter or drew something that does
-/// not depend on it, and neither is what declaring a range claims.
+/// reached the geometry at all. One witness is enough — a panel whose
+/// `nothing-fed` frame is a fixed placard is not thereby frame-blind.
+///
+/// A difference only counts when the smaller frame reproduces, so a
+/// panel that varies between two consecutive draws for its own reasons
+/// cannot pass on that variation. That makes a deterministic `DrawFn`
+/// part of what is being checked rather than assumed.
 pub(super) fn check_frame_varies(panel: &'static PanelDescriptor) -> Result<(), AdmissionError> {
-    if range_is_degenerate(panel) {
+    if panel.frame_min == panel.frame_max {
         return Ok(());
     }
-    let mut small = [0u8; MAX_SCENE_BYTES];
-    let mut large = [0u8; MAX_SCENE_BYTES];
-    for state in CANONICAL_STATES {
-        let data = resolve(&(state.build)(), &FreshnessPolicy::default());
-        let at_min = draw_bytes(panel, &data, panel.frame_min, &mut small)?;
-        let at_max = draw_bytes(panel, &data, panel.frame_max, &mut large)?;
-        if at_min != at_max {
+    let mut first = vec![0u8; MAX_SCENE_BYTES];
+    let mut large = vec![0u8; MAX_SCENE_BYTES];
+    let mut again = vec![0u8; MAX_SCENE_BYTES];
+    for case in case_matrix(panel) {
+        let at_min = draw_at(panel, &case, panel.frame_min, &mut first)?.to_vec();
+        let at_max = draw_at(panel, &case, panel.frame_max, &mut large)?;
+        if at_min == at_max {
+            continue;
+        }
+        let reproduced = draw_at(panel, &case, panel.frame_min, &mut again)?;
+        if at_min == reproduced {
             return Ok(());
         }
     }
@@ -54,18 +61,21 @@ pub(super) fn check_frame_varies(panel: &'static PanelDescriptor) -> Result<(), 
     })
 }
 
-fn draw_bytes<'b>(
+fn draw_at<'b>(
     panel: &PanelDescriptor,
-    data: &indicate_instrument_state::PanelData,
+    case: &Case,
     frame: DesignFrame,
     buf: &'b mut [u8],
 ) -> Result<&'b [u8], AdmissionError> {
-    draw_scene(panel, data, None, frame, buf).map_err(|source| AdmissionError::Draw {
-        panel: panel.id,
-        state: "frame-variation",
-        withheld: None,
-        alerted: false,
-        source,
+    let data = resolve(&case.state, &FreshnessPolicy::default());
+    draw_scene(panel, &data, case.alerts.as_ref(), frame, buf).map_err(|source| {
+        AdmissionError::Draw {
+            panel: panel.id,
+            state: case.state_id,
+            withheld: case.withheld,
+            alerted: case.alerts.is_some(),
+            source,
+        }
     })
 }
 

@@ -35,6 +35,23 @@ fn draw_varying(
     Ok(())
 }
 
+/// Reads its frame, but only shows it when alerts are fed. The matrix
+/// drives an alert axis, so refusing this panel would be an accusation
+/// the evidence does not support.
+fn draw_varying_only_when_alerted(
+    _data: &PanelData,
+    _config: &ConfigBlob<'_>,
+    alerts: Option<&AlertOutput>,
+    frame: DesignFrame,
+    scene: &mut SceneWriter<'_>,
+) -> Result<(), PanelDrawError> {
+    let width = if alerts.is_some() { frame.width } else { 480.0 };
+    scene.begin_layer(LayerId::Tapes)?;
+    scene.rect(PaintMode::Fill, 0.0, 0.0, width, 360.0)?;
+    scene.end_layer(LayerId::Tapes)?;
+    Ok(())
+}
+
 /// Paints the same rect whatever it is handed — the panel the check
 /// exists to catch.
 fn draw_fixed(
@@ -89,6 +106,15 @@ fn a_panel_that_ignores_its_frame_is_refused() {
 #[test]
 fn a_panel_that_uses_its_frame_is_admitted() {
     assert_eq!(check_frame_varies(&VARYING), Ok(()));
+}
+
+/// The search covers the whole matrix, not the quiet canonical states
+/// alone, so a panel whose frame only shows under an alert is not
+/// accused of ignoring it.
+#[test]
+fn a_panel_that_varies_only_under_alerts_is_admitted() {
+    static ALERTED: PanelDescriptor = ranged("alerted-only", draw_varying_only_when_alerted);
+    assert_eq!(check_frame_varies(&ALERTED), Ok(()));
 }
 
 /// A degenerate range is a declaration that the panel does not vary,

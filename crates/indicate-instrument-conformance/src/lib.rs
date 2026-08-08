@@ -3,7 +3,7 @@
 //!
 //! [`admit`] drives every registered panel through the shared canonical
 //! corpus plus the panel's own extreme states, and through every
-//! single-group withholding its descriptor declares, then checks six
+//! single-group withholding its descriptor declares, then checks seven
 //! families: the layer contract (well-formed scenes with every required
 //! band present under every degradation), the background contract (the
 //! declared capability is the band's actual behavior — `NotUsed` never
@@ -14,8 +14,12 @@
 //! run must claim the state group its value derives from, the claim is
 //! bounded to the panel's required groups, and a run claiming the
 //! withheld group may not be visible — wherever it is drawn), and
-//! declared regions (a claimed run lands inside a region its group
-//! declares). A shell composes its registry and runs this once at
+//! declared regions (every declared region is populated by a run
+//! claiming its group — a region over blank space would guard a surface
+//! the readout is not on), and frame variation (a panel declaring a
+//! range of frames emits differently across it, so a panel that ignores
+//! the size it is handed cannot pass on a range it does not honour).
+//! A shell composes its registry and runs this once at
 //! integration time; a panel that fails does not join an operational
 //! layout.
 //!
