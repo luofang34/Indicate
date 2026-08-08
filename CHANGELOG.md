@@ -4,9 +4,10 @@ Consumers pin this repository by revision. A bare revision says nothing
 about what it contains, so a revision meant to be pinned is given an
 annotated tag and an entry here naming the contract versions it carries.
 
-Five values decide whether a given revision is the one a consumer wants.
-Each entry states all five, and `scripts/check-release-markers.sh` fails
-the build when the newest entry disagrees with the code it describes — a
+Five values decide whether a revision's *contract* differs from the one
+you already pinned. Each entry states all five, and
+`scripts/check-release-markers.sh` fails the build when the newest entry
+disagrees with the code it describes — a
 changelog that has to be checked against the source is the archaeology
 it was written to remove.
 
@@ -30,11 +31,17 @@ baselines, the glyph-pack content hash, and the criticality bands — and
 states the panel set through the per-panel keys rather than as a row. A
 consumer's CI can diff it; prose it cannot.
 
-A release is cut whenever any of the five moves — review's job, since a
-guard comparing the newest entry to the tree cannot tell an added entry
-from a rewritten one. Entries are newest first, and the tag's message
-repeats the same five values so `git show <tag>` answers the question
-without a checkout. `CONTRIBUTING.md` has the release steps.
+A release is cut whenever any of the five moves, and also when a public
+API addition lands that consumers are expected to call — a predicate or
+a file published for consumers is of no use to them if reaching it means
+pinning a bare revision. Either way it is review's job to notice, since
+a guard comparing the newest entry to the tree cannot tell an added
+entry from a rewritten one. An entry whose five values match the one
+below it is the second kind, and says so.
+
+Entries are newest first, and the tag's message repeats the same five
+values so `git show <tag>` answers the question without a checkout.
+`CONTRIBUTING.md` has the release steps.
 
 ## [0.3.0] — 2026-08-08
 
