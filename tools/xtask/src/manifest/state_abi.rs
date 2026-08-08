@@ -2,8 +2,9 @@
 //! module the crate actually ships.
 //!
 //! The ABI in force is the highest version module
-//! `indicate-instrument-state` declares — the rule
-//! `scripts/check-release-markers.sh` follows. A Rust program cannot
+//! `indicate-instrument-state` declares — the same rule
+//! `scripts/check-release-markers.sh` follows, matched no more loosely
+//! than that script matches it. A Rust program cannot
 //! enumerate the modules of a crate it links, so it names one and the
 //! guard here refuses to emit a manifest once a newer module exists:
 //! adding `v7` fails the generator instead of silently pinning `v6`
@@ -58,11 +59,22 @@ pub fn read(root: &Path) -> Result<StateAbi, XtaskError> {
 
 /// The highest `pub mod vN;` the source declares, or `None` when it
 /// declares no versioned module at all.
+///
+/// The declaration is matched at its head and read up to the
+/// semicolon, so anything trailing it — a comment, whitespace — cannot
+/// hide the module. Requiring the line to *end* at the semicolon would
+/// make this weaker than the shell rule it mirrors, and weaker in the
+/// one direction that matters: a declaration nobody sees is a manifest
+/// certifying an ABI the tree no longer ships.
 fn newest_module(source: &str) -> Option<u32> {
     source
         .lines()
         .filter_map(|line| {
-            let digits = line.trim().strip_prefix("pub mod v")?.strip_suffix(';')?;
+            let rest = line.trim_start().strip_prefix("pub mod v")?;
+            let digits = rest.split(';').next()?;
+            if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+                return None;
+            }
             digits.parse::<u32>().ok()
         })
         .max()

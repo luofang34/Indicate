@@ -44,3 +44,36 @@ fn the_shipped_crate_declares_the_module_this_generator_reads() {
     assert_eq!(abi.module, format!("v{}", super::COMPILED_MODULE));
     assert_eq!(abi.version, indicate_instrument_state::abi::v6::VERSION);
 }
+
+/// A declaration is not hidden by anything following the semicolon. A
+/// scan that missed one would certify an ABI the tree stopped shipping,
+/// which is the failure this guard exists to prevent.
+#[test]
+fn a_trailing_comment_does_not_hide_a_newer_module() {
+    for line in [
+        "pub mod v7;",
+        "pub mod v7; // staged",
+        "pub mod v7;// staged",
+        "    pub mod v7;\t// indented and tabbed",
+    ] {
+        let source = std::format!("pub mod v6;\n{line}\n");
+        assert_eq!(
+            super::newest_module(&source),
+            Some(7),
+            "{line:?} declares v7"
+        );
+    }
+}
+
+/// Only a versioned module counts: a neighbouring declaration must not
+/// be read as one.
+#[test]
+fn only_versioned_modules_are_counted() {
+    for line in ["pub mod validate;", "pub mod v;", "pub mod v7x;"] {
+        assert_eq!(
+            super::newest_module(line),
+            None,
+            "{line:?} is not a version"
+        );
+    }
+}

@@ -8,8 +8,8 @@
 //! regenerates and diffs it in CI so a pin edited without regenerating
 //! is a red build.
 //!
-//! `CHANGELOG.md` keeps the human summary of five values; this is the
-//! machine-readable form of eight. They are not independent claims —
+//! `CHANGELOG.md` keeps the human summary; this is the machine-readable
+//! form, and it covers more values. They are not independent claims —
 //! both are checked against the same tree.
 
 mod corpus;

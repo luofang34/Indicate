@@ -185,8 +185,13 @@ fn bands_block(lines: &mut Vec<String>) -> Result<(), XtaskError> {
     Ok(())
 }
 
-/// The glyph pack's recorded content hash, checked against the hash the
-/// live glyph data produces.
+/// The glyph pack's recorded content hash.
+///
+/// The comparison below is a shape assertion rather than a cross-check:
+/// the recorded hash is defined as the content hash of the same groups,
+/// so the two cannot disagree while that stays true. Drift in the glyph
+/// data is caught by regeneration — the emitted hash moves and the
+/// committed manifest stops matching — not here.
 fn glyph_pin() -> Result<String, XtaskError> {
     let recorded = json::hex(&PANEL_GLYPHS.recorded_hash());
     let live = json::hex(&PANEL_GLYPHS.content_hash());

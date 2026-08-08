@@ -9,6 +9,9 @@
 
 use crate::error::XtaskError;
 
+#[cfg(test)]
+mod tests;
+
 /// A JSON string literal, with the escapes JSON requires.
 pub fn string(value: &str) -> String {
     let mut out = String::from("\"");
@@ -31,10 +34,15 @@ pub fn string(value: &str) -> String {
 ///
 /// Fixed precision rather than the shortest round-trip form, so the
 /// bytes depend only on the value and not on the formatter's choice of
-/// abbreviation. Six decimals resolve more than an `f32` ulp at every
-/// magnitude a design frame reaches, so two different frames cannot
-/// print the same digits; trailing zeros are then trimmed to keep whole
-/// pixel counts readable as `480` rather than `480.000000`.
+/// abbreviation. Trailing zeros are then trimmed, to keep whole pixel
+/// counts readable as `480` rather than `480.000000`.
+///
+/// Six decimals separate every value the pinned data actually holds,
+/// but they do not separate every distinct `f32`: below magnitude 16 an
+/// ulp is finer than 1e-6, so two adjacent floats there print alike.
+/// The pins this file carries are geometry a human authored, not
+/// arithmetic outputs, so the case does not arise — but a value that
+/// moved by one ulp near zero would be invisible to the diff.
 pub fn number(value: f32, field: &'static str) -> Result<String, XtaskError> {
     if !value.is_finite() {
         return Err(XtaskError::UnpinnableValue {
