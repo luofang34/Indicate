@@ -2,9 +2,9 @@ Pilotage evidence — captured verification run (SIM / NOT FOR FLIGHT)
 scope: ATT-01
 suite: fixture band behavior
 command: cargo test -p indicate-instrument-raster
-config-digest: ad059f34332e8c240f66d86053e15c085b163531
+config-digest: f80de2a15f1b274b2ec3db069dc6d54cb41801cb
 tool-version: rustc 1.95.0
-run-id: local:ad059f34332e8c240f66d86053e15c085b163531
+run-id: local:f80de2a15f1b274b2ec3db069dc6d54cb41801cb
 outcome: pass
 summary:
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
