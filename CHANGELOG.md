@@ -43,7 +43,6 @@ becomes `raster_baselines`, one per canonical frame.
 
 Panel set changed since the previous release: no.
 
-
 ### Screen composition ([`AIR-OUT-011`](docs/instruments/requirements.md))
 
 None of the five values above moved for this part, but a consumer gains
@@ -71,9 +70,7 @@ a sixth pinnable value and several new refusals.
 - **New pinned data: `BUILTIN_CRITICALITY_BANDS`.** The measured
   `Annunciation`/`Failure` ink bound per panel × canonical frame, which
   a composition validates obscuration against, measured with the alert
-  stack drawn. A band no case witnessed refuses obscuration rather than
-  permitting it: an empty measurement is the absence of a witness, not a
-  proof of absence.
+  stack drawn.
 - **The criticality band now folds in the alert stack, and this is a
   safety fix.** Admission drew every case with no alerts, so the
   measured `Annunciation`/`Failure` bound excluded the shared alert
@@ -93,20 +90,14 @@ a sixth pinnable value and several new refusals.
   composition into one framebuffer, and pins REN-03-style hashes for a
   side-by-side screen, an opaque inset over a PFD, and a `NotUsed`
   overlay. The inset and overlay fixtures moved above the PFD's band
-  once alerts were folded in, so two of the three hashes are new. The overlay's show-through is asserted as a property, not
-  only as a hash. `indicate-instrument-raster` gains normal
+  once alerts were folded in, so two of the three hashes are new. The
+  overlay's show-through is asserted as a property, not only as a hash.
+  `indicate-instrument-raster` gains normal
   dependencies on the registry, the state crate, and the alert model;
   the arrow points that way and no crate gained a dependency on the
   rasterizer.
-- The scene digest, the corpus, the screen-composition digest, and every
-  REN-03 per-panel frame hash are unchanged.
-- **Admission gained an alerts axis**, so every case is drawn twice —
-  quiet, and with a saturated alert stack. Case counts double (the
-  shipped panels go from 121 to 242, and the counted overflow warnings
-  from 83 to 166) because the two overhanging readouts sit on both sides
-  of the axis. Without it the measured criticality bands did not contain
-  the alert stack, and a declared obscuration could cover a warning.
-
+- The scene digest, the corpus, and every REN-03 per-panel frame hash
+  are unchanged by the composition work.
 
 ### Notes for anyone re-pinning
 
