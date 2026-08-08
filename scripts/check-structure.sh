@@ -7,6 +7,9 @@
 #     /generated/ path)
 #   - no lib.rs over 100 lines
 #   - no function body over 80 lines
+#   - no retired Apple-backend term (InstrumentSceneKit,
+#     IndicateAppleDisplay, "Swift SceneKit backend") in an active
+#     contract document under docs/instruments/
 #
 # The function-length check is an AWK brace-depth heuristic: it counts lines
 # between a `fn` header and the point where brace depth returns to the level
@@ -343,6 +346,24 @@ check_crate_map() {
     done < <(grep -oE '`indicate-[a-z0-9-]+`' "$map" | tr -d '`' | sort -u)
 }
 
+# The Apple backend is a Core Graphics consumer of the scene IR, not a
+# SceneKit scene graph, and its pieces are named after this repository.
+# These strings name the superseded boundary; an active contract
+# document under docs/instruments/ must not re-introduce one. Fixed-string
+# matching, so a term inside a longer word still counts — that is the
+# intent for retired names.
+check_backend_boundary_terms() {
+    local file term
+    while IFS= read -r file; do
+        for term in "InstrumentSceneKit" "IndicateAppleDisplay" "Swift SceneKit backend"; do
+            if grep -qF "$term" "$file"; then
+                echo "FORBIDDEN: $file mentions '$term'; the Apple backend is the Apple Core Graphics backend" >&2
+                status=1
+            fi
+        done
+    done < <(find docs/instruments -type f -name '*.md')
+}
+
 check_forbidden_filenames
 check_file_length
 check_function_length
@@ -351,6 +372,7 @@ check_safety_constant_count
 check_crate_naming
 check_tier_law
 check_crate_map
+check_backend_boundary_terms
 
 # The tier law is the one check here that a manifest can spell its way
 # around, so it carries a selftest proving it refuses each spelling. The
