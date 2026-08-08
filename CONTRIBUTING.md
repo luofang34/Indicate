@@ -19,6 +19,7 @@ cargo test --locked --all-targets
 RUSTDOCFLAGS="-D missing_docs -D rustdoc::broken_intra_doc_links" cargo doc --locked --no-deps
 cargo build --locked --release
 bash scripts/check-structure.sh
+bash scripts/check-release-manifest.sh
 bash scripts/check-instrument-requirements.sh
 bash scripts/check-certification-claims.sh
 bash scripts/check-standards-registry.sh
@@ -65,12 +66,23 @@ an annotated tag and a `CHANGELOG.md` entry naming what it contains.
 Cut one whenever any of the five contract values moves: state ABI, scene
 format, corpus, composition digest, or the panel set.
 
-1. Add a `## [x.y.z]` entry at the top of `CHANGELOG.md` with all five
+1. Regenerate the manifest and commit it with the entry:
+
+   ```sh
+   cargo run --locked -q -p xtask -- gen-release-manifest
+   ```
+
+   `release-manifest.json` is the machine-readable form of what the
+   revision pins, and `scripts/check-release-manifest.sh` regenerates
+   and diffs it, so a moved pin that was not regenerated fails the
+   build. Regenerating is also the right step mid-change, not only at
+   release: the guard runs on every push.
+2. Add a `## [x.y.z]` entry at the top of `CHANGELOG.md` with all five
    values, and anything a consumer re-pinning across it must know.
    `scripts/check-release-markers.sh` fails the build if a value
    disagrees with the tree, so run it before pushing.
-2. Merge. The release names the *merge* commit.
-3. Tag that commit, with the same five values in the message:
+3. Merge. The release names the *merge* commit.
+4. Tag that commit, with the same five values in the message:
 
    ```
    git tag -a v0.1.0 -m 'Indicate v0.1.0
@@ -82,7 +94,7 @@ format, corpus, composition digest, or the panel set.
    git push origin v0.1.0
    ```
 
-Step 3 is deliberately manual and unguarded. A release tags its own
+The tagging step is deliberately manual and unguarded. A release tags its own
 merge commit, which does not exist while the pull request creating the
 entry is open, so a CI check for the tag would fail every release on the
 one run that matters. The changelog entry is what CI can hold honest;

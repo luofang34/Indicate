@@ -21,13 +21,12 @@ use indicate_instrument_conformance::{AdmissionError, admit};
 use indicate_instrument_panels::{BUILTIN_CRITICALITY_BANDS, BUILTIN_PANELS, BUILTIN_SCENE_DIGEST};
 use indicate_instrument_raster::{FrameId, FramebufferDims, RenderStatus, render};
 use indicate_instrument_registry::{
-    CANONICAL_STATES, CompositionDescriptor, CompositionError, DesignFrame, EMPTY_CONFIG,
-    PanelDrawError, Region, Registry, RegistryError, Slot, composition_digest, scene_digest,
-    validate_composition,
+    CANONICAL_STATES, CompositionError, DesignFrame, EMPTY_CONFIG, PanelDrawError, Registry,
+    RegistryError, composition_digest, scene_digest, validate_composition,
 };
 use indicate_instrument_scene::{MAX_SCENE_BYTES, SceneWriter};
 use indicate_instrument_state::{FreshnessPolicy, resolve};
-
+use instrument_bench::{BENCH_COMPOSITION, BENCH_COMPOSITION_DIGEST};
 #[derive(Debug, thiserror::Error)]
 enum BenchError {
     /// The shipped composition failed registry validation.
@@ -90,45 +89,6 @@ enum BenchError {
         source: std::io::Error,
     },
 }
-
-/// The logical screen the fixture composition lays out on: two panel
-/// frames wide and two tall.
-const BENCH_SCREEN: DesignFrame = DesignFrame {
-    width: 960.0,
-    height: 720.0,
-};
-
-const fn tile(panel: &'static str, x: f32, y: f32) -> Slot {
-    Slot {
-        panel,
-        rect: Region {
-            x,
-            y,
-            width: 480.0,
-            height: 360.0,
-        },
-        occludes: &[],
-    }
-}
-
-/// The fixture screen: the three shipped panels tiled, each at the one
-/// frame it declares. It overlaps nothing, so what it exercises here is
-/// placement, the frame rule, and the digest; the occlusion and
-/// dead-slot rules are covered by the registry's own must-fail
-/// fixtures, which need panels shaped to break them.
-const BENCH_COMPOSITION: CompositionDescriptor = CompositionDescriptor {
-    screen: BENCH_SCREEN,
-    slots: &[
-        tile("pfd", 0.0, 0.0),
-        tile("hsi", 480.0, 0.0),
-        tile("monitor", 0.0, 360.0),
-    ],
-};
-
-/// The pinned screen-composition digest over [`BENCH_COMPOSITION`]:
-/// every shell composing this screen from this registry reproduces it.
-const BENCH_COMPOSITION_DIGEST: &str =
-    "071bd35c2e5884d7376a6a3e6ee5fa391148c74b51604d2024dea565190f688a";
 
 fn main() -> Result<(), BenchError> {
     let out_dir = parse_out_dir();

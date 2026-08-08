@@ -18,6 +18,18 @@ it was written to remove.
 | Composition digest | `BUILTIN_SCENE_DIGEST` in `indicate-instrument-panels` |
 | Panel set | `BUILTIN_PANELS` in `indicate-instrument-panels` |
 
+The table above is the human summary. Its machine-readable form is
+[`release-manifest.json`](release-manifest.json) at the repository root,
+generated from those same definitions by `cargo xtask
+gen-release-manifest` and diffed against the tree in CI by
+`scripts/check-release-manifest.sh`. The two cannot contradict each
+other: both are checked against the same code, and neither is written by
+hand. The manifest carries the values this table has no room for — the
+corpus sha256, the screen-composition digest, the per-panel raster
+baselines, the glyph-pack content hash, and the criticality bands — and
+states the panel set through the per-panel keys rather than as a row. A
+consumer's CI can diff it; prose it cannot.
+
 A release is cut whenever any of the five moves — review's job, since a
 guard comparing the newest entry to the tree cannot tell an added entry
 from a rewritten one. Entries are newest first, and the tag's message
