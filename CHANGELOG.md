@@ -24,12 +24,30 @@ from a rewritten one. Entries are newest first, and the tag's message
 repeats the same five values so `git show <tag>` answers the question
 without a checkout. `CONTRIBUTING.md` has the release steps.
 
-## [Unreleased]
+## [0.2.0] — 2026-08-07
 
-Screen composition ([`AIR-OUT-011`](docs/instruments/requirements.md)).
-None of the five values above moved, so this is not a release — but a
-consumer gains a sixth pinnable value and two new refusals, and both are
-worth knowing before the next one is cut.
+The design frame becomes an emission input. `DrawFn` gains a
+`DesignFrame` parameter, and `PanelDescriptor` declares the range of
+frames a shell may ask for — `frame_min`, `frame_max`, `frame_step`,
+aspect bounds, and the `canonical_frames` the evidence is pinned at —
+in place of the single `design_frame` constant. `raster_baseline`
+becomes `raster_baselines`, one per canonical frame.
+
+| Value | This release |
+|---|---|
+| State ABI | 6 |
+| Scene format | 1 |
+| Corpus | 4 |
+| Composition digest | `3efb08c55eadadc2b006ee6b006b29e4b3a3f8d4ec3ce1324f401dbc16dc85ca` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no.
+
+
+### Screen composition ([`AIR-OUT-011`](docs/instruments/requirements.md))
+
+None of the five values above moved for this part, but a consumer gains
+a sixth pinnable value and several new refusals.
 
 - **New pinnable value: the screen-composition digest.** Its own domain
   string (`pilotage-screen-composition-digest-v1`), covering the screen
@@ -52,8 +70,10 @@ worth knowing before the next one is cut.
   the rule as authored; no region and no panel changed.
 - **New pinned data: `BUILTIN_CRITICALITY_BANDS`.** The measured
   `Annunciation`/`Failure` ink bound per panel × canonical frame, which
-  a composition validates obscuration against. The monitor's is `None`,
-  which is a measurement rather than an omission.
+  a composition validates obscuration against, measured with the alert
+  stack drawn. A band no case witnessed refuses obscuration rather than
+  permitting it: an empty measurement is the absence of a witness, not a
+  proof of absence.
 - **The criticality band now folds in the alert stack, and this is a
   safety fix.** Admission drew every case with no alerts, so the
   measured `Annunciation`/`Failure` bound excluded the shared alert
@@ -80,25 +100,13 @@ worth knowing before the next one is cut.
   rasterizer.
 - The scene digest, the corpus, the screen-composition digest, and every
   REN-03 per-panel frame hash are unchanged.
+- **Admission gained an alerts axis**, so every case is drawn twice —
+  quiet, and with a saturated alert stack. Case counts double (the
+  shipped panels go from 121 to 242, and the counted overflow warnings
+  from 83 to 166) because the two overhanging readouts sit on both sides
+  of the axis. Without it the measured criticality bands did not contain
+  the alert stack, and a declared obscuration could cover a warning.
 
-## [0.2.0] — 2026-08-07
-
-The design frame becomes an emission input. `DrawFn` gains a
-`DesignFrame` parameter, and `PanelDescriptor` declares the range of
-frames a shell may ask for — `frame_min`, `frame_max`, `frame_step`,
-aspect bounds, and the `canonical_frames` the evidence is pinned at —
-in place of the single `design_frame` constant. `raster_baseline`
-becomes `raster_baselines`, one per canonical frame.
-
-| Value | This release |
-|---|---|
-| State ABI | 6 |
-| Scene format | 1 |
-| Corpus | 4 |
-| Composition digest | `3efb08c55eadadc2b006ee6b006b29e4b3a3f8d4ec3ce1324f401dbc16dc85ca` |
-| Panel set | `pfd`, `hsi`, `monitor` |
-
-Panel set changed since the previous release: no.
 
 ### Notes for anyone re-pinning
 
