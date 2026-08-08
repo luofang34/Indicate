@@ -38,6 +38,7 @@ mod alerts;
 mod background;
 mod criticality;
 mod error;
+mod frame_varies;
 mod geometry;
 mod ink;
 mod provenance;
@@ -45,6 +46,7 @@ mod regions;
 
 use alerts::saturated_stack;
 use background::check_background;
+use frame_varies::check_frame_varies;
 use geometry::{Ctm, Rect, text_rect};
 use provenance::check_provenance;
 use regions::check_non_vacuity;
@@ -144,10 +146,12 @@ fn admit_panel(
     for frame in panel.canonical_frames {
         admit_panel_at_frame(panel, *frame, report)?;
     }
-    // A per-panel fact rather than a per-case one: the witness a region
-    // needs may only appear in one case of the matrix, so the verdict
-    // waits until every case has been drawn.
-    check_non_vacuity(panel)
+    // Per-panel facts rather than per-case ones. The witness a region
+    // needs may appear in only one case of the matrix, and whether a
+    // panel varies with its frame is a comparison across frames that no
+    // single case can make.
+    check_non_vacuity(panel)?;
+    check_frame_varies(panel)
 }
 
 fn admit_panel_at_frame(
