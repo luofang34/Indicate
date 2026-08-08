@@ -46,15 +46,22 @@ impl PanelDescriptor {
     ///
     /// This is the whole rule, and the only copy of it. A shell asks
     /// before drawing; the draw path re-checks nothing.
+    ///
+    /// Safe on a descriptor this crate never validated: a bound that is
+    /// not a number refuses every frame rather than accepting one.
     pub fn accepts(&self, frame: DesignFrame) -> Result<(), FrameRefusal> {
         if !(finite_positive(frame.width) && finite_positive(frame.height)) {
             return Err(FrameRefusal::Degenerate);
         }
-        if frame.width < self.frame_min.width
-            || frame.width > self.frame_max.width
-            || frame.height < self.frame_min.height
-            || frame.height > self.frame_max.height
-        {
+        // Phrased as "must be inside" rather than "reject if outside",
+        // so a bound that is itself not a number refuses every frame
+        // instead of accepting every frame. A shell may hold a
+        // descriptor this crate never validated.
+        let inside = frame.width >= self.frame_min.width
+            && frame.width <= self.frame_max.width
+            && frame.height >= self.frame_min.height
+            && frame.height <= self.frame_max.height;
+        if !inside {
             return Err(FrameRefusal::OutOfRange);
         }
         if !on_grid(frame.width, self.frame_min.width, self.frame_step.0)
@@ -63,7 +70,7 @@ impl PanelDescriptor {
             return Err(FrameRefusal::OffStep);
         }
         let aspect = frame.width / frame.height;
-        if aspect < self.aspect_min || aspect > self.aspect_max {
+        if !(aspect >= self.aspect_min && aspect <= self.aspect_max) {
             return Err(FrameRefusal::Aspect);
         }
         Ok(())
@@ -75,13 +82,18 @@ fn finite_positive(value: f32) -> bool {
 }
 
 /// Whether `value` is `min + k * step` for a whole `k`.
+///
+/// Both sides of a grid line are tested. At a tolerance of zero the two
+/// tests collapse into one, but a one-sided test would silently admit
+/// near-misses above a line and refuse the identical miss below it,
+/// which is not what a tolerance means.
 fn on_grid(value: f32, min: f32, step: f32) -> bool {
     let offset = value - min;
     if offset < 0.0 {
         return false;
     }
     let remainder = offset % step;
-    remainder <= FRAME_STEP_TOLERANCE
+    remainder <= FRAME_STEP_TOLERANCE || remainder >= step - FRAME_STEP_TOLERANCE
 }
 
 #[cfg(test)]

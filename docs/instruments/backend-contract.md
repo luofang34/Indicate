@@ -75,6 +75,7 @@ another shell's — on the tolerance, on whether a bound is inclusive, on
 whether the step is measured from the minimum or from zero — and each
 will be locally green, because each only ever tests its own. The panel
 is the one thing that knows which frames it accepts, so ask the panel.
+
 Every shipped panel currently declares a degenerate range —
 `frame_min == frame_max == 480×360`, one canonical frame — so the only
 frame a conforming shell may ask any of them for is 480×360.

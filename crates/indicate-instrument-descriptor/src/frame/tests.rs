@@ -112,3 +112,29 @@ fn a_degenerate_range_accepts_only_its_single_frame() {
         Err(FrameRefusal::OutOfRange)
     );
 }
+
+/// A shell may hold a descriptor this crate never validated — an
+/// out-of-repo set, a hand-built fixture — so a bound that is not a
+/// number must refuse every frame rather than accept every frame.
+#[test]
+fn bounds_that_are_not_numbers_refuse_rather_than_admit() {
+    const BAD_MAX: PanelDescriptor = PanelDescriptor {
+        frame_max: frame(f32::NAN, f32::NAN),
+        ..RANGED
+    };
+    assert_eq!(BAD_MAX.accepts(MIN), Err(FrameRefusal::OutOfRange));
+
+    const BAD_ASPECT: PanelDescriptor = PanelDescriptor {
+        aspect_max: f32::NAN,
+        ..RANGED
+    };
+    assert_eq!(BAD_ASPECT.accepts(MIN), Err(FrameRefusal::Aspect));
+
+    // A zero step divides nothing evenly; fmod yields NaN, which is not
+    // on any grid line.
+    const ZERO_STEP: PanelDescriptor = PanelDescriptor {
+        frame_step: (0.0, 0.0),
+        ..RANGED
+    };
+    assert_eq!(ZERO_STEP.accepts(MIN), Err(FrameRefusal::OffStep));
+}
