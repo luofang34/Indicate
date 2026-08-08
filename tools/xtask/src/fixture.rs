@@ -8,13 +8,12 @@
 //! `state-abi.js` among them) pin against these committed files, so the
 //! sides of that boundary can only drift by turning a consumer's CI red.
 
-use std::path::{Path, PathBuf};
-
 use indicate_instrument_state::AircraftState;
 use indicate_instrument_state::abi::v6::{CAPACITY, encode_state, fixtures};
 
 use crate::error::XtaskError;
 use crate::output::print_line;
+use crate::workspace::repo_root;
 
 /// Builds one posture fixture.
 type FixtureBuilder = fn() -> AircraftState;
@@ -37,11 +36,6 @@ fn hex_of(bytes: &[u8]) -> String {
         write!(out, "{byte:02x}").ok();
     }
     out
-}
-
-fn repo_root() -> PathBuf {
-    // CARGO_MANIFEST_DIR = <repo>/tools/xtask.
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..")
 }
 
 /// Writes every golden frame, printing each path and byte count.

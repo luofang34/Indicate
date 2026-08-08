@@ -54,6 +54,25 @@ itself is a release step in [`CONTRIBUTING.md`](CONTRIBUTING.md),
 because a release tags its own merge commit and so cannot be verified
 by the build that creates it.
 
+The five values are the human index. The full set this revision pins is
+[`release-manifest.json`](release-manifest.json): the state ABI version,
+the scene format version, the corpus version and sha256, the composition
+digest, the screen-composition digest, the per-panel raster baselines,
+the glyph-pack content hash, and the criticality bands. It is generated
+from the definitions themselves by `cargo xtask gen-release-manifest`
+and CI regenerates and diffs it, so it cannot drift from the code it
+describes.
+
+Be clear about what it does and does not do. It **records what this
+revision pins** — one file a consumer can fetch at a rev and diff
+between revs. It **cannot verify a consumer's pins**: nothing here knows
+what any consumer wrote down. That check belongs in the consuming
+repository, written against this file — compare your pinned values to
+the manifest at the rev you pin, and fail your own build on a
+disagreement. Vendoring a copy of the corpus or reading it out of the
+pinned checkout are both fine; the manifest is what lets either prove it
+is current.
+
 The pilot of a change that moves the cross-shell
 scene digest advances the pin in the consuming repositories as part of
 that change; the advance is complete exactly when every consumer

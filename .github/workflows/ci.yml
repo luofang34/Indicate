@@ -61,6 +61,16 @@ jobs:
         # on the run that matters. Tagging is a step in CONTRIBUTING.md.
         run: bash scripts/check-release-markers.sh
 
+      - name: release manifest drift guard
+        # The changelog entry is prose a person reads; release-manifest.json
+        # is the machine-readable half, generated from the definitions that
+        # own each pinned value. This regenerates it and diffs, so a pin
+        # edited without regenerating the manifest is red here — and the
+        # author is told which key moved. It states what this revision
+        # pins; whether a CONSUMER's pins are current is a check that
+        # belongs in the consumer's repository, written against this file.
+        run: bash scripts/check-release-manifest.sh
+
       - name: instrument requirement references
         run: bash scripts/check-instrument-requirements.sh
 
