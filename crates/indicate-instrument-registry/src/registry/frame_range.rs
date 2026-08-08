@@ -6,7 +6,7 @@
 //! refused at composition rather than at draw time: a frame a panel
 //! cannot lay out against must be unaskable, not merely unhandled.
 
-use indicate_instrument_descriptor::{DesignFrame, PanelDescriptor};
+use indicate_instrument_descriptor::{FrameRefusal, PanelDescriptor};
 
 use super::error::RegistryError;
 
@@ -62,19 +62,21 @@ fn validate_canonical(index: usize, panel: &PanelDescriptor) -> Result<(), Regis
         if panel.canonical_frames[..position].contains(frame) {
             return Err(RegistryError::DuplicateCanonicalFrame { index, position });
         }
-        // Spelled out rather than routed through `supports`, because a
-        // canonical frame that fails names *which* rule it broke, and
-        // a declaration is fixed by knowing that.
-        if !in_range(*frame, panel) {
-            return Err(RegistryError::CanonicalFrameOutOfRange { index, position });
-        }
-        if !on_grid(frame.width, panel.frame_min.width, panel.frame_step.0)
-            || !on_grid(frame.height, panel.frame_min.height, panel.frame_step.1)
-        {
-            return Err(RegistryError::CanonicalFrameOffStep { index, position });
-        }
-        if !aspect_ok(*frame, panel) {
-            return Err(RegistryError::CanonicalFrameAspect { index, position });
+        // The panel's own predicate decides, so a canonical frame is
+        // held to exactly the rule a shell will apply when it asks for
+        // one. The refusal is mapped rather than collapsed, because a
+        // declaration is fixed by knowing which bound it broke.
+        match panel.accepts(*frame) {
+            Ok(()) => {}
+            Err(FrameRefusal::Degenerate | FrameRefusal::OutOfRange) => {
+                return Err(RegistryError::CanonicalFrameOutOfRange { index, position });
+            }
+            Err(FrameRefusal::OffStep) => {
+                return Err(RegistryError::CanonicalFrameOffStep { index, position });
+            }
+            Err(FrameRefusal::Aspect) => {
+                return Err(RegistryError::CanonicalFrameAspect { index, position });
+            }
         }
     }
     Ok(())
@@ -96,42 +98,6 @@ fn validate_baselines(index: usize, panel: &PanelDescriptor) -> Result<(), Regis
         }
     }
     Ok(())
-}
-
-/// Whether `panel` declared that it can lay out against `frame`: in
-/// range, on the step grid, and inside the aspect bounds.
-///
-/// The composition layer asks this of a slot's dimensions, and a shell
-/// choosing a frame may ask it before drawing — the draw path itself
-/// re-checks nothing.
-pub(crate) fn supports(panel: &PanelDescriptor, frame: DesignFrame) -> bool {
-    in_range(frame, panel)
-        && on_grid(frame.width, panel.frame_min.width, panel.frame_step.0)
-        && on_grid(frame.height, panel.frame_min.height, panel.frame_step.1)
-        && aspect_ok(frame, panel)
-}
-
-fn in_range(frame: DesignFrame, panel: &PanelDescriptor) -> bool {
-    frame.width >= panel.frame_min.width
-        && frame.width <= panel.frame_max.width
-        && frame.height >= panel.frame_min.height
-        && frame.height <= panel.frame_max.height
-}
-
-/// Whether `value` is `min + k * step` for a whole `k`.
-///
-/// Exact, with no tolerance: a step that cannot express the declared
-/// frames exactly is a declaration to fix, not a rounding to absorb.
-/// Admitting near-misses would put the digest and the baselines at
-/// frames the arithmetic cannot reproduce.
-fn on_grid(value: f32, min: f32, step: f32) -> bool {
-    let offset = value - min;
-    offset >= 0.0 && offset % step == 0.0
-}
-
-fn aspect_ok(frame: DesignFrame, panel: &PanelDescriptor) -> bool {
-    let aspect = frame.width / frame.height;
-    aspect >= panel.aspect_min && aspect <= panel.aspect_max
 }
 
 #[cfg(test)]
