@@ -36,6 +36,56 @@ from a rewritten one. Entries are newest first, and the tag's message
 repeats the same five values so `git show <tag>` answers the question
 without a checkout. `CONTRIBUTING.md` has the release steps.
 
+## [0.3.0] — 2026-08-08
+
+Two additions made for consumers, neither of which moves a contract
+value — which is why the release trigger now covers a public API
+addition as well as the five. A predicate nobody can pin by name does
+not stop the second copy being written, and a manifest nobody can pin by
+name does not get diffed.
+
+| Value | This release |
+|---|---|
+| State ABI | 6 |
+| Scene format | 1 |
+| Corpus | 4 |
+| Composition digest | `3efb08c55eadadc2b006ee6b006b29e4b3a3f8d4ec3ce1324f401dbc16dc85ca` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no.
+
+- **`PanelDescriptor::accepts(DesignFrame) -> Result<(), FrameRefusal>`.**
+  The rule over the declared frame bounds, in the crate where the
+  constants live, so a shell does not write its own. The refusal names
+  the bound it broke, and `FRAME_STEP_TOLERANCE` settles the one
+  parameter two shells would otherwise each choose. `Registry::new` and
+  composition's slot check both call it, so it cannot rot as an unused
+  API.
+- **`release-manifest.json` and `scripts/check-release-manifest.sh`.**
+  Every pinned value this revision holds down, generated from the
+  constants rather than grepped for, with CI failing when the file
+  disagrees with the tree. It states what *this* revision pins;
+  comparing that against its own is each consumer's check to write.
+- **Admission refuses a panel that declares a frame range and emits
+  identically across it.** Inert for every shipped panel, all of which
+  declare a degenerate range, and the panel contract now says outright
+  that treating the frame as a constant is allowed.
+- **sha1 and sha2 at 0.11.** No pinned value moved; the algorithms did
+  not change, only the crate API around them, and this tree's use of
+  `Digest` was untouched by it.
+
+### Notes for anyone re-pinning
+
+- Nothing to re-verify. Every value in the table above is what `v0.2.0`
+  carried, the raster baselines and criticality bands are unchanged, and
+  the corpus is untouched. Advancing a pin across this release is a
+  manifest bump and nothing else.
+- If you wrote your own frame-bounds check while migrating to `v0.2.0`,
+  `accepts` replaces it. The tolerance it applies to the step is zero,
+  which is the value the descriptor's own canonical frames are validated
+  against — a local check using an epsilon would accept frames this
+  repository refuses.
+
 ## [0.2.0] — 2026-08-07
 
 The design frame becomes an emission input. `DrawFn` gains a

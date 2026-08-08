@@ -63,8 +63,24 @@ the two gate invocations locally after touching any recorded source.
 Consumers pin a bare revision, so a revision meant to be pinned carries
 an annotated tag and a `CHANGELOG.md` entry naming what it contains.
 
-Cut one whenever any of the five contract values moves: state ABI, scene
-format, corpus, composition digest, or the panel set.
+Cut one whenever any of the five contract values moves — state ABI,
+scene format, corpus, composition digest, or the panel set — **or when a
+public API addition lands that consumers are expected to call.**
+
+The second trigger exists because the first one misses the additions
+made *for* consumers. A predicate published so nobody writes their own
+copy does not stop the second copy from being written if it cannot be
+pinned by name; a manifest published for a consumer's CI to diff does
+not get diffed if reaching it means pinning a bare revision and
+explaining in a comment which commit it is. That is the archaeology tags
+were introduced to remove, reappearing through the trigger rather than
+through the absence of tags.
+
+A tag therefore marks a revision worth pinning, not only one whose
+contract values moved. That means some tags carry no contract change,
+which is harmless here: the changelog entry and the release manifest
+both state exactly what did and did not move, so a consumer can see at a
+glance that it has nothing to re-verify.
 
 1. Regenerate the manifest and commit it with the entry:
 
