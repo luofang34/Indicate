@@ -16,11 +16,13 @@ root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root_dir"
 
 probe_dir="sets/indicate-tier-probe"
+probe_doc="docs/instruments/zz-structure-probe.md"
 lock_backup="$(mktemp)"
 cp Cargo.lock "$lock_backup"
 
 cleanup() {
     rm -rf "$probe_dir"
+    rm -f "$probe_doc"
     cp "$lock_backup" Cargo.lock
     rm -f "$lock_backup"
 }
@@ -121,6 +123,25 @@ indicate-instrument-scene = { workspace = true }'
 expect_acceptance "registry as a DEV dependency" \
 '[dev-dependencies]
 indicate-instrument-registry = { workspace = true }'
+
+# The retired Apple-backend terms get the same treatment as the tier law:
+# plant each one in a contract document and require the guard to refuse.
+expect_term_refusal() {
+    local name="$1" term="$2"
+    printf 'A probe sentence naming %s.\n' "$term" > "$probe_doc"
+    if INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh >/dev/null 2>&1; then
+        echo "REGRESSION: $name was accepted; a retired Apple-backend term passed unseen" >&2
+        failed=$((failed + 1))
+    else
+        echo "ok: $name refused"
+        passed=$((passed + 1))
+    fi
+    rm -f "$probe_doc"
+}
+
+expect_term_refusal "InstrumentSceneKit" "InstrumentSceneKit"
+expect_term_refusal "IndicateAppleDisplay" "IndicateAppleDisplay"
+expect_term_refusal "Swift SceneKit backend" "Swift SceneKit backend"
 
 if [ "$failed" -ne 0 ]; then
     echo "structure-selftest: FAILED ($failed of $((passed + failed)) cases)" >&2

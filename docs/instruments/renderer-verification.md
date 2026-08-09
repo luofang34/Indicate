@@ -3,8 +3,10 @@
 This document is the verification wall for the instrument rendering backends. It
 defines what each backend must prove before a frame reaches a display, records
 the hard resource budgets, states the target-independent execution-time
-measurement method, and specifies the shared conformance corpus that cross-checks
-the browser Canvas interpreter against the deterministic reference rasterizer.
+measurement method, and specifies the shared conformance corpus that
+cross-checks each downstream interpreter — the browser Canvas interpreter and
+the Apple Core Graphics interpreter — against the deterministic reference
+rasterizer.
 
 The Canvas/browser backend is **SIM / NOT FOR FLIGHT**. Its verification is
 engineering conformance for the simulator; it makes no certification claim.
@@ -16,14 +18,31 @@ engineering conformance for the simulator; it makes no certification claim.
 | Reference software rasterizer | `indicate-instrument-raster::render` | Bit-exact: pinned SHA-256 frame hashes (`src/raster/tests/frame_hashes.rs`), reproducible via `libm` + IEEE-754 `f32`. |
 | Reference composition harness | `indicate-instrument-raster::render_composition` | Bit-exact: pinned SHA-256 composed-frame hashes (`src/composition/tests.rs`), plus the overlay show-through property. |
 | Browser Canvas2D | Pilotage repository, `clients/web/instruments.js` (`interpretScene`) | Semantic conformance + documented, limited tolerances. **Not** pixel-deterministic — Canvas2D anti-aliasing and font/geometry rounding are platform-owned. |
+| Apple Core Graphics | Apple shell repository (iPad); scene IR crosses the FFI boundary from the Rust static library | Semantic conformance against the same corpus. **Not** pixel-deterministic — Core Graphics anti-aliasing and font rendering are platform-owned. |
 | wgpu / embedded framebuffer | future | Consume the identical scene IR; verified by the same corpus when they land. |
 
-Both backends share one authoritative structural gate: the strong layer contract
-`indicate-instrument-scene::validate_layers`. In the browser it runs inside the
-wasm renderer (the Pilotage repository's instrument wasm bundle) on the scene
-the wasm itself produced, before any bytes reach `interpretScene`;
-`interpretScene` re-checks framing (`validateSceneStructure`) as defence in
-depth.
+All three implementations share one authoritative structural gate: the strong
+layer contract `indicate-instrument-scene::validate_layers`. In the browser it
+runs inside the wasm renderer (the Pilotage repository's instrument wasm
+bundle) on the scene the wasm itself produced, before any bytes reach
+`interpretScene`; `interpretScene` re-checks framing
+(`validateSceneStructure`) as defence in depth. In the Apple shell it runs
+inside the Rust static library on the scene the library produced, before any
+bytes cross the FFI boundary.
+
+### Ownership boundary
+
+Indicate owns the scene IR, the conformance corpus, the release manifest, the
+panels, and the registry. A change to any of them lands here, once, and
+reaches every consumer through the pinned revision.
+
+Each backend owns its downstream corpus drift check. The consuming repository
+pins `corpusVersion` and `corpusSha256` and compares them in its own CI; a
+corpus change here reddens that check there, and the consumer resolves it by
+re-running its suite against the new corpus, never by unpinning. This
+repository carries no Swift or Apple dependency and no registry of downstream
+repositories: the Apple Core Graphics backend is a consumer that pins by
+revision, exactly as the browser shell does.
 
 ## Resource budgets
 
@@ -199,9 +218,9 @@ guards accidental drift on every side.
 | Paint fail-safe | non-finite coordinate, out-of-range coordinate, over-vertex-budget shape, non-finite rotation, out-of-range translation, non-finite arc angle, out-of-range stroke width |
 
 Budget-boundary streams that would be megabytes of hex are carried as a compact
-`generator` descriptor (`fill_bytes`, `repeat_unknown`, `nest_saves`) that both
-backends reconstruct byte-identically; the corpus hash covers the reconstructed
-bytes, so a generator divergence surfaces immediately.
+`generator` descriptor (`fill_bytes`, `repeat_unknown`, `nest_saves`) that
+every backend reconstructs byte-identically; the corpus hash covers the
+reconstructed bytes, so a generator divergence surfaces immediately.
 
 ### What each side checks (capability asymmetry)
 
@@ -239,7 +258,7 @@ case name and the differing index. `GuardMissing` is the fail-closed direction:
 a case the golden marks `interpreterRejects` that the interpreter paints anyway
 means a browser-side guard has been weakened or removed.
 
-### Fail-closed geometry guards on both backends
+### Fail-closed geometry guards on the rasterizer and the Canvas interpreter
 
 Canvas2D itself has no fail-safe for non-finite or absurd geometry — it will
 happily accept a NaN rectangle or a ten-million-pixel translation. The browser
@@ -267,7 +286,8 @@ rejected by the interpreter and painted by the rasterizer; the conformance claim
 for the browser backend is accordingly scoped to encoder-producible scenes, and
 the browser remains SIM / NOT FOR FLIGHT.
 
-No unexpected divergence was found between the backends at the levels they can be
+No unexpected divergence was found between the reference rasterizer and the
+browser interpreter at the levels they can be
 compared: framing, decode, unknown-opcode counting, guard placement, and the
 interpreter's opcode-to-Canvas mapping all agree across the corpus.
 
