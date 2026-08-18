@@ -1,8 +1,8 @@
 //! The course deviation indicator: course arrow, deviation bar, scale
 //! dots, and TO/FROM triangle.
 
-use indicate_instrument_scene::{PaintMode, Rgba8, SceneError, SceneWriter};
-use indicate_instrument_state::{NavFromTo, NavResolved, NavSource};
+use indicate_instrument_scene::{Anchor, PaintMode, Rgba8, SceneError, SceneWriter};
+use indicate_instrument_state::{GroupId, NavFromTo, NavResolved, NavSource};
 
 use indicate_instrument_symbology::palette;
 
@@ -14,6 +14,60 @@ pub(crate) fn source_color(source: NavSource) -> Rgba8 {
         NavSource::Gps => palette::MAGENTA,
         _ => palette::GREEN,
     }
+}
+
+/// Which receiver drives the needle: `GPS` / `NAV1` / `NAV2`. Nav1 and
+/// Nav2 wear the same green, so the text is the only thing that tells
+/// them apart. The numerals make this a claimed run — it derives from
+/// the nav group, so it claims `GroupId::Nav`, and the claim is honest
+/// exactly where the CDI gate is: a withheld or failed nav group never
+/// reaches this draw.
+///
+/// Distinct from [`indicate_instrument_symbology::source_label`], which
+/// names the SENSOR feeding a function and colors it by health. This
+/// names the receiver a selection points at, and colors it by source
+/// class. One panel paints both, so they never share a name.
+pub(crate) fn receiver_text(source: NavSource) -> Option<&'static str> {
+    match source {
+        NavSource::Gps => Some("GPS"),
+        NavSource::Nav1 => Some("NAV1"),
+        NavSource::Nav2 => Some("NAV2"),
+        // No source is gated out by the caller; an unknown one fails the
+        // nav group in resolve. Neither may invent a label here.
+        NavSource::None | NavSource::Unknown => None,
+    }
+}
+
+/// The label position, lower left beside the rose: clear of the rose's
+/// outermost ink and directly above the course box, whose value wears
+/// the same source color. The clearance is a test, not a comment, so
+/// that growing the rose fails rather than overlapping the label.
+pub(crate) const RECEIVER_LABEL_POS: (f32, f32) = (60.0, super::CY + 110.0);
+
+/// The run size the label paints at. Named so the clearance test
+/// measures the box the label really occupies.
+pub(crate) const RECEIVER_LABEL_SIZE: f32 = 14.0;
+
+/// Draws the receiver label in the source color, claimed from the nav
+/// group. Draws nothing for `None`/`Unknown` — the caller's gate already
+/// excludes both, and this arm keeps that property local.
+pub fn draw_receiver_label(
+    scene: &mut SceneWriter<'_>,
+    source: NavSource,
+) -> Result<(), SceneError> {
+    let Some(text) = receiver_text(source) else {
+        return Ok(());
+    };
+    scene.fill_color(source_color(source))?;
+    scene.text_attributed(
+        GroupId::Nav.to_u8(),
+        RECEIVER_LABEL_POS.0,
+        RECEIVER_LABEL_POS.1,
+        RECEIVER_LABEL_SIZE,
+        Anchor::CENTER,
+        text,
+    )?;
+    Ok(())
 }
 
 /// Draws the CDI in the rose frame, rotated to the selected course.

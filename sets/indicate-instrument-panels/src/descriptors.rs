@@ -188,7 +188,7 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     // (REN-03).
     raster_baselines: &[(
         BUILTIN_FRAME,
-        "43b49bde6bbf7372d704d54214d4a3d0b9cd3ad09e86862a8ffc20fd6ae05ef1",
+        "ce41b047d4ab1e313d36b4d2fa9f3fbd6e97511cfd43a907f4591d16a041188f",
     )],
     draw: draw_pfd_panel,
 };
@@ -283,7 +283,7 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     ],
     raster_baselines: &[(
         BUILTIN_FRAME,
-        "66653ce135e6f2163fa48d805a0ab1a8f3d0ac51d778f7b1eb2aa4ec05bfbb7c",
+        "efb15b50cb011c499c075b3eb54948d77a89b74b9e2321add75d8922f4b25b7b",
     )],
     draw: draw_hsi_panel,
 };
@@ -365,7 +365,7 @@ pub const BUILTIN_SET: PanelSet = PanelSet {
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "f82d905643b48822de25665761ad3e29daa334d937f18b1e98a3e215353cb704";
+    "5cded14978b2e5ba3a17b61959ed0b35061334adf3fde4242f47e214f0f07aef";
 
 /// The measured criticality bands of [`BUILTIN_PANELS`], pinned beside
 /// the raster baselines: the union `Annunciation`/`Failure` ink bound

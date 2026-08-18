@@ -225,6 +225,16 @@ jobs:
           --graph docs/instruments/evidence-graph.evg --repo-root .
           --require-resolvable
 
+      - name: recorded run evidence MUST be fresh (HARD)
+        # The gate proves a record's identity and deliberately runs no
+        # build, so it cannot notice a count that drifted when a test was
+        # added away from a bound source. This step re-runs each
+        # artifact's own recorded command and compares. The build it
+        # needs is already paid for by the test steps above.
+        run: |
+          bash scripts/check-recorded-counts.sh --selftest
+          bash scripts/check-recorded-counts.sh
+
       - name: Negative fixtures must all FAIL the gate
         run: |
           set -u

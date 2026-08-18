@@ -43,20 +43,20 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
-## [0.4.2] — 2026-08-18
+## [0.5.1] — 2026-08-18
 
-`PanelDescriptor::choose_frame` answers which frame a shell should ask
-a panel for. `accepts` can only refuse a frame a shell already holds,
-so a shell that had to produce one walked the step grid itself. That is
-the arithmetic the contract tells shells not to write, because two
-shells write it differently and each stays green against its own tests.
+`PanelDescriptor::choose_frame` answers which frame a shell should ask a
+panel for. `accepts` can only refuse a frame a shell already holds, so a
+shell that had to produce one walked the step grid itself. That is the
+arithmetic the contract tells shells not to write, because two shells
+write it differently and each stays green against its own tests.
 
 | Value | This release |
 |---|---|
 | State ABI | 7 |
 | Scene format | 1 |
-| Corpus | 4 |
-| Composition digest | `f82d905643b48822de25665761ad3e29daa334d937f18b1e98a3e215353cb704` |
+| Corpus | 5 |
+| Composition digest | `5cded14978b2e5ba3a17b61959ed0b35061334adf3fde4242f47e214f0f07aef` |
 | Panel set | `pfd`, `hsi`, `monitor` |
 
 Panel set changed since the previous release: no. The five values match
@@ -82,6 +82,98 @@ consumers can reach the new predicate without pinning a bare revision.
 Every shipped panel declares one frame today, so `choose_frame` returns
 480x360 for every space that admits it. The value is in what happens
 when a panel declares a real range.
+
+## [0.5.0] — 2026-08-18
+
+The altitude readout becomes a rolling-digit drum. The final digit pair
+steps in 20 ft faces. Each face scrolls through a window that clips it.
+Everything above the pair rolls with it across the 80-to-00 boundary.
+The readout therefore shows vertical rate by itself, which a value
+rounded to 10 ft cannot do. Each position is a function of the altitude
+value only, never of a clock. All backends thus put the digits in the
+same place.
+
+| Value | This release |
+|---|---|
+| State ABI | 7 |
+| Scene format | 1 |
+| Corpus | 5 |
+| Composition digest | `5cded14978b2e5ba3a17b61959ed0b35061334adf3fde4242f47e214f0f07aef` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no.
+
+### Rolling-digit altitude readout ([#56](https://github.com/luofang34/Indicate/issues/56))
+
+- **The PFD emits more text runs for one altitude value.** The readout
+  interior is a sign, the number above the final pair, and the pair
+  itself. Each rolling column paints through its own clip window. A
+  backend must apply `clip_rect`. If it does not, the faces above and
+  below the text line become visible.
+- **The number above the pair rolls as one.** Every digit that changes
+  at a boundary changes together. A carry that stopped at the hundreds
+  would make the last 20 ft below each thousand read a thousand low.
+- **The composition digest moves**, because the PFD emits different
+  bytes for the same state. The PFD raster baseline, the
+  screen-composition digest, and the three composed-frame hashes move
+  for the same reason.
+- **The corpus moves to version 5.** Two entries pin a mid-roll value
+  and a negative cascade. Each pinned consumer fails at its next pin
+  advance. That failure is the synchronization mechanism.
+
+### Notes for anyone re-pinning
+
+- The digits shrink to fit the box. The drum fits the full advance row,
+  not only the ink, because each column's clip window must stay inside
+  the box body. A wide value, such as -99,990 ft, therefore renders one
+  step smaller than before.
+- No state ABI, scene format, or panel-set value changes. A consumer
+  that does not compare frame bytes needs no change.
+
+## [0.4.1] — 2026-08-18
+
+The HSI annunciates which receiver drives the CDI. The source was
+encoded as hue alone — magenta for GPS, green for a nav radio — so Nav1
+and Nav2 read identically, and the distinction failed under color-vision
+deficiency. The panel now draws `GPS` / `NAV1` / `NAV2` beside the rose
+in the source color, under the same gate as the CDI: the label and the
+needle appear and disappear in the same frame
+([#55](https://github.com/luofang34/Indicate/issues/55)).
+
+| Value | This release |
+|---|---|
+| State ABI | 7 |
+| Scene format | 1 |
+| Corpus | 4 |
+| Composition digest | `91767280cad68734f5859ad17edee1540bce47ec32866a0d784e1f30f34e4757` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no.
+
+### What moved and why
+
+- **The composition digest moved on paint and corpus, not on wire.**
+  The label adds a claimed text run to the HSI scene for every fed nav
+  source, and the shared corpus gains a `nav2-source` state so each of
+  the three sources is exercised. The state ABI, the scene format, and
+  the conformance corpus are byte-identical.
+- **The HSI raster baseline (REN-03) and the screen-composition digest
+  moved with it.** The label paints in the shared `typical` state, and
+  the screen digest hashes the composition digest beneath it. The
+  baseline re-pin names this change as its reason.
+- **The label claims the nav group.** Its numerals (`NAV1`, `NAV2`)
+  carry the provenance claim the honesty rules require, and a new HSI
+  group region declares the surface it paints on. A withheld or failed
+  nav group removes the label with the needle.
+
+### Notes for anyone re-pinning
+
+- Advance the composition digest, the screen-composition digest, and the
+  HSI raster baseline together. The PFD and monitor baselines, the
+  criticality bands, the glyph pack, and the corpus are unchanged.
+- Telling VOR from LOC needs the tuned facility type in state. That is a
+  Nav layout addition and belongs in the coordinated ABI batch, not in
+  this release.
 
 ## [0.4.0] — 2026-08-08
 
