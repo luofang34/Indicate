@@ -4,7 +4,7 @@
 //! Each group's status is the group-level worst-of over the same inputs
 //! its rendered signals fold — freshness, source trust, per-group
 //! validation, declared validity. A group with several members (both
-//! kinematic vectors, both dynamics samples) reports the worst member,
+//! kinematic vectors, every dynamics sample) reports the worst member,
 //! so this surface can only be more conservative than any one signal.
 
 use crate::aircraft::AircraftState;
@@ -120,7 +120,7 @@ fn group_status(
         GroupId::Dynamics => fold(
             &Ctx::of(policy, trust, &state.dynamics),
             integrity.dynamics,
-            state.valid.turn && state.valid.slip,
+            state.valid.turn && state.valid.slip && state.valid.ias_trend,
         ),
         // The director folds source trust like nav: a command from an
         // untrusted source must not draw bars.

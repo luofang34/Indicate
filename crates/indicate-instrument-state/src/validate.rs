@@ -77,8 +77,8 @@ pub struct StateIntegrity {
     pub heading: Option<GroupFault>,
     /// Magnetic-variation fault: non-finite value or undeclared source.
     pub variation: Option<GroupFault>,
-    /// Dynamics fault: non-finite turn rate or lateral force, or an
-    /// unknown turn basis.
+    /// Dynamics fault: non-finite turn rate, lateral force, or airspeed
+    /// trend, or an unknown turn basis.
     pub dynamics: Option<GroupFault>,
     /// Monitor-text fault: an impossible line count or malformed line
     /// content on the wire.
@@ -232,7 +232,7 @@ fn dynamics_fault(dynamics: &crate::dynamics::DynSample) -> Option<GroupFault> {
     let turn_bad = dynamics
         .turn
         .is_some_and(|sample| !sample.rate_rps.is_finite());
-    if turn_bad || !opt_finite(dynamics.lateral_mps2) {
+    if turn_bad || !opt_finite(dynamics.lateral_mps2) || !opt_finite(dynamics.ias_trend_mps2) {
         return Some(GroupFault::NonFinite);
     }
     None

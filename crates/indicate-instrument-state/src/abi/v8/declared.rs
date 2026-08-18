@@ -84,8 +84,8 @@ pub(super) fn decode_trust(state: &mut AircraftState, p: &[u8]) {
         variation: flags & 0x0020 != 0,
         turn: flags & 0x0040 != 0,
         slip: flags & 0x0080 != 0,
-        ias_trend: flags & 0x0200 != 0,
         velocity_vertical: flags & 0x0100 != 0,
+        ias_trend: flags & 0x0200 != 0,
     };
     state.snapshot = SnapshotMeta {
         generation: get_u32(p, 4),
@@ -133,8 +133,8 @@ pub(super) fn encode_trust(
         | (u16::from(v.variation) << 5)
         | (u16::from(v.turn) << 6)
         | (u16::from(v.slip) << 7)
-        | (u16::from(v.ias_trend) << 9)
-        | (u16::from(v.velocity_vertical) << 8);
+        | (u16::from(v.velocity_vertical) << 8)
+        | (u16::from(v.ias_trend) << 9);
     put_u16(p, 2, flags);
     put_u32(p, 4, state.snapshot.generation);
     Ok(Some(8))
