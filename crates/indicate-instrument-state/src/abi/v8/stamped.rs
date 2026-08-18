@@ -20,7 +20,6 @@
 //! | heading | reference u8; 0×3; heading f32; age f32 | 12 |
 //! | variation | source u8; 0×3; east f32; age f32 | 12 |
 //! | dynamics | basis u8; 0×3; turn f32; lateral f32; age f32; ias trend f32 | 20 |
-//! | dynamics | basis u8; 0×3; turn f32; lateral f32; age f32 | 16 |
 
 use super::{AbiError, get_f32, get_u8, put_f32, put_u8};
 use crate::abi::{opt, or_nan};

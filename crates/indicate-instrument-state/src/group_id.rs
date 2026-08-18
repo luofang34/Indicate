@@ -165,8 +165,9 @@ impl GroupId {
     ///
     /// The mapping is a match, not arithmetic on the wire tag. The
     /// assigned ids are not contiguous — the planned range 0x0E to
-    /// 0x11 has no variants — so `tag - 1` indexes past the table. The exhaustive match also fails to compile when a new
-    /// variant has no slot, which arithmetic cannot do.
+    /// 0x11 has no variants — so `tag - 1` indexes past the table. The
+    /// exhaustive match also fails to compile when a new variant has no
+    /// slot, which arithmetic cannot do.
     pub const fn index(self) -> usize {
         match self {
             GroupId::Attitude => 0,
