@@ -166,8 +166,14 @@ PROBE
 # Captured, not piped: this script runs under `pipefail`, so a pipeline
 # would carry the gate's own refusal status and say nothing about which
 # refusal it was.
-probe_output="$(INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh 2>&1 || true)"
-if printf '%s' "$probe_output" | grep -q "takes a code no test can see"; then
+probe_status=0
+probe_output="$(INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh 2>&1)" \
+    || probe_status=$?
+# Both halves, because either alone passes a broken gate: a message with
+# a zero exit leaves CI green on a violation the gate printed out loud,
+# and a non-zero exit without the message is any other refusal.
+if [ "$probe_status" -ne 0 ] \
+    && printf '%s' "$probe_output" | grep -q "takes a code no test can see"; then
     echo "ok: a reason outside DisplayFault::ALL refused"
     passed=$((passed + 1))
 else
