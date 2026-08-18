@@ -43,6 +43,50 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.5.0] — 2026-08-18
+
+The altitude readout becomes a rolling-digit drum. The final digit pair
+steps in 20 ft faces and scrolls through a clipped window. The hundreds
+column rolls with the pair across its 80-to-00 boundary. The readout
+thus shows vertical rate by itself, which a value rounded to 10 ft
+cannot do. Each column position is a function of the altitude value
+only, never of a clock, so all backends put the digits in the same
+place.
+
+| Value | This release |
+|---|---|
+| State ABI | 7 |
+| Scene format | 1 |
+| Corpus | 5 |
+| Composition digest | `f479a03eecfc51fa73122cc75e50d1245511eb04d81f807a6df425c45ad3990f` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no.
+
+### Rolling-digit altitude readout ([#56](https://github.com/luofang34/Indicate/issues/56))
+
+- **The PFD emits more text runs for one altitude value.** The readout
+  interior is a fixed prefix run, an optional hundreds column, and the
+  digit pair. Each rolling column paints through its own clip window.
+  A backend must apply `clip_rect`, or the faces above and below the
+  text line become visible.
+- **The composition digest moves**, because the PFD emits different
+  bytes for the same state. The PFD raster baseline, the
+  screen-composition digest, and the three composed-frame hashes move
+  for the same reason.
+- **The corpus moves to version 5.** Two entries pin a mid-roll value
+  and a negative cascade. Each pinned consumer goes red at its next pin
+  advance, which is the synchronization working.
+
+### Notes for anyone re-pinning
+
+- The digits shrink to fit the box. The drum fits the full advance row,
+  not only the ink, because each column's clip window must stay inside
+  the box body. A wide value, such as -99,990 ft, thus renders one step
+  smaller than before.
+- No state ABI, scene format, or panel-set value changes. A consumer
+  that does not compare frame bytes needs no change.
+
 ## [0.4.0] — 2026-08-08
 
 The state ABI moves to v7: velocity validity splits into a horizontal
