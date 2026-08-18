@@ -16,13 +16,18 @@ pub(crate) fn source_color(source: NavSource) -> Rgba8 {
     }
 }
 
-/// The receiver identity the CDI's hue alone used to carry (#55):
-/// `GPS` / `NAV1` / `NAV2`. Nav1 and Nav2 wear the same green, so the
-/// text is the distinction. The numerals make the run a claimed run —
-/// it derives from the nav group, so it claims `GroupId::Nav`, and the
-/// claim is honest exactly where the CDI gate is: a withheld or failed
-/// nav group never reaches this draw.
-pub(crate) fn source_text(source: NavSource) -> Option<&'static str> {
+/// Which receiver drives the needle: `GPS` / `NAV1` / `NAV2`. Nav1 and
+/// Nav2 wear the same green, so the text is the only thing that tells
+/// them apart. The numerals make this a claimed run — it derives from
+/// the nav group, so it claims `GroupId::Nav`, and the claim is honest
+/// exactly where the CDI gate is: a withheld or failed nav group never
+/// reaches this draw.
+///
+/// Distinct from [`indicate_instrument_symbology::source_label`], which
+/// names the SENSOR feeding a function and colors it by health. This
+/// names the receiver a selection points at, and colors it by source
+/// class. One panel paints both, so they never share a name.
+pub(crate) fn receiver_text(source: NavSource) -> Option<&'static str> {
     match source {
         NavSource::Gps => Some("GPS"),
         NavSource::Nav1 => Some("NAV1"),
@@ -33,26 +38,31 @@ pub(crate) fn source_text(source: NavSource) -> Option<&'static str> {
     }
 }
 
-/// The label position, lower left beside the rose: clear of the rose
-/// rim (the rim's nearest ink at this height is the 225° reference mark
-/// at x ≈ 121) and directly above the course box, whose value wears the
-/// same source color. The caller draws it under the CDI's exact gate,
-/// so the label and the needle appear and disappear together.
-const SOURCE_LABEL_POS: (f32, f32) = (60.0, super::CY + 110.0);
+/// The label position, lower left beside the rose: clear of the rose's
+/// outermost ink and directly above the course box, whose value wears
+/// the same source color. The clearance is a test, not a comment, so
+/// that growing the rose fails rather than overlapping the label.
+pub(crate) const RECEIVER_LABEL_POS: (f32, f32) = (60.0, super::CY + 110.0);
 
-/// Draws the nav-source label in the source color, claimed from the nav
+/// Half the anchor box the label occupies, for the clearance test.
+pub(crate) const RECEIVER_LABEL_SIZE: f32 = 14.0;
+
+/// Draws the receiver label in the source color, claimed from the nav
 /// group. Draws nothing for `None`/`Unknown` — the caller's gate already
 /// excludes both, and this arm keeps that property local.
-pub fn draw_source_label(scene: &mut SceneWriter<'_>, source: NavSource) -> Result<(), SceneError> {
-    let Some(text) = source_text(source) else {
+pub fn draw_receiver_label(
+    scene: &mut SceneWriter<'_>,
+    source: NavSource,
+) -> Result<(), SceneError> {
+    let Some(text) = receiver_text(source) else {
         return Ok(());
     };
     scene.fill_color(source_color(source))?;
     scene.text_attributed(
         GroupId::Nav.to_u8(),
-        SOURCE_LABEL_POS.0,
-        SOURCE_LABEL_POS.1,
-        14.0,
+        RECEIVER_LABEL_POS.0,
+        RECEIVER_LABEL_POS.1,
+        RECEIVER_LABEL_SIZE,
         Anchor::CENTER,
         text,
     )?;

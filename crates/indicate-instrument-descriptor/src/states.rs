@@ -212,9 +212,9 @@ pub fn source_unusable() -> AircraftState {
 }
 
 /// The second nav receiver selected. `typical` names GPS and
-/// `fully-fed` names Nav1; Nav2 wore Nav1's green with nothing telling
-/// the two apart until the HSI source label (#55), which this state
-/// exercises on every panel that draws nav guidance.
+/// `fully-fed` names Nav1; Nav2 shares Nav1's green, so only the
+/// receiver label tells the two apart. This state exercises that
+/// distinction on every panel that draws nav guidance.
 pub fn nav2_source() -> AircraftState {
     let mut state = typical();
     if let Some(nav) = state.nav.data.as_mut() {
