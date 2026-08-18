@@ -209,12 +209,10 @@ fn floor_on_grid(value: f32, min: f32, step: f32) -> Result<f32, FrameRefusal> {
     let k = (steps as i64) as f32;
     let line = min + k * step;
     // Binary rounding can put the computed line a hair above the value
-    // it was floored from; the line below is then the real answer. No
-    // search has produced an input that reaches this, so it stands as a
-    // backstop rather than a path with a case of its own — the
-    // invariant it holds (a chosen frame never exceeds its space) is
-    // asserted by the oracle test, which is what would catch its
-    // absence if an input ever does reach it.
+    // it was floored from; the line below is then the real answer.
+    // `floor_on_grid(800.3, 360.0, 1.7)` is such an input: the product
+    // rounds up past the value, and without this the function returns a
+    // line above the space it was asked to fit inside.
     if line > value && k >= 1.0 {
         return Ok(min + (k - 1.0) * step);
     }
@@ -240,5 +238,7 @@ fn on_grid(value: f32, min: f32, step: f32) -> bool {
     remainder <= FRAME_STEP_TOLERANCE || remainder >= step - FRAME_STEP_TOLERANCE
 }
 
+#[cfg(test)]
+mod optimality_tests;
 #[cfg(test)]
 mod tests;
