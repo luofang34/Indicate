@@ -126,10 +126,6 @@ fn selections_fault(selections: &Selections) -> Option<GroupFault> {
     }
 }
 
-/// Validates every received group of `state` and reports per-group
-/// faults. Absent groups pass (their absence resolves `Missing`); the
-/// deterministic worst-of combination in `resolve` folds these faults
-/// into each signal's status.
 /// The nav group's own fault, if it has one.
 ///
 /// An unknown scale fails with the other unknown enumerations: the
@@ -154,6 +150,10 @@ fn nav_fault(nav: &crate::aircraft::NavData) -> Option<GroupFault> {
     None
 }
 
+/// Validates every received group of `state` and reports per-group
+/// faults. Absent groups pass (their absence resolves `Missing`); the
+/// deterministic worst-of combination in `resolve` folds these faults
+/// into each signal's status.
 pub fn validate_state(state: &AircraftState) -> StateIntegrity {
     let mut integrity = StateIntegrity::default();
 
