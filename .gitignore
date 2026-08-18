@@ -21,3 +21,9 @@
 * 2.*
 *.bak
 *.orig
+
+# Linked worktrees are checkouts, not content. Git can only ignore a
+# path inside the work tree, so a worktree placed here needs this rule
+# where one placed outside the repository needs none. The `/target/`
+# rule above is anchored at the root and does not reach into them.
+.worktrees/

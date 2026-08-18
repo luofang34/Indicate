@@ -37,12 +37,20 @@ cargo run --locked -q -p indicate-evidence --bin evidence-gate -- \
   --graph docs/instruments/evidence-graph.evg --repo-root . --resolve-selectors
 cargo run --locked -q -p indicate-evidence --bin evidence-gate -- \
   --graph docs/instruments/evidence-graph.evg --repo-root . --require-resolvable
+bash scripts/check-recorded-counts.sh --selftest
+bash scripts/check-recorded-counts.sh
 ```
 
 The evidence gate binds recorded test sources by content digest: editing
 a recorded test file (the attitude-behavior and presentation suites
 among them) reddens the gate until that evidence is re-recorded, so run
 the two gate invocations locally after touching any recorded source.
+
+The gate runs no build, so it cannot see a recorded pass count that
+drifted when a test was added away from a bound source.
+`check-recorded-counts.sh` re-runs each artifact's own recorded command
+and compares. The re-record procedure is four steps, written once in
+`docs/instruments/evidence-plan.md`.
 
 ## PR discipline
 
