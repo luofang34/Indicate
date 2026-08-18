@@ -31,13 +31,14 @@ pub enum FrameRefusal {
     Aspect,
 }
 
-/// How many grid steps [`PanelDescriptor::choose_frame`] will walk
-/// before it refuses.
+/// A backstop on the width walk.
 ///
-/// The walk is over one axis, so a realistic declaration finishes in a
-/// few hundred steps. A step small enough to exceed this makes the grid
-/// unusable rather than merely large, and refusing says so instead of
-/// spinning.
+/// The walk starts at the widest width the aspect bound can admit, not
+/// at the space's own width, so the steps it takes are bounded by how
+/// far the aspect band is from square rather than by the declared range.
+/// A realistic declaration finishes in a few hundred. Reaching this many
+/// means the grid is finer than the range can use, and stopping says so
+/// rather than spinning.
 const MAX_GRID_STEPS: usize = 4096;
 
 /// The tolerance applied when testing a dimension against the step
@@ -131,8 +132,18 @@ impl PanelDescriptor {
         // that width's own aspect bound, which only grows with it. So
         // the first width that has any admissible height is the answer,
         // and there is no need to compare areas.
+        // No width above `space.height * aspect_max` can be admissible:
+        // its height is capped by the space, so its aspect necessarily
+        // exceeds the bound. Starting there loses nothing and skips a
+        // prefix that is doomed by arithmetic — on a wide, short space
+        // that prefix is most of the grid. The nudge is the same few
+        // ulps the aspect quotient takes, for the same reason.
+        let widest_by_aspect = space.height * self.aspect_max * (1.0 + 4.0 * f32::EPSILON);
         let mut width = floor_on_grid(
-            space.width.min(self.frame_max.width),
+            space
+                .width
+                .min(self.frame_max.width)
+                .min(widest_by_aspect.max(self.frame_min.width)),
             self.frame_min.width,
             self.frame_step.0,
         )?;

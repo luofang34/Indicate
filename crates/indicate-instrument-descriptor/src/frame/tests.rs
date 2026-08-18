@@ -280,10 +280,15 @@ fn a_single_frame_panel_offers_only_its_one_frame() {
 /// that can tell a suboptimal answer from a wrong one.
 fn largest_by_scan(d: &PanelDescriptor, space: DesignFrame) -> Option<DesignFrame> {
     let mut best: Option<DesignFrame> = None;
+    // Bounded by the space as well as the declaration: a frame wider or
+    // taller than the space never qualifies, so walking past it only
+    // costs time.
+    let w_end = d.frame_max.width.min(space.width);
+    let h_end = d.frame_max.height.min(space.height);
     let mut w = d.frame_min.width;
-    while w <= d.frame_max.width {
+    while w <= w_end {
         let mut h = d.frame_min.height;
-        while h <= d.frame_max.height {
+        while h <= h_end {
             let candidate = frame(w, h);
             if candidate.width <= space.width
                 && candidate.height <= space.height
@@ -325,6 +330,19 @@ const NARROW_BAND: PanelDescriptor = PanelDescriptor {
     ..RANGED
 };
 
+/// A wide range on a one-unit grid at a fixed 16:9 — an ordinary panel,
+/// and the shape that exposes a walk starting at the space's own width:
+/// on a wide, short space every width in a long prefix is doomed by the
+/// aspect bound alone.
+const WIDE_SPAN: PanelDescriptor = PanelDescriptor {
+    frame_min: frame(320.0, 180.0),
+    frame_max: frame(5120.0, 2880.0),
+    frame_step: (1.0, 1.0),
+    aspect_min: 16.0 / 9.0,
+    aspect_max: 16.0 / 9.0,
+    ..RANGED
+};
+
 /// Axes on different steps, so neither axis's grid implies the other's.
 const ODD_STEPS: PanelDescriptor = PanelDescriptor {
     frame_min: MIN,
@@ -334,6 +352,28 @@ const ODD_STEPS: PanelDescriptor = PanelDescriptor {
     aspect_max: 1.50,
     ..RANGED
 };
+
+/// A wide, short space on a wide-range panel. The answer is far below
+/// the space's own width, so a walk that started there would spend its
+/// whole budget on widths the aspect bound had already ruled out, and
+/// refuse a space it fits in — while reporting an aspect refusal, which
+/// no resize would fix.
+#[test]
+fn a_wide_short_space_is_served_from_a_wide_range() {
+    assert_eq!(
+        WIDE_SPAN.choose_frame(frame(5120.0, 200.0)),
+        Ok(frame(352.0, 198.0))
+    );
+    assert_eq!(
+        WIDE_SPAN.choose_frame(frame(5120.0, 400.0)),
+        Ok(frame(704.0, 396.0))
+    );
+    // The same panel where the walk was always short: unchanged.
+    assert_eq!(
+        WIDE_SPAN.choose_frame(frame(4000.0, 300.0)),
+        Ok(frame(528.0, 297.0))
+    );
+}
 
 #[test]
 fn a_fixed_aspect_is_served_not_refused() {
@@ -401,4 +441,35 @@ fn choose_frame_agrees_with_an_exhaustive_scan() {
     }
     assert!(checked > 500, "the sweep agreed on {checked} answers");
     assert!(refusals > 0, "the sweep exercised {refusals} refusals");
+
+    // The wide-range panel over wide, short spaces: the shape where the
+    // answer sits far below the space's own width, so a walk that began
+    // there would exhaust its budget before reaching it.
+    let mut wide = 0;
+    let mut w = 1600.0f32;
+    while w <= 5120.0 {
+        let mut h = 190.0f32;
+        while h <= 700.0 {
+            let space = frame(w, h);
+            match (
+                WIDE_SPAN.choose_frame(space),
+                largest_by_scan(&WIDE_SPAN, space),
+            ) {
+                (Ok(chosen), Some(best)) => {
+                    assert_eq!(
+                        chosen.width * chosen.height,
+                        best.width * best.height,
+                        "for {w}x{h} chose {chosen:?}, scan found {best:?}"
+                    );
+                    wide += 1;
+                }
+                (Err(_), None) => {}
+                (Ok(chosen), None) => panic!("chose {chosen:?} for {w}x{h}, scan refuses"),
+                (Err(why), Some(best)) => panic!("refused {w}x{h} as {why:?}, {best:?} fits"),
+            }
+            h += 97.0;
+        }
+        w += 611.0;
+    }
+    assert!(wide > 20, "the wide sweep agreed on {wide} answers");
 }
