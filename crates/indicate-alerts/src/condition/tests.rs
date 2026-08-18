@@ -71,3 +71,152 @@ fn attitude_miscompare_is_a_warning() {
         AlertClass::Warning
     );
 }
+
+// ---- Display-reason registry (cross-shell contract) ----------------------
+
+use std::format;
+use std::string::String;
+use std::vec::Vec;
+
+/// The registry document the Swift and JavaScript mirrors track.
+const REGISTRY_DOC: &str = include_str!("../../../../docs/instruments/display-reason-registry.md");
+
+const REGISTRY_HEADING: &str = "## The registry";
+
+const REGISTRY_HEADER: [&str; 5] = ["Code", "Reason", "Identity", "Class", "Meaning"];
+
+/// The pinned append-only registry: variant, wire code, packed identity.
+/// New reasons are appended; entries are never reordered or renumbered.
+const PINNED_REGISTRY: [(DisplayFault, u8, u16); 5] = [
+    (DisplayFault::RendererStalled, 1, 0x0501),
+    (DisplayFault::FrameGenerationLost, 2, 0x0502),
+    (DisplayFault::CommandBufferCorrupt, 3, 0x0503),
+    (DisplayFault::BackendLost, 4, 0x0504),
+    (DisplayFault::RetainedImage, 5, 0x0505),
+];
+
+#[test]
+fn display_reason_codes_are_pinned() {
+    assert_eq!(
+        DisplayFault::ALL,
+        PINNED_REGISTRY.map(|(fault, _, _)| fault),
+        "registry entries are appended in ascending code order, never reordered"
+    );
+    for (fault, code, identity) in PINNED_REGISTRY {
+        assert_eq!(fault.code(), code, "{fault:?} keeps its wire code");
+        assert_eq!(DisplayFault::from_code(code), Some(fault));
+        assert_eq!(AlertCondition::Display(fault).id(), AlertId(identity));
+    }
+}
+
+#[test]
+fn display_reason_decoding_is_fail_closed() {
+    assert_eq!(DisplayFault::from_code(0), None);
+    for code in 6..=u8::MAX {
+        assert_eq!(DisplayFault::from_code(code), None);
+        assert_eq!(class_of(AlertId(0x0500 | u16::from(code))), None);
+    }
+}
+
+/// The registry section alone, bounded by the next heading, so a table
+/// elsewhere in the document can never be read as a registry row.
+fn registry_section() -> &'static str {
+    let after = REGISTRY_DOC
+        .split_once(REGISTRY_HEADING)
+        .expect("the registry document still has a registry section")
+        .1;
+    after
+        .split_once("\n## ")
+        .map_or(after, |(section, _)| section)
+}
+
+fn registry_cells(row: &str) -> Vec<&str> {
+    let cells: Vec<&str> = row.trim_matches('|').split('|').map(str::trim).collect();
+    assert_eq!(
+        cells.len(),
+        REGISTRY_HEADER.len(),
+        "a registry row must carry code, reason, identity, class, meaning: {row}"
+    );
+    cells
+}
+
+/// Lines of the registry section that belong to a markdown table.
+fn registry_table_lines() -> Vec<&'static str> {
+    registry_section()
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.starts_with('|'))
+        .collect()
+}
+
+/// The table's data rows, parsed positionally so a row cannot exempt
+/// itself from the comparison by imitating the header.
+fn documented_rows() -> Vec<Vec<String>> {
+    let mut lines = registry_table_lines().into_iter();
+    let header = lines
+        .next()
+        .expect("the registry section still contains a table");
+    assert_eq!(
+        registry_cells(header),
+        REGISTRY_HEADER.to_vec(),
+        "the registry table's columns must stay code, reason, identity, class, meaning"
+    );
+    let delimiter = lines.next().expect("the table still has a delimiter row");
+    assert!(
+        registry_cells(delimiter)
+            .iter()
+            .all(|cell| !cell.is_empty() && cell.chars().all(|c| c == '-' || c == ':')),
+        "the row under the header must be the table delimiter: {delimiter}"
+    );
+    lines
+        .map(|line| registry_cells(line).into_iter().map(String::from).collect())
+        .collect()
+}
+
+/// The row a reason implies: code, debug name, packed identity, class.
+/// The meaning cell is prose and is checked only for presence.
+fn expected_cells(fault: DisplayFault) -> [String; 4] {
+    let id = AlertCondition::Display(fault).id();
+    let class = class_of(id).expect("a registered reason has a class");
+    [
+        format!("{}", fault.code()),
+        format!("`{fault:?}`"),
+        format!("`0x{:04x}`", id.0),
+        format!("{class:?}"),
+    ]
+}
+
+#[test]
+fn the_registry_section_holds_exactly_one_table() {
+    let expected = DisplayFault::ALL.len() + 2;
+    assert_eq!(
+        registry_table_lines().len(),
+        expected,
+        "the registry section must hold one table: a header, a delimiter, \
+         and one row per registered reason"
+    );
+}
+
+#[test]
+fn the_documented_registry_matches_the_code() {
+    let rows = documented_rows();
+    // Without this, `zip` would truncate to the shorter side and a table
+    // missing its last reason would pass by describing nothing.
+    assert_eq!(
+        rows.len(),
+        DisplayFault::ALL.len(),
+        "every registered reason needs a row before its cells can be checked"
+    );
+    for (fault, row) in DisplayFault::ALL.into_iter().zip(rows) {
+        let expected = expected_cells(fault);
+        assert_eq!(
+            row[..4],
+            expected,
+            "documented row for {fault:?} disagrees with the code"
+        );
+        assert!(
+            !row[4].is_empty(),
+            "the documented row for {fault:?} must state a meaning"
+        );
+    }
+}

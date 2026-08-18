@@ -180,8 +180,18 @@ impl MiscompareFault {
     }
 }
 
-/// Display and renderer health faults (DISP-01-style reason codes, from the
+/// The append-only cross-shell display-reason registry: display and
+/// renderer health faults (DISP-01-style reason codes, from the
 /// renderer-health monitor, AIR-IN-013).
+///
+/// Every shell (Rust, Swift, JavaScript) draws its display reasons from
+/// this one enumeration, so a cross-shell comparison of display health
+/// compares states, not vocabularies. The registry is append-only, like
+/// the scene opcode vocabulary (ADR-0017): a new reason takes the next
+/// free code, and codes are never renumbered, reused, or removed, so an
+/// older shell degrades gracefully on a reason it does not know.
+/// `docs/instruments/display-reason-registry.md` states the contract,
+/// the unknown-reason mapping, and the mirror obligation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DisplayFault {
     /// The renderer stopped making progress.
@@ -197,7 +207,21 @@ pub enum DisplayFault {
 }
 
 impl DisplayFault {
-    const fn code(self) -> u8 {
+    /// Every registered reason, in ascending wire-code order. New reasons
+    /// are appended here and to the registry document in the same change;
+    /// entries are never reordered.
+    pub const ALL: [Self; 5] = [
+        Self::RendererStalled,
+        Self::FrameGenerationLost,
+        Self::CommandBufferCorrupt,
+        Self::BackendLost,
+        Self::RetainedImage,
+    ];
+
+    /// The stable wire code of this reason. Codes are append-only and are
+    /// never renumbered or reused.
+    #[must_use]
+    pub const fn code(self) -> u8 {
         match self {
             Self::RendererStalled => 1,
             Self::FrameGenerationLost => 2,
@@ -207,7 +231,10 @@ impl DisplayFault {
         }
     }
 
-    const fn from_code(code: u8) -> Option<Self> {
+    /// Fail-closed decoding: a code outside the registry yields `None`,
+    /// never a guessed reason.
+    #[must_use]
+    pub const fn from_code(code: u8) -> Option<Self> {
         match code {
             1 => Some(Self::RendererStalled),
             2 => Some(Self::FrameGenerationLost),
