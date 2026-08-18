@@ -28,17 +28,22 @@
 //! fail-closed unknown, and a wire value outside the known set decodes
 //! to each type's `Unknown`, never to a benign variant (VAL-01).
 //!
-//! # The v8 batch (issue #58)
+//! # One version, one format
 //!
-//! Version 8 changes no wire layout: every payload is byte-identical to
-//! version 7 and only the version byte moves. Version 8 is the
-//! coordination point for one batch of allocations that issues #50 to
-//! #55 and #57 agreed. The registry table in [`crate::group_id`] is the
-//! layout contract for that batch: it fixes each new group id, its lane
-//! (stamped or declared), and each field append to an existing group.
-//! Each allocation lands as its own change stacked on this version, as a
-//! full vertical slice of codec, resolve, feeder, drawing, and
-//! guardrails.
+//! This version is the coordination point for a batch of group
+//! allocations and field appends. The registry table in the
+//! `group_id` module is their layout contract: it fixes each new group
+//! id, its lane (stamped or declared), and each append to an existing
+//! group. Each lands as its own change — a vertical slice of codec,
+//! resolve, feeder, drawing, and guardrails — onto this version before
+//! it is released.
+//!
+//! The batch is what makes the number honest. A version identifies a
+//! wire format, so the version a consumer pins must name exactly one:
+//! releasing the bump first and changing layouts inside it afterwards
+//! would give two incompatible formats the same number, and a consumer
+//! comparing its pins against the manifest would see agreement while
+//! every frame it emits was rejected.
 
 use crate::aircraft::AircraftState;
 use crate::group_id::GroupId;

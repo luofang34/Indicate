@@ -73,3 +73,35 @@ fn data_gateway_frame_is_pinned() {
 fn flight_controller_frame_is_pinned() {
     assert_pinned(&fixtures::flight_controller(), FC_HEX, "flight-controller");
 }
+
+/// The fixture file names must name the version whose encoding they
+/// hold. Nothing else ties them together: the names are string literals
+/// here and in `cargo xtask gen-state-fixture`, so a version bump that
+/// edits the module and the constant but not the names would leave the
+/// generator overwriting a file called v8 with v9 bytes, and every
+/// existing guard would stay green. The JS writer pins against these
+/// files by name.
+#[test]
+fn the_fixture_names_carry_the_compiled_version() {
+    let stem = std::format!("state-abi-v{}", super::VERSION);
+    for path in [
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/fixtures/state-abi-v8.full.hex"
+        ),
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/fixtures/state-abi-v8.data-gateway.hex"
+        ),
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/fixtures/state-abi-v8.flight-controller.hex"
+        ),
+    ] {
+        assert!(
+            path.contains(&stem),
+            "fixture {path} does not name version {}",
+            super::VERSION
+        );
+    }
+}

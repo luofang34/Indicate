@@ -27,11 +27,10 @@ fn unassigned_tags_do_not_resolve() {
 }
 
 #[test]
-fn reserved_and_batch_allocated_tags_have_no_status_slot_yet() {
-    // 0x0E–0x11 stay planned, and 0x12–0x15 are allocated to the v8
-    // batch (the registry table in the module doc) but their variants
-    // land with the per-issue PRs. Until then none of these tags
-    // resolves to a variant, so none can key a `GroupStatuses` slot.
+fn reserved_and_allocated_tags_have_no_status_slot_yet() {
+    // 0x0E–0x11 are planned and 0x12–0x15 are allocated with their
+    // layouts fixed, but neither has a variant. Until one lands, no such
+    // tag resolves to a variant, so none can key a `GroupStatuses` slot.
     for value in 0x0Eu8..=0x15 {
         assert_eq!(GroupId::from_u8(value), None, "tag {value:#04x}");
     }
@@ -45,14 +44,32 @@ fn index_is_dense_over_all() {
 }
 
 #[test]
-fn index_is_not_wire_tag_arithmetic() {
-    // `index()` must survive the first non-contiguous allocation: with
-    // 0x0E–0x11 variantless, a `tag - 1` mapping would hand tag 0x12
-    // slot 0x11, past the end of a 13-slot table. Pin the sparse
-    // mapping's contract directly: the highest defined tag still maps
-    // to the last slot.
+fn the_highest_tag_maps_to_the_last_slot() {
+    // Says only what it can say while every assigned id is contiguous:
+    // `tag - 1` gives these same answers, so this does not distinguish
+    // the match from arithmetic. The test below is what would catch the
+    // arithmetic.
     assert_eq!(GroupId::FlightDirector.to_u8(), 0x0D);
     assert_eq!(GroupId::FlightDirector.index(), GroupId::COUNT - 1);
+}
+
+#[test]
+fn wire_tag_arithmetic_would_index_past_the_table() {
+    // The next id the registry allocates is not the next tag after the
+    // last variant, so the first allocation to gain a variant makes
+    // `tag - 1` index past a `[SignalStatus; COUNT]` table. `index()` is
+    // a match for this reason; this test fails if a future allocation
+    // ever makes the arithmetic safe again, at which point the reason
+    // has to be restated rather than silently lost.
+    const NEXT_ALLOCATED: u8 = 0x12;
+    assert_eq!(GroupId::from_u8(NEXT_ALLOCATED), None, "still variantless");
+    let arithmetic_slot = usize::from(NEXT_ALLOCATED) - 1;
+    assert!(
+        arithmetic_slot >= GroupId::COUNT,
+        "slot {arithmetic_slot} from tag arithmetic is still inside a \
+         {}-slot table",
+        GroupId::COUNT
+    );
 }
 
 #[test]
