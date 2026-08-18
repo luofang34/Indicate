@@ -43,6 +43,51 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.4.1] — 2026-08-18
+
+The HSI annunciates which receiver drives the CDI. The source was
+encoded as hue alone — magenta for GPS, green for a nav radio — so Nav1
+and Nav2 read identically, and the distinction failed under color-vision
+deficiency. The panel now draws `GPS` / `NAV1` / `NAV2` beside the rose
+in the source color, under the same gate as the CDI: the label and the
+needle appear and disappear in the same frame
+([#55](https://github.com/luofang34/Indicate/issues/55)).
+
+| Value | This release |
+|---|---|
+| State ABI | 7 |
+| Scene format | 1 |
+| Corpus | 4 |
+| Composition digest | `91767280cad68734f5859ad17edee1540bce47ec32866a0d784e1f30f34e4757` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no.
+
+### What moved and why
+
+- **The composition digest moved on paint and corpus, not on wire.**
+  The label adds a claimed text run to the HSI scene for every fed nav
+  source, and the shared corpus gains a `nav2-source` state so each of
+  the three sources is exercised. The state ABI, the scene format, and
+  the conformance corpus are byte-identical.
+- **The HSI raster baseline (REN-03) and the screen-composition digest
+  moved with it.** The label paints in the shared `typical` state, and
+  the screen digest hashes the composition digest beneath it. The
+  baseline re-pin names this change as its reason.
+- **The label claims the nav group.** Its numerals (`NAV1`, `NAV2`)
+  carry the provenance claim the honesty rules require, and a new HSI
+  group region declares the surface it paints on. A withheld or failed
+  nav group removes the label with the needle.
+
+### Notes for anyone re-pinning
+
+- Advance the composition digest, the screen-composition digest, and the
+  HSI raster baseline together. The PFD and monitor baselines, the
+  criticality bands, the glyph pack, and the corpus are unchanged.
+- Telling VOR from LOC needs the tuned facility type in state. That is a
+  Nav layout addition and belongs in the coordinated ABI batch, not in
+  this release.
+
 ## [0.4.0] — 2026-08-08
 
 The state ABI moves to v7: velocity validity splits into a horizontal

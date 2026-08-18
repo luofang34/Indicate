@@ -1,8 +1,8 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_instrument_state::{EstimateQuality, GroupId};
+use indicate_instrument_state::{EstimateQuality, GroupId, NavSource};
 
-use super::{CANONICAL_STATES, fully_fed, nothing_fed, source_unusable, typical};
+use super::{CANONICAL_STATES, fully_fed, nav2_source, nothing_fed, source_unusable, typical};
 
 #[test]
 fn corpus_ids_are_unique_and_well_formed() {
@@ -48,6 +48,13 @@ fn the_corpus_spans_the_intended_situations() {
     let unusable = source_unusable();
     assert!(unusable.attitude.data.is_some());
     assert_eq!(unusable.quality, EstimateQuality::Unusable);
+    // Nav2 selected: every nav source the HSI labels is one the corpus
+    // names — GPS in `typical`, Nav1 in `fully-fed`, Nav2 here.
+    let second = nav2_source();
+    assert_eq!(
+        second.nav.data.expect("nav present").source,
+        NavSource::Nav2
+    );
 }
 
 #[test]

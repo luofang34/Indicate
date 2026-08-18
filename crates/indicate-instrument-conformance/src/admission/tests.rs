@@ -11,10 +11,10 @@ use super::{admit, criticality_bands};
 fn builtin_panels_pass_admission() {
     let registry = Registry::new(BUILTIN_PANELS).expect("composes");
     let report = admit(&registry).expect("shipped panels must be admissible");
-    // PFD: (4 canonical + 3 extreme) states × (1 fed + 8 withheld);
-    // HSI: (4 + 2) × 8; monitor: 5 × 2 — each drawn twice, quiet and
+    // PFD: (5 canonical + 3 extreme) states × (1 fed + 8 withheld);
+    // HSI: (5 + 2) × 8; monitor: 6 × 2 — each drawn twice, quiet and
     // with the saturated alert stack.
-    assert_eq!(report.cases, 242);
+    assert_eq!(report.cases, 280);
     // Every warning is the PFD's groundspeed or baro readout: their
     // boxes are 90 units wide but a wide value at size 16 has ~107
     // units of nominal ink, so the run overhangs its box and the frame
@@ -26,7 +26,7 @@ fn builtin_panels_pass_admission() {
     // Twice the quiet-frame count, because the overhanging runs are the
     // groundspeed and baro readouts, which the alert stack does not
     // touch: each overhangs on both sides of the alert axis.
-    assert_eq!(report.warnings.len(), 166);
+    assert_eq!(report.warnings.len(), 196);
     assert!(report.warnings.iter().all(|w| matches!(
         w,
         super::AdmissionWarning::FrameOverflow { panel: "pfd", text, .. }

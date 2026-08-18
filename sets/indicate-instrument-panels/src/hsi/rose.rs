@@ -11,6 +11,10 @@ use indicate_instrument_symbology::{fmt_label, palette, status_paint};
 use super::{CX, CY, ROSE_R};
 
 const TEXT_R: f32 = 126.0;
+/// How far the fixed 45° reference marks reach past the rose rim. This
+/// is the rose's outermost ink, so anything placed beside the rose
+/// measures its clearance from `ROSE_R + REFERENCE_MARK_LEN`.
+pub(crate) const REFERENCE_MARK_LEN: f32 = 8.0;
 
 /// Rose ticks rotate with heading; labels are drawn upright at computed
 /// positions (the pyG5 counter-rotation, without nested transforms).
@@ -30,8 +34,8 @@ pub fn draw_rose(
         scene.line(
             ROSE_R * c,
             ROSE_R * s,
-            (ROSE_R + 8.0) * c,
-            (ROSE_R + 8.0) * s,
+            (ROSE_R + REFERENCE_MARK_LEN) * c,
+            (ROSE_R + REFERENCE_MARK_LEN) * s,
         )?;
     }
 
