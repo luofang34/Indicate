@@ -184,19 +184,17 @@ check_safety_constant_count() {
     fi
 }
 
-# A document that cites a rule nobody can read is the condition this
-# check exists to end: `CLAUDE.md` named ASD-STE100 and pointed at
-# `AGENTS.md` for years while neither file was in the repository, so
-# reviews held contributors to a standard a clone did not contain. The
-# check is not over prose — sentence quality is review's judgement. It is
-# over the pointer, which is mechanical, and which is what actually
-# broke.
+# A document that cites a rule nobody can read is not a rule: a reviewer
+# who holds a contributor to a standard the clone does not contain is
+# citing something the contributor cannot obey. The check is not over
+# prose — sentence quality is review's judgement. It is over the
+# pointer, which is mechanical.
 check_root_document_pointers() {
     local doc target
     for doc in ./CLAUDE.md ./CONTRIBUTING.md; do
         [ -f "$doc" ] || continue
         # Every backticked root-level markdown file the document names.
-        for target in $(sed -n 's/.*`\([A-Za-z0-9_-]*\.md\)`.*/\1/p' "$doc" | sort -u); do
+        for target in $(grep -oE '`[A-Za-z0-9_-]*\.md`' "$doc" | tr -d '`' | sort -u); do
             if [ ! -s "./$target" ]; then
                 echo "FORBIDDEN: $doc points at \`$target\`, which is missing or empty; a cited rule a clone does not contain is not a rule" >&2
                 status=1

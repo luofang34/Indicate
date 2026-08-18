@@ -143,6 +143,27 @@ expect_term_refusal "InstrumentSceneKit" "InstrumentSceneKit"
 expect_term_refusal "IndicateAppleDisplay" "IndicateAppleDisplay"
 expect_term_refusal "Swift SceneKit backend" "Swift SceneKit backend"
 
+# A citation the clone cannot resolve must be refused wherever it sits
+# on the line. The first version of this check read only the last
+# citation per line, so a document that named a missing file before a
+# present one passed — which is the spelling a contributor would most
+# easily write by accident.
+citation_backup="$(mktemp)"
+cp CONTRIBUTING.md "$citation_backup"
+for line in 'It cites `GHOST.md` and then `AGENTS.md`.' \
+    'It cites `AGENTS.md` and then `GHOST.md`.'; do
+    printf '%s\n' "$line" >> CONTRIBUTING.md
+    if INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh >/dev/null 2>&1; then
+        echo "REGRESSION: a citation of a missing document was accepted: $line" >&2
+        failed=$((failed + 1))
+    else
+        echo "ok: a citation of a missing document refused"
+        passed=$((passed + 1))
+    fi
+    cp "$citation_backup" CONTRIBUTING.md
+done
+rm -f "$citation_backup"
+
 if [ "$failed" -ne 0 ]; then
     echo "structure-selftest: FAILED ($failed of $((passed + failed)) cases)" >&2
     exit 1

@@ -2,15 +2,14 @@
 
 ## Documentation language
 
-All project-authored documentation MUST use ASD-STE100 Simplified Technical
-English.
-
-The rules below are the binding subset. Apply them without consulting the
-standard. The ASD-STE100 dictionary is advisory here: a reviewer cites a rule
-from this list, not a word from a dictionary neither party has.
+Project-authored documentation follows the rule list below. The list is
+modelled on ASD-STE100 Simplified Technical English, and it is not that
+standard: the repository does not distribute the specification or its
+dictionary, so a reviewer cites a rule from this list and nothing else.
+A document that follows every rule here makes no conformance claim
+against ASD-STE100.
 
 - Write in English.
-- Use an approved word when it has the required meaning.
 - Use one word for one meaning.
 - Use short, direct sentences.
 - Use active voice when you can identify the actor.
