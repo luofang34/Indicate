@@ -99,6 +99,7 @@ fn dynamics(rate_rps: f32, basis: TurnBasis, lateral_mps2: f32, age_ms: f32) -> 
         DynSample {
             turn: Some(TurnSample { rate_rps, basis }),
             lateral_mps2: Some(lateral_mps2),
+            ias_trend_mps2: Some(0.35),
         },
         age_ms,
     )
@@ -125,6 +126,7 @@ fn all_valid() -> ValidFlags {
         heading: true,
         variation: true,
         turn: true,
+        ias_trend: true,
         slip: true,
     }
 }

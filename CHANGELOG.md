@@ -54,15 +54,16 @@ exactly one wire format. The registry table in `group_id.rs` records the
 agreed allocations and is the layout contract for the batch.
 
 This release carries the allocations that have landed so far: true
-airspeed on the Air group, the deflection scale on the Nav group, the
-bearing-pointer group, and the airframe-configuration group.
+airspeed on the Air group, the airspeed trend on the Dynamics group,
+the deflection scale on the Nav group, the bearing-pointer group, and
+the airframe-configuration group.
 
 | Value | This release |
 |---|---|
 | State ABI | 8 |
 | Scene format | 1 |
 | Corpus | 4 |
-| Composition digest | `1664fc825323b6bcbd05ecde470c0d82fe9faaf94bdf61caabc28edcaf0a0f02` |
+| Composition digest | `b9494f3042aa7b6483d16555f4e14a0b48887772caeaeba0a2b35e52467bd9d3` |
 | Panel set | `pfd`, `hsi`, `monitor` |
 
 Panel set changed since the previous release: no. The configuration
@@ -97,6 +98,10 @@ digest are unchanged by it.
   spare byte at offset 3 would have kept the length still and made a
   producer that never wrote the field decode as `Enroute` — the loosest
   scale, worth the most distance per dot.
+- **The Dynamics group grows from 16 bytes to 20.** `ias_trend` follows
+  the trailing `age_ms`, NaN-absent, and Trust valid bit 9 declares it.
+  A producer that stamps version 8 and keeps writing 16 bytes has the
+  whole frame refused, not that group.
 - **The Air group grows from 12 bytes to 16.** `tas_mps` follows the
   trailing `age_ms`, NaN-absent like the altimeter setting beside it.
   Its minimum length rises with it.

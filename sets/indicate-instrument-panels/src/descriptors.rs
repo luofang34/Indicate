@@ -192,6 +192,10 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
             id: "director-engaged",
             build: extreme_states::pfd_director_engaged,
         },
+        ExtremeState {
+            id: "level-accelerating",
+            build: extreme_states::pfd_level_accelerating,
+        },
     ],
     // Reference-rasterizer frame hash over the shared typical state, one
     // per canonical frame — pinned per panel here so a panel travels
@@ -440,7 +444,7 @@ pub const BUILTIN_SET: PanelSet = PanelSet {
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "1664fc825323b6bcbd05ecde470c0d82fe9faaf94bdf61caabc28edcaf0a0f02";
+    "b9494f3042aa7b6483d16555f4e14a0b48887772caeaeba0a2b35e52467bd9d3";
 
 pub use criticality_bands::BUILTIN_CRITICALITY_BANDS;
 

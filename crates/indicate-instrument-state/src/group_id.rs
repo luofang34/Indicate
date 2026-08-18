@@ -242,6 +242,7 @@ pub fn withhold_group(state: &AircraftState, group: GroupId) -> AircraftState {
             out.dynamics = Default::default();
             out.valid.turn = false;
             out.valid.slip = false;
+            out.valid.ias_trend = false;
         }
         GroupId::MonitorText => out.monitor_text = Default::default(),
         GroupId::FlightDirector => out.director = Default::default(),

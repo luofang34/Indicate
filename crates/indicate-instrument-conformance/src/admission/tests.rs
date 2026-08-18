@@ -11,10 +11,10 @@ use super::{admit, criticality_bands};
 fn builtin_panels_pass_admission() {
     let registry = Registry::new(BUILTIN_PANELS).expect("composes");
     let report = admit(&registry).expect("shipped panels must be admissible");
-    // PFD: (5 canonical + 3 extreme) states × (1 fed + 8 withheld);
+    // PFD: (5 canonical + 4 extreme) states × (1 fed + 8 withheld);
     // HSI: (5 + 3) × 9; monitor: 6 × 2 — each drawn twice, quiet and
     // with the saturated alert stack.
-    assert_eq!(report.cases, 312);
+    assert_eq!(report.cases, 330);
     // Every warning is the PFD's groundspeed or baro readout: each box
     // is 90 units wide but a wide value at size 16 has ~107 units of
     // nominal ink, so the run overhangs its box and the frame edge —
@@ -23,13 +23,15 @@ fn builtin_panels_pass_admission() {
     // state; fixing it moves frame hashes and is its own change, for
     // both boxes at once.
     //
-    // The count grows by the fifth canonical state exercising the two
-    // boxes, and by nothing else: the true-airspeed box sizes its label
-    // to its own width, so it adds a third readout without adding a
-    // third overflow.
+    // Thirty per PFD state that paints both boxes with wide values, and
+    // sixteen for source-unusable, where only the groundspeed box
+    // dashes — its baro box still paints a wide value, because a dialed
+    // setting is not an estimate and does not fold source quality. The
+    // true-airspeed box adds none of them: it sizes its label to its own
+    // width, so a third readout arrives without a third overflow.
     // Twice the quiet-frame count, because the alert stack does not
     // touch these boxes: each overhangs on both sides of the alert axis.
-    assert_eq!(report.warnings.len(), 196);
+    assert_eq!(report.warnings.len(), 226);
     assert!(report.warnings.iter().all(|w| matches!(
         w,
         super::AdmissionWarning::FrameOverflow { panel: "pfd", text, .. }

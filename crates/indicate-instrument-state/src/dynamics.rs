@@ -79,6 +79,11 @@ pub struct DynSample {
     /// Lateral specific force along body +Y (right), m/s²; the slip
     /// ball displaces opposite this force.
     pub lateral_mps2: Option<f32>,
+    /// Rate of change of indicated airspeed, m/s². The trend cue marks
+    /// where the airspeed will be after a fixed look-ahead, so it is a
+    /// rate the source measures, never a difference the display takes
+    /// between two frames it happened to draw.
+    pub ias_trend_mps2: Option<f32>,
 }
 
 #[cfg(test)]

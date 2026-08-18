@@ -9,7 +9,7 @@
     "version": 4,
     "sha256": "1fb8e6de2734ff7506843b05869f39d501f0926599636c6110a7e3b0c6e1625e"
   },
-  "compositionDigest": "1664fc825323b6bcbd05ecde470c0d82fe9faaf94bdf61caabc28edcaf0a0f02",
+  "compositionDigest": "b9494f3042aa7b6483d16555f4e14a0b48887772caeaeba0a2b35e52467bd9d3",
   "screenComposition": {
     "fixture": "tools/instrument-bench",
     "screen": { "width": 960, "height": 720 },
@@ -18,7 +18,7 @@
       { "panel": "hsi", "x": 480, "y": 0, "width": 480, "height": 360 },
       { "panel": "monitor", "x": 0, "y": 360, "width": 480, "height": 360 }
     ],
-    "digest": "7a7a3331f1bb7f4fa4a5e64f76a9cc59ed8593b3baabfc7a3e259cb1f70a13cd"
+    "digest": "2a787ce5671488d5e187b366d68a60f8ef4b3a7e380e11a315d73b86cbf2cc76"
   },
   "rasterBaselines": [
     { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "sha256": "411ef00fcbd4bb1c53f4e17effa67b9eb69f4fb19d1b80d2576336d12094834c" },

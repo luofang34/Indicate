@@ -19,7 +19,7 @@
 //! | wind | from f32; speed f32; age f32 | 12 |
 //! | heading | reference u8; 0×3; heading f32; age f32 | 12 |
 //! | variation | source u8; 0×3; east f32; age f32 | 12 |
-//! | dynamics | basis u8; 0×3; turn f32; lateral f32; age f32 | 16 |
+//! | dynamics | basis u8; 0×3; turn f32; lateral f32; age f32; ias trend f32 | 20 |
 //! | bearings | per pointer: source u8; ref u8; valid u8; 0; bearing f32 — twice; age f32 | 20 |
 //! | airframe | flap f32; flap sel f32; elev f32; ail f32; rud f32; age f32 | 24 |
 
@@ -329,6 +329,7 @@ pub(super) fn decode_dynamics(state: &mut AircraftState, p: &[u8]) {
                 basis: TurnBasis::from_u8(get_u8(p, 0)),
             }),
             lateral_mps2: opt(get_f32(p, 8)),
+            ias_trend_mps2: opt(get_f32(p, 16)),
         }),
         age_ms: age,
     };
@@ -341,7 +342,7 @@ pub(super) fn encode_dynamics(
     if absent(&state.dynamics) {
         return Ok(None);
     }
-    let p = sized(out, 16)?;
+    let p = sized(out, 20)?;
     let dynamics = state.dynamics.data.unwrap_or_default();
     put_u8(
         p,
@@ -354,7 +355,8 @@ pub(super) fn encode_dynamics(
     put_f32(p, 4, or_nan(dynamics.turn.map(|sample| sample.rate_rps)));
     put_f32(p, 8, or_nan(dynamics.lateral_mps2));
     put_f32(p, 12, or_nan(state.dynamics.age_ms));
-    Ok(Some(16))
+    put_f32(p, 16, or_nan(dynamics.ias_trend_mps2));
+    Ok(Some(20))
 }
 
 /// Flight-director payload (16 bytes): mode u8, engagement u8, two

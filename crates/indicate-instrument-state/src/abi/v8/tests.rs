@@ -345,6 +345,7 @@ fn an_absent_trust_group_declares_neither_velocity_axis() {
             variation: false,
             turn: false,
             slip: false,
+            ias_trend: false,
         }
     );
     let frame = encode(&AircraftState::default());
