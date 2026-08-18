@@ -53,10 +53,11 @@ own change onto this version before it is released, so the number names
 exactly one wire format. The registry table in `group_id.rs` records the
 agreed allocations and is the layout contract for the batch.
 
-This release carries every allocation the batch directs: true airspeed
-on the Air group, the airspeed trend on the Dynamics group, the
-deflection scale on the Nav group, and the bearing-pointer,
-airframe-configuration and autoflight groups.
+This release carries every group the batch allocates and all but one of
+its field appends: true airspeed on the Air group, the airspeed trend on
+the Dynamics group, the deflection scale on the Nav group, and the
+bearing-pointer, airframe-configuration and autoflight groups.
+`facility_type` on Nav follows with its consumer.
 
 | Value | This release |
 |---|---|
