@@ -111,7 +111,7 @@ const fn min_len(id: GroupId) -> usize {
         GroupId::Attitude => 32,
         GroupId::Kinematics => 28,
         GroupId::Air => 16,
-        GroupId::Nav => 42,
+        GroupId::Nav => 43,
         GroupId::Wind => 12,
         GroupId::Selections => 20,
         GroupId::Trust => 8,

@@ -54,15 +54,15 @@ exactly one wire format. The registry table in `group_id.rs` records the
 agreed allocations and is the layout contract for the batch.
 
 This release carries the allocations that have landed so far: true
-airspeed on the Air group, the bearing-pointer group, and the
-airframe-configuration group.
+airspeed on the Air group, the deflection scale on the Nav group, the
+bearing-pointer group, and the airframe-configuration group.
 
 | Value | This release |
 |---|---|
 | State ABI | 8 |
 | Scene format | 1 |
 | Corpus | 4 |
-| Composition digest | `b15a5d866a8672f05cfec561b8e1480f7e622f813570f5d62809afef2515c1b6` |
+| Composition digest | `1664fc825323b6bcbd05ecde470c0d82fe9faaf94bdf61caabc28edcaf0a0f02` |
 | Panel set | `pfd`, `hsi`, `monitor` |
 
 Panel set changed since the previous release: no. The configuration
@@ -80,14 +80,28 @@ digest are unchanged by it.
   outside the range its axis is defined over faults the group rather
   than being clamped — a clamped pointer would sit at a limit the
   airframe never reached.
-- **Assigned group ids stop being contiguous.** 0x0E to 0x12 have no
+- **Assigned group ids stop being contiguous.** 0x0E to 0x11 have no
   variant, so `GroupId::index` and the wire tag now genuinely disagree,
   and the test that could only describe that difference proves it.
+- **The Nav group grows from 42 bytes to 43 and declares its deflection
+  scale.** `scale` appends after the group's existing tail, per the
+  stamped-lane growth policy. Enroute, terminal and approach are 0, 1
+  and 2; every other value is Unknown, and an Unknown scale fails the
+  whole nav group. A deflection in dots means nothing until the scale
+  says what a dot is worth, so guidance at an undeclared scale is not
+  drawn at a guessed one — and the needle carries its own gate on the
+  scale as well, so a group whose status says show still draws nothing
+  without one.
+
+  The append is what makes an undeclared scale fail closed. Taking the
+  spare byte at offset 3 would have kept the length still and made a
+  producer that never wrote the field decode as `Enroute` — the loosest
+  scale, worth the most distance per dot.
 - **The Air group grows from 12 bytes to 16.** `tas_mps` follows the
   trailing `age_ms`, NaN-absent like the altimeter setting beside it.
   Its minimum length rises with it.
-- **The batch allocates four group ids and three field appends. This
-  release implements the Air append only.** The ids are 0x12 BearingPointers (stamped,
+- **The batch allocates four group ids and three field appends.** The
+  ids are 0x12 BearingPointers (stamped,
   [#53](https://github.com/luofang34/Indicate/issues/53)), 0x13
   AirframeConfig (stamped,
   [#57](https://github.com/luofang34/Indicate/issues/57)), 0x14 ApModes
@@ -98,7 +112,7 @@ digest are unchanged by it.
   [#52](https://github.com/luofang34/Indicate/issues/52)), `ias_trend`
   and Trust valid bit 9 on Dynamics (0x0B,
   [#51](https://github.com/luofang34/Indicate/issues/51)), and
-  `scale_mode` and `facility_type` on Nav (0x04,
+  `scale_mode` on Nav (0x04, with `facility_type` to follow,
   [#54](https://github.com/luofang34/Indicate/issues/54) and
   [#55](https://github.com/luofang34/Indicate/issues/55)). Each append
   goes after the trailing `age_ms`. An older decoder accepts the longer
@@ -136,6 +150,11 @@ digest are unchanged by it.
   composed-frame hashes move.** The shared `typical` state now feeds
   both pointers, and the HSI contributes a `bearing-split-references`
   extreme state, which raises the admission case count.
+- **A state writer must also write the longer Nav group.** A writer
+  that omits the scale emits a 42-byte payload, which is now below the
+  group's minimum, and the decoder rejects the whole frame exactly as
+  it does for a short Air group. Declare the scale the guidance is
+  actually flown to; there is no value that means "not stated".
 - **The speed tape starts 25 units lower.** The true-airspeed box is
   opaque and owns the strip above the tape, so the tape no longer paints
   under it. The visible speed range above the pointer shrinks by about

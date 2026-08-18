@@ -81,26 +81,36 @@ pub fn draw_hsi(
 
     scene.begin_layer(LayerId::Guidance)?;
     if let Some((up_rad, _)) = up {
-        if data.nav.data.source != NavSource::None
-            && data.nav.status.shows_value()
-            && data.nav.course_rose_rad.status.shows_value()
-        {
-            cdi::draw_cdi(scene, &data.nav, up_rad)?;
-        }
-        // A pointer follows its own receiver, so it carries its own
-        // gate: it draws whether or not a course is selected.
-        bearing::draw_bearing_pointers(
-            scene,
-            &data.bearings.value,
-            data.bearings_rose_rad,
-            up_rad,
-        )?;
+        guidance(scene, data, up_rad)?;
     }
     boxes::vertical_deviation(scene, data)?;
     scene.end_layer(LayerId::Guidance)?;
 
     annunciation_band(scene, data, alerts)?;
     Ok(())
+}
+
+/// Course guidance and the bearing needles, in the rose frame.
+///
+/// The two answer different questions and so carry different gates: the
+/// CDI needs a selected course on a usable receiver at a scale somebody
+/// named, while a pointer needs only its own receiver.
+fn guidance(scene: &mut SceneWriter<'_>, data: &PanelData, up_rad: f32) -> Result<(), SceneError> {
+    if data.nav.data.source != NavSource::None
+        && data.nav.status.shows_value()
+        && data.nav.course_rose_rad.status.shows_value()
+        // Belt and suspenders, like the rose basis: the group's fault
+        // path already fails an unknown scale, and the needle still
+        // refuses to draw without one. A deflection in dots is not a
+        // distance until the scale says what a dot is worth.
+        && !data.nav.data.scale.label().is_empty()
+    {
+        cdi::draw_cdi(scene, &data.nav, up_rad)?;
+        // Under the needle's own gate: what a dot is worth is only
+        // readable while there is a needle to read it against.
+        cdi::draw_scale_label(scene, &data.nav)?;
+    }
+    bearing::draw_bearing_pointers(scene, &data.bearings.value, data.bearings_rose_rad, up_rad)
 }
 
 /// The Annunciation band: nav degradation flag, the rose-basis

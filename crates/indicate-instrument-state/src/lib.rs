@@ -45,8 +45,8 @@ mod validate;
 
 pub use aircraft::{
     AirData, AircraftState, AirframeConfig, Attitude, BearingPointer, BearingPointers,
-    EstimateQuality, Kinematics, NavData, NavFromTo, NavSource, Selections, SnapshotCoherence,
-    SnapshotMeta, Stamped, ValidFlags, Wind,
+    EstimateQuality, Kinematics, NavData, NavFromTo, NavScale, NavSource, Selections,
+    SnapshotCoherence, SnapshotMeta, Stamped, ValidFlags, Wind,
 };
 pub use altitude::{AltitudeClass, AltitudeDeclaration, AltitudeReference, GeoidModelId, OriginId};
 pub use director::{FdEngagement, FdMode, FdSample};

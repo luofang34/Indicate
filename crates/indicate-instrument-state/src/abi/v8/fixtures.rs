@@ -59,6 +59,7 @@ fn kinematics(pos_ned_m: [f32; 3], vel_ned_mps: [f32; 3], age_ms: f32) -> Stampe
 fn nav(course_rad: f32, cdi_dots: f32, to: &str, from: &str, age_ms: f32) -> Stamped<NavData> {
     stamped(
         NavData {
+            scale: crate::aircraft::NavScale::Terminal,
             source: NavSource::Gps,
             course_rad,
             cdi_dots,

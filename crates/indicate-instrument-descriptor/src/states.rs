@@ -168,6 +168,7 @@ fn typical_nav() -> Stamped<NavData> {
             vdev_dots: Some(-0.4),
             dist_nm: Some(12.4),
             course_reference: HeadingReference::SimLocalTrue,
+            scale: indicate_instrument_state::NavScale::Terminal,
             ..NavData::default()
         }),
         age_ms: Some(80.0),
@@ -201,6 +202,7 @@ pub fn fully_fed() -> AircraftState {
             vdev_dots: Some(0.9),
             dist_nm: Some(3.2),
             course_reference: HeadingReference::SimLocalTrue,
+            scale: indicate_instrument_state::NavScale::Approach,
             to_ident: ident("KMRY"),
             from_ident: ident("WPT-2"),
         }),

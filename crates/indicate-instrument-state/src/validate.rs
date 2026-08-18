@@ -132,6 +132,30 @@ fn selections_fault(selections: &Selections) -> Option<GroupFault> {
     }
 }
 
+/// The nav group's own fault, if it has one.
+///
+/// An unknown scale fails with the other unknown enumerations: the
+/// deflection is in dots, and a dot means nothing until the scale says
+/// what it is worth.
+fn nav_fault(nav: &crate::aircraft::NavData) -> Option<GroupFault> {
+    if matches!(nav.source, NavSource::Unknown)
+        || matches!(nav.fromto, NavFromTo::Unknown)
+        || matches!(nav.scale, crate::aircraft::NavScale::Unknown)
+    {
+        return Some(GroupFault::UnknownEnum);
+    }
+    if nav.to_ident.is_invalid() || nav.from_ident.is_invalid() {
+        return Some(GroupFault::MalformedIdent);
+    }
+    if !(all_finite(&[nav.course_rad, nav.cdi_dots])
+        && opt_finite(nav.vdev_dots)
+        && opt_finite(nav.dist_nm))
+    {
+        return Some(GroupFault::NonFinite);
+    }
+    None
+}
+
 /// The bearing group's own fault, if it has one.
 ///
 /// A pointer whose source this build cannot name, or whose north it
@@ -225,16 +249,7 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
         integrity.airframe = airframe_fault(config);
     }
     if let Some(nav) = &state.nav.data {
-        if matches!(nav.source, NavSource::Unknown) || matches!(nav.fromto, NavFromTo::Unknown) {
-            integrity.nav = Some(GroupFault::UnknownEnum);
-        } else if nav.to_ident.is_invalid() || nav.from_ident.is_invalid() {
-            integrity.nav = Some(GroupFault::MalformedIdent);
-        } else if !(all_finite(&[nav.course_rad, nav.cdi_dots])
-            && opt_finite(nav.vdev_dots)
-            && opt_finite(nav.dist_nm))
-        {
-            integrity.nav = Some(GroupFault::NonFinite);
-        }
+        integrity.nav = nav_fault(nav);
     }
     if let Some(wind) = &state.wind.data
         && !all_finite(&[wind.from_rad, wind.speed_mps])

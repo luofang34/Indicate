@@ -58,7 +58,7 @@
 //! |-------|--------|
 //! | Air (0x03) | `tas_mps f32`, NaN-absent (12 to 16 bytes) |
 //! | Dynamics (0x0B) | `ias_trend f32` (d(IAS)/dt), NaN-absent, plus Trust valid bit 9 (16 to 20 bytes) |
-//! | Nav (0x04) | `scale_mode u8` (Enroute/Terminal/Approach, 255 fail-closed Unknown) and `facility_type u8`, both after `age_ms` |
+//! | Nav (0x04) | `scale_mode u8` (Enroute/Terminal/Approach, 255 fail-closed Unknown) and `facility_type u8`, both after the group's existing tail (42 to 43 to 44 bytes) |
 
 use crate::aircraft::AircraftState;
 use crate::signal::SignalStatus;

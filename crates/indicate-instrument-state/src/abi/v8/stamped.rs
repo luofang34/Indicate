@@ -15,7 +15,7 @@
 //! | attitude | quat w x y z f32×4; rates p q r f32×3; age f32 | 32 |
 //! | kinematics | pos NED f32×3; vel NED f32×3; age f32 | 28 |
 //! | air | ias f32; baro f32; age f32; tas f32 | 16 |
-//! | nav | source u8; fromto u8; course ref u8; 0; course f32; cdi f32; vdev f32; dist f32; age f32; to ident 9; from ident 9 | 42 |
+//! | nav | source u8; fromto u8; course ref u8; 0; course f32; cdi f32; vdev f32; dist f32; age f32; to ident 9; from ident 9; scale u8 | 43 |
 //! | wind | from f32; speed f32; age f32 | 12 |
 //! | heading | reference u8; 0×3; heading f32; age f32 | 12 |
 //! | variation | source u8; 0×3; east f32; age f32 | 12 |
@@ -165,6 +165,7 @@ pub(super) fn decode_nav(state: &mut AircraftState, p: &[u8]) {
     state.nav = Stamped {
         data: age.map(|_| NavData {
             source,
+            scale: crate::aircraft::NavScale::from_u8(get_u8(p, 42)),
             course_rad: get_f32(p, 4),
             cdi_dots: get_f32(p, 8),
             fromto,
@@ -182,7 +183,7 @@ pub(super) fn encode_nav(state: &AircraftState, out: &mut [u8]) -> Result<Option
     if absent(&state.nav) {
         return Ok(None);
     }
-    let p = sized(out, 42)?;
+    let p = sized(out, 43)?;
     let nav = state.nav.data.unwrap_or_default();
     put_u8(
         p,
@@ -218,7 +219,8 @@ pub(super) fn encode_nav(state: &AircraftState, out: &mut [u8]) -> Result<Option
     if let Some(dst) = p.get_mut(33..42) {
         dst.copy_from_slice(&nav.from_ident.to_wire());
     }
-    Ok(Some(42))
+    put_u8(p, 42, nav.scale.to_u8());
+    Ok(Some(43))
 }
 
 pub(super) fn decode_wind(state: &mut AircraftState, p: &[u8]) {
