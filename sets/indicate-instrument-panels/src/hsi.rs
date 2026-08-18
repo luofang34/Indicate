@@ -85,6 +85,9 @@ pub fn draw_hsi(
         && data.nav.course_rose_rad.status.shows_value()
     {
         cdi::draw_cdi(scene, &data.nav, up_rad)?;
+        // The receiver label draws under the needle's own gate, so the
+        // two appear and disappear in the same frame.
+        cdi::draw_receiver_label(scene, data.nav.data.source)?;
     }
     boxes::vertical_deviation(scene, data)?;
     scene.end_layer(LayerId::Guidance)?;

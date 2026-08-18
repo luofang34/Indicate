@@ -283,7 +283,7 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     ],
     raster_baselines: &[(
         BUILTIN_FRAME,
-        "66653ce135e6f2163fa48d805a0ab1a8f3d0ac51d778f7b1eb2aa4ec05bfbb7c",
+        "efb15b50cb011c499c075b3eb54948d77a89b74b9e2321add75d8922f4b25b7b",
     )],
     draw: draw_hsi_panel,
 };
@@ -365,7 +365,7 @@ pub const BUILTIN_SET: PanelSet = PanelSet {
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "34d1d7fe1a8118411a0dd5fbe8deced7ed0814c8ce778afc38c97602bc7ec43b";
+    "5cded14978b2e5ba3a17b61959ed0b35061334adf3fde4242f47e214f0f07aef";
 
 /// The measured criticality bands of [`BUILTIN_PANELS`], pinned beside
 /// the raster baselines: the union `Annunciation`/`Failure` ink bound
