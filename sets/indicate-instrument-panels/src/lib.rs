@@ -1,5 +1,5 @@
-//! The shipped panels — PFD, HSI, and monitor — as pure state→scene
-//! functions (ADR-0017).
+//! The shipped panels — PFD, HSI, autoflight annunciator, and monitor —
+//! as pure state→scene functions (ADR-0017).
 //!
 //! Each panel is a function from resolved display state
 //! ([`indicate_instrument_state::PanelData`]) and a logical frame to
@@ -22,6 +22,7 @@ extern crate std;
 
 #[cfg(test)]
 mod alert_stack_tests;
+mod autoflight;
 mod descriptors;
 mod hsi;
 mod monitor;
@@ -29,9 +30,10 @@ mod pfd;
 
 use indicate_instrument_descriptor::DesignFrame;
 
+pub use autoflight::draw_autoflight;
 pub use descriptors::{
-    BUILTIN_CRITICALITY_BANDS, BUILTIN_PANELS, BUILTIN_SCENE_DIGEST, BUILTIN_SET, HSI_DESCRIPTOR,
-    MONITOR_DESCRIPTOR, PFD_DESCRIPTOR,
+    AUTOFLIGHT_DESCRIPTOR, BUILTIN_CRITICALITY_BANDS, BUILTIN_PANELS, BUILTIN_SCENE_DIGEST,
+    BUILTIN_SET, HSI_DESCRIPTOR, MONITOR_DESCRIPTOR, PFD_DESCRIPTOR,
 };
 pub use hsi::draw_hsi;
 pub use monitor::draw_monitor;

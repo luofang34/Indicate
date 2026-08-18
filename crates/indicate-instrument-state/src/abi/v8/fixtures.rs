@@ -194,6 +194,27 @@ pub fn full() -> AircraftState {
         variation: variation(0.15, 3, 120.0),
         dynamics: dynamics(0.05, TurnBasis::HeadingRate, 0.3, 85.0),
         monitor_text: stamped(monitor(9, &["ENG 1 OK", "FUEL 82.5"]), 500.0),
+        // Five distinct wire bytes: a codec that read one mode slot
+        // where another lives would otherwise produce a byte-identical
+        // golden frame and annunciate the wrong axis or the wrong tense.
+        ap_modes: stamped(
+            crate::autopilot::ApModes {
+                engagement: crate::autopilot::ApEngagement::Autopilot,
+                lateral_active: crate::autopilot::LateralMode::Roll,
+                lateral_armed: crate::autopilot::LateralMode::Approach,
+                vertical_active: crate::autopilot::VerticalMode::GlideSlope,
+                vertical_armed: crate::autopilot::VerticalMode::AltitudeCapture,
+            },
+            80.0,
+        ),
+        ap_targets: crate::autopilot::ApTargets {
+            airspeed_mps: Some(61.0),
+            vertical_speed_mps: Some(2.5),
+            altitude_m: Some(1200.0),
+            altitude_class: AltitudeClass::LocalRelative,
+            altitude_origin: OriginId(7),
+            altitude_model: GeoidModelId::UNDECLARED,
+        },
     }
 }
 

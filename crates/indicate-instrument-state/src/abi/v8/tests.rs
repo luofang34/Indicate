@@ -11,7 +11,7 @@ use crate::group_id::GroupId;
 use crate::validate::{GroupFault, validate_state};
 use std::vec::Vec;
 
-fn encode(state: &AircraftState) -> Vec<u8> {
+pub(super) fn encode(state: &AircraftState) -> Vec<u8> {
     let mut buf = [0u8; CAPACITY];
     let len = encode_state(state, &mut buf).expect("fixture fits");
     buf[..len].to_vec()
@@ -218,7 +218,7 @@ fn encode_refuses_a_buffer_too_small() {
 }
 
 /// Byte offset of the payload of `tag` inside a canonical frame.
-fn locate_payload(frame: &[u8], tag: u8) -> Option<usize> {
+pub(super) fn locate_payload(frame: &[u8], tag: u8) -> Option<usize> {
     let count = *frame.get(1)?;
     let mut offset = 2usize;
     for _ in 0..count {

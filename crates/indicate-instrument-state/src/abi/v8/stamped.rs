@@ -20,6 +20,7 @@
 //! | heading | reference u8; 0×3; heading f32; age f32 | 12 |
 //! | variation | source u8; 0×3; east f32; age f32 | 12 |
 //! | dynamics | basis u8; 0×3; turn f32; lateral f32; age f32 | 16 |
+//! | ap modes | engagement u8; lateral active u8; lateral armed u8; vertical active u8; vertical armed u8; 0×3; age f32 | 12 |
 
 use super::{AbiError, get_f32, get_u8, put_f32, put_u8};
 use crate::abi::{opt, or_nan};
@@ -388,4 +389,45 @@ pub(super) fn encode_director(
     put_f32(p, 8, director.roll_cmd_rad);
     put_f32(p, 12, or_nan(state.director.age_ms));
     Ok(Some(16))
+}
+
+/// Autoflight-mode payload (12 bytes): engagement u8, active and armed
+/// lateral mode u8, active and armed vertical mode u8, three reserved
+/// zero bytes, age f32. Any byte this build cannot name decodes to its
+/// fail-closed `Unknown`, which fails the group rather than
+/// annunciating a mode nobody can act on.
+pub(super) fn decode_ap_modes(state: &mut AircraftState, p: &[u8]) {
+    use crate::autopilot::{ApEngagement, ApModes, LateralMode, VerticalMode};
+    let age = opt(get_f32(p, 8));
+    state.ap_modes = Stamped {
+        data: age.map(|_| ApModes {
+            engagement: ApEngagement::from_u8(get_u8(p, 0)),
+            lateral_active: LateralMode::from_u8(get_u8(p, 1)),
+            lateral_armed: LateralMode::from_u8(get_u8(p, 2)),
+            vertical_active: VerticalMode::from_u8(get_u8(p, 3)),
+            vertical_armed: VerticalMode::from_u8(get_u8(p, 4)),
+        }),
+        age_ms: age,
+    };
+}
+
+pub(super) fn encode_ap_modes(
+    state: &AircraftState,
+    out: &mut [u8],
+) -> Result<Option<usize>, AbiError> {
+    if absent(&state.ap_modes) {
+        return Ok(None);
+    }
+    let p = sized(out, 12)?;
+    let modes = state.ap_modes.data.unwrap_or_default();
+    put_u8(p, 0, modes.engagement.to_u8());
+    put_u8(p, 1, modes.lateral_active.to_u8());
+    put_u8(p, 2, modes.lateral_armed.to_u8());
+    put_u8(p, 3, modes.vertical_active.to_u8());
+    put_u8(p, 4, modes.vertical_armed.to_u8());
+    put_u8(p, 5, 0);
+    put_u8(p, 6, 0);
+    put_u8(p, 7, 0);
+    put_f32(p, 8, or_nan(state.ap_modes.age_ms));
+    Ok(Some(12))
 }

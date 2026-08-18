@@ -7,12 +7,13 @@
 //! so a shell consumes composition data and never holds a panel list,
 //! index, or mask of its own.
 
+mod criticality_bands;
 mod extreme_states;
 
 use indicate_alerts::AlertOutput;
 use indicate_instrument_descriptor::{
-    BackgroundCapability, ConfigBlob, CriticalityBands, DesignFrame, ExtremeState, GroupSet,
-    PanelCriticality, PanelDescriptor, PanelDrawError, PanelSet, Region,
+    BackgroundCapability, ConfigBlob, DesignFrame, ExtremeState, GroupSet, PanelDescriptor,
+    PanelDrawError, PanelSet, Region,
 };
 use indicate_instrument_scene::{LayerId, SceneWriter};
 use indicate_instrument_state::{GroupId, PanelData};
@@ -351,9 +352,88 @@ pub const MONITOR_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     draw: draw_monitor_panel,
 };
 
+fn draw_autoflight_panel(
+    data: &PanelData,
+    config: &ConfigBlob<'_>,
+    alerts: Option<&AlertOutput>,
+    frame: DesignFrame,
+    scene: &mut SceneWriter<'_>,
+) -> Result<(), PanelDrawError> {
+    config.require_schema(AUTOFLIGHT_DESCRIPTOR.config_schema)?;
+    crate::autoflight::draw_autoflight(data, alerts, frame, scene)?;
+    Ok(())
+}
+
+/// The autoflight annunciator (AIR-IN-015): what the automation holds
+/// now, what it is armed to hold next, and the values it flies toward.
+///
+/// A surface of its own rather than a band inside the PFD: the PFD
+/// already annunciates the flight director's mode, and a second mode
+/// vocabulary competing for the same strip would leave a reader
+/// deciding which annunciation answers which question.
+pub const AUTOFLIGHT_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
+    id: "autoflight",
+    title: "Autoflight",
+    required_layers: layer_bit(LayerId::Tapes) | layer_bit(LayerId::Annunciation),
+    required_groups: GroupSet::of(&[GroupId::ApModes, GroupId::ApTargets]),
+    frame_min: BUILTIN_FRAME,
+    frame_max: BUILTIN_FRAME,
+    frame_step: FRAME_STEP,
+    aspect_min: ASPECT_MIN,
+    aspect_max: ASPECT_MAX,
+    canonical_frames: CANONICAL_FRAMES,
+    // The panel owns its band with an opaque ground: annunciation text
+    // needs one, and declaring anything weaker would hand a compositor
+    // a black rectangle it was told is not painted.
+    background: BackgroundCapability::Opaque,
+    config_schema: &[],
+    group_regions: &[
+        // The mode band: with the group withheld the band carries the
+        // column headings and no mode, never a mode nobody sent.
+        (
+            GroupId::ApModes,
+            Region {
+                x: 0.0,
+                y: 50.0,
+                width: 480.0,
+                height: 80.0,
+            },
+        ),
+        // The target rows: withheld, they dash.
+        (
+            GroupId::ApTargets,
+            Region {
+                x: 140.0,
+                y: 170.0,
+                width: 150.0,
+                height: 120.0,
+            },
+        ),
+    ],
+    extreme_states: &[
+        ExtremeState {
+            id: "modes-and-targets",
+            build: extreme_states::autoflight_engaged,
+        },
+        ExtremeState {
+            id: "target-against-another-datum",
+            build: extreme_states::autoflight_incomparable_target,
+        },
+    ],
+    raster_baselines: &[(
+        BUILTIN_FRAME,
+        "fbc6d9448f9e73fc736a82059afe796d0853c31610c4d8360111a1d150976ead",
+    )],
+    draw: draw_autoflight_panel,
+};
+
 /// The panels this crate ships, in shell display order.
-pub const BUILTIN_PANELS: &[PanelDescriptor] =
-    &[PFD_DESCRIPTOR, HSI_DESCRIPTOR, MONITOR_DESCRIPTOR];
+pub const BUILTIN_PANELS: &[PanelDescriptor] = &[
+    PFD_DESCRIPTOR,
+    HSI_DESCRIPTOR,
+    AUTOFLIGHT_DESCRIPTOR,
+    MONITOR_DESCRIPTOR,
+];
 
 /// The panels this crate ships, as the set a shell names.
 ///
@@ -375,64 +455,9 @@ pub const BUILTIN_SET: PanelSet = PanelSet {
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "add8e694ff3e9ee2321f63f40e3f590d26dac5f6ddb9eec00ec876c7cac7573c";
+    "605efe59ed47202b68c47c13f33b2bf662592be5228b2305442303ea705a64a2";
 
-/// The measured criticality bands of [`BUILTIN_PANELS`], pinned beside
-/// the raster baselines: the union `Annunciation`/`Failure` ink bound
-/// per panel × canonical frame, over the whole canonical × extreme ×
-/// withheld × alerted case matrix. A screen composition validates its
-/// obscuration against these.
-///
-/// The alert axis is what makes these honest. A composed frame fans one
-/// `AlertOutput` to every slot, and all three panels draw the shared
-/// alert stack into `Annunciation`; a band measured only on quiet
-/// frames would exclude every alert row and licence covering warnings.
-/// Each band below therefore reaches y 352, the stack's bottom row.
-///
-/// A shell holds this as data. The admission harness re-derives the
-/// same values from the emitted scenes and its test refuses a
-/// disagreement, so a paint change that moves a warning moves the pin
-/// deliberately rather than silently widening what may be covered.
-///
-/// Read the monitor's band for what it is: the alert stack, and only
-/// that. Its own `MON` flag and full-frame failure X are gated on a
-/// channel status no corpus or extreme state produces, so they were
-/// never drawn and are not in the bound. A set that wants them
-/// protected contributes a state that drives them.
-pub const BUILTIN_CRITICALITY_BANDS: CriticalityBands = CriticalityBands {
-    panels: &[
-        PanelCriticality {
-            panel: "pfd",
-            frame: BUILTIN_FRAME,
-            band: Some(Region {
-                x: 6.0,
-                y: 38.0,
-                width: 468.0,
-                height: 314.0,
-            }),
-        },
-        PanelCriticality {
-            panel: "hsi",
-            frame: BUILTIN_FRAME,
-            band: Some(Region {
-                x: 98.0,
-                y: 48.0,
-                width: 284.0,
-                height: 304.0,
-            }),
-        },
-        PanelCriticality {
-            panel: "monitor",
-            frame: BUILTIN_FRAME,
-            band: Some(Region {
-                x: 100.0,
-                y: 276.0,
-                width: 90.85715,
-                height: 76.0,
-            }),
-        },
-    ],
-};
+pub use criticality_bands::BUILTIN_CRITICALITY_BANDS;
 
 #[cfg(test)]
 mod digest_tests;

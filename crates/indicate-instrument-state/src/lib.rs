@@ -29,6 +29,7 @@ extern crate std;
 pub mod abi;
 mod aircraft;
 mod altitude;
+mod autopilot;
 mod director;
 mod dynamics;
 mod group_id;
@@ -48,6 +49,7 @@ pub use aircraft::{
     Selections, SnapshotCoherence, SnapshotMeta, Stamped, ValidFlags, Wind,
 };
 pub use altitude::{AltitudeClass, AltitudeDeclaration, AltitudeReference, GeoidModelId, OriginId};
+pub use autopilot::{ApEngagement, ApModes, ApTargets, LateralMode, VerticalMode};
 pub use director::{FdEngagement, FdMode, FdSample};
 pub use dynamics::{DynSample, TurnBasis, TurnSample};
 pub use group_id::{GroupId, GroupStatuses, withhold_group};
@@ -63,8 +65,8 @@ pub use presentation::{
     ProfileLimits, UnusualAttitudeState, down_in_body,
 };
 pub use resolve::{
-    BARO_SETTING_TOLERANCE_HPA, NavResolved, PanelData, ResolvedAltitude, ResolvedDirector,
-    ResolvedHeading, RoseBasis, resolve, resolve_stateful,
+    ApTargetsResolved, BARO_SETTING_TOLERANCE_HPA, NavResolved, PanelData, ResolvedAltitude,
+    ResolvedDirector, ResolvedHeading, RoseBasis, resolve, resolve_stateful,
 };
 pub use signal::{FreshnessPolicy, PolicyError, Sig, SignalStatus};
 pub use source_compare::{

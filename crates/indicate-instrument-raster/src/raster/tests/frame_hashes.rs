@@ -1,6 +1,6 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_instrument_panels::{BUILTIN_PANELS, PfdConfig, draw_hsi, draw_pfd};
+use indicate_instrument_panels::{BUILTIN_PANELS, PfdConfig, draw_autoflight, draw_hsi, draw_pfd};
 use indicate_instrument_registry::DesignFrame;
 use indicate_instrument_scene::{MAX_SCENE_BYTES, SceneWriter};
 use indicate_instrument_state::{AircraftState, FreshnessPolicy, resolve};
@@ -111,6 +111,21 @@ fn hsi_frame_hash_is_reproducible_and_pinned() {
             "HSI frame is bit-reproducible across renders"
         );
         assert_eq!(sha_hex(&first), pinned_baseline("hsi", *at));
+    }
+}
+
+#[test]
+fn autoflight_frame_hash_is_reproducible_and_pinned() {
+    let data = resolve(&demo_state(), &FreshnessPolicy::default());
+    for at in canonical_frames("autoflight") {
+        let scene = encode(|w| draw_autoflight(&data, None, *at, w).expect("autoflight"));
+        let first = frame(&scene, *at);
+        let second = frame(&scene, *at);
+        assert_eq!(
+            first, second,
+            "autoflight frame is bit-reproducible across renders"
+        );
+        assert_eq!(sha_hex(&first), pinned_baseline("autoflight", *at));
     }
 }
 

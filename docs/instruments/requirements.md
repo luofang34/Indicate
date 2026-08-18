@@ -169,6 +169,18 @@ revision; malformed content shall fail the channel visibly rather than
 display, and the channel shall never substitute for, obscure, or imply any
 flight-data function.
 
+<a id="air-in-015"></a>
+### AIR-IN-015 — Autoflight mode and target input
+
+Autoflight engagement, the active and armed mode of each axis, and the values
+the automation flies toward shall be received from the automation itself and
+shall declare source identity, source time, and quality. A mode value the
+display cannot name shall fail its group, and an engagement or mode shall
+never be inferred from guidance, deviation, or aircraft motion. A target
+altitude shall declare the same reference identity its class requires, and a
+target whose identity does not match the displayed datum shall not be
+presented as comparable to it.
+
 ## Outputs and functions
 
 <a id="air-out-001"></a>

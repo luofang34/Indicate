@@ -4,10 +4,11 @@
 //! [`crate::ExtremeState`]; these are the floor every panel meets.
 
 use indicate_instrument_state::{
-    AirData, AircraftState, AltitudeDeclaration, Attitude, DynSample, EstimateQuality,
-    HeadingReference, HeadingSample, IdentStr, Kinematics, MonitorText, NavData, NavFromTo,
-    NavSource, Quat, Selections, SnapshotCoherence, SnapshotMeta, Stamped, TextLine, TurnBasis,
-    TurnSample, ValidFlags, Wind,
+    AirData, AircraftState, AltitudeClass, AltitudeDeclaration, ApEngagement, ApModes, ApTargets,
+    Attitude, DynSample, EstimateQuality, GeoidModelId, HeadingReference, HeadingSample, IdentStr,
+    Kinematics, LateralMode, MonitorText, NavData, NavFromTo, NavSource, Quat, Selections,
+    SnapshotCoherence, SnapshotMeta, Stamped, TextLine, TurnBasis, TurnSample, ValidFlags,
+    VerticalMode, Wind,
 };
 
 /// One shared corpus entry.
@@ -124,6 +125,8 @@ pub fn typical() -> AircraftState {
         dynamics: typical_dynamics(),
         director: Stamped::default(),
         monitor_text: Stamped::default(),
+        ap_modes: Stamped::default(),
+        ap_targets: ApTargets::default(),
     }
 }
 
@@ -200,6 +203,28 @@ pub fn fully_fed() -> AircraftState {
     state.monitor_text = Stamped {
         data: Some(monitor(7, &["ENG 1 OK", "FUEL 82.5"])),
         age_ms: Some(500.0),
+    };
+    state.ap_modes = Stamped {
+        data: Some(ApModes {
+            engagement: ApEngagement::Autopilot,
+            lateral_active: LateralMode::Heading,
+            lateral_armed: LateralMode::Nav,
+            vertical_active: VerticalMode::VerticalSpeed,
+            vertical_armed: VerticalMode::AltitudeCapture,
+        }),
+        age_ms: Some(40.0),
+    };
+    // The target shares the declared altitude's complete identity, so
+    // the readout is comparable to the altitude beside it. A state named
+    // fully-fed that fed an incomparable target would be feeding the
+    // display something it must refuse.
+    state.ap_targets = ApTargets {
+        airspeed_mps: Some(61.0),
+        vertical_speed_mps: Some(2.5),
+        altitude_m: Some(1200.0),
+        altitude_class: AltitudeClass::LocalRelative,
+        altitude_origin: state.altitude.origin,
+        altitude_model: GeoidModelId::UNDECLARED,
     };
     state
 }

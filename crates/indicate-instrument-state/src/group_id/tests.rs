@@ -28,10 +28,10 @@ fn unassigned_tags_do_not_resolve() {
 
 #[test]
 fn reserved_and_allocated_tags_have_no_status_slot_yet() {
-    // 0x0E–0x11 are planned and 0x12–0x15 are allocated with their
+    // 0x0E–0x11 are planned and 0x12–0x13 are allocated with their
     // layouts fixed, but neither has a variant. Until one lands, no such
     // tag resolves to a variant, so none can key a `GroupStatuses` slot.
-    for value in 0x0Eu8..=0x15 {
+    for value in 0x0Eu8..=0x13 {
         assert_eq!(GroupId::from_u8(value), None, "tag {value:#04x}");
     }
 }
@@ -45,25 +45,20 @@ fn index_is_dense_over_all() {
 
 #[test]
 fn the_highest_tag_maps_to_the_last_slot() {
-    // Says only what it can say while every assigned id is contiguous:
-    // `tag - 1` gives these same answers, so this does not distinguish
-    // the match from arithmetic. The test below is what would catch the
-    // arithmetic.
-    assert_eq!(GroupId::FlightDirector.to_u8(), 0x0D);
-    assert_eq!(GroupId::FlightDirector.index(), GroupId::COUNT - 1);
+    assert_eq!(GroupId::ApTargets.to_u8(), 0x15);
+    assert_eq!(GroupId::ApTargets.index(), GroupId::COUNT - 1);
 }
 
 #[test]
 fn wire_tag_arithmetic_would_index_past_the_table() {
-    // The next id the registry allocates is not the next tag after the
-    // last variant, so the first allocation to gain a variant makes
-    // `tag - 1` index past a `[SignalStatus; COUNT]` table. `index()` is
-    // a match for this reason; this test fails if a future allocation
-    // ever makes the arithmetic safe again, at which point the reason
-    // has to be restated rather than silently lost.
-    const NEXT_ALLOCATED: u8 = 0x12;
-    assert_eq!(GroupId::from_u8(NEXT_ALLOCATED), None, "still variantless");
-    let arithmetic_slot = usize::from(NEXT_ALLOCATED) - 1;
+    // The assigned tags are not contiguous: a tag skipped over the
+    // planned range makes `tag - 1` index past a `[SignalStatus;
+    // COUNT]` table. `index()` is a match for this reason. This test
+    // fails if a later allocation fills the gaps and makes the
+    // arithmetic safe again, at which point the reason has to be
+    // restated rather than silently lost.
+    let highest = GroupId::ALL[GroupId::COUNT - 1];
+    let arithmetic_slot = usize::from(highest.to_u8()) - 1;
     assert!(
         arithmetic_slot >= GroupId::COUNT,
         "slot {arithmetic_slot} from tag arithmetic is still inside a \
@@ -86,6 +81,7 @@ fn withholding_a_stamped_group_resolves_missing() {
         GroupId::Variation,
         GroupId::Dynamics,
         GroupId::MonitorText,
+        GroupId::ApModes,
     ] {
         let withheld = withhold_group(&full, group);
         let data = crate::resolve(&withheld, &policy);
@@ -107,6 +103,26 @@ fn withholding_is_idempotent_and_leaves_other_groups_fed() {
     assert!(once.nav.data.is_some());
     assert!(once.air.data.is_none());
     assert_eq!(once.air.age_ms, None);
+}
+
+/// The declared lane carries no sample to take away, so withholding is
+/// a return to the fail-closed default: every target absent, and an
+/// altitude identity that is incomplete rather than plausible.
+#[test]
+fn withholding_declared_targets_returns_the_fail_closed_default() {
+    let full = fixtures::full();
+    let withheld = withhold_group(&full, GroupId::ApTargets);
+    assert_eq!(withheld.ap_targets, Default::default());
+    assert!(
+        full.ap_targets != Default::default(),
+        "the fixture must feed the group, or this proves nothing"
+    );
+    let data = crate::resolve(&withheld, &FreshnessPolicy::default());
+    assert_eq!(
+        data.ap_targets.altitude_ft.status,
+        SignalStatus::Missing,
+        "a withheld target readout must not show a value"
+    );
 }
 
 #[test]

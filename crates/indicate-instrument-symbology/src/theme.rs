@@ -28,7 +28,10 @@
 //!   stay legible over any horizon — no theme can fade symbology
 //!   toward invisibility.
 //! - **Source identity**: GPS and radio-nav guidance colors must stay
-//!   [`SAFETY_DISTANCE_MIN`] apart — source class survives theming.
+//!   [`SAFETY_DISTANCE_MIN`] apart — source class survives theming. The
+//!   active-mode color keeps the same distance from both, because a
+//!   mode annunciation that wears a guidance color says a receiver is
+//!   guiding when what it names is an automation state.
 //!
 //! The thresholds are an explicit assurance decision, not an emergent
 //! property of the defaults.
@@ -81,6 +84,10 @@ pub struct Theme {
     pub selection: Rgba8,
     /// Normal-range band on the speed tape.
     pub band_normal: Rgba8,
+    /// The autoflight mode in control now. Armed modes wear
+    /// [`crate::safety::ANNUNCIATION_WHITE`] instead, which is not
+    /// themable: the active/armed distinction survives any theme.
+    pub mode_active: Rgba8,
 }
 
 impl Theme {
@@ -98,9 +105,10 @@ impl Theme {
         radio_nav: Rgba8::rgb(0, 255, 0),
         selection: Rgba8::rgb(0, 255, 255),
         band_normal: Rgba8::rgb(0, 160, 0),
+        mode_active: crate::palette::MODE_ACTIVE,
     };
 
-    const fn all(&self) -> [(&'static str, Rgba8); 11] {
+    const fn all(&self) -> [(&'static str, Rgba8); 12] {
         // Exhaustive destructuring: a new field fails to compile until
         // it joins the validated list.
         let Theme {
@@ -115,6 +123,7 @@ impl Theme {
             radio_nav,
             selection,
             band_normal,
+            mode_active,
         } = *self;
         [
             ("sky", sky),
@@ -128,6 +137,7 @@ impl Theme {
             ("radio_nav", radio_nav),
             ("selection", selection),
             ("band_normal", band_normal),
+            ("mode_active", mode_active),
         ]
     }
 }
@@ -178,6 +188,12 @@ pub enum ThemeError {
     /// GPS and radio-nav guidance colors are not distinguishable.
     #[error("gps and radio_nav colors are not distinguishable")]
     IndistinctSourceColors,
+    /// The active-mode color would read as a guidance source.
+    #[error("mode_active is not distinguishable from the {guidance} guidance color")]
+    ModeColorImitatesSource {
+        /// The guidance color it approaches.
+        guidance: &'static str,
+    },
 }
 
 /// The largest per-channel RGB difference (alpha excluded).
@@ -301,6 +317,11 @@ impl ValidTheme {
         }
         if max_channel_distance(theme.gps, theme.radio_nav) < SAFETY_DISTANCE_MIN {
             return Err(ThemeError::IndistinctSourceColors);
+        }
+        for (guidance, color) in [("gps", theme.gps), ("radio_nav", theme.radio_nav)] {
+            if max_channel_distance(theme.mode_active, color) < SAFETY_DISTANCE_MIN {
+                return Err(ThemeError::ModeColorImitatesSource { guidance });
+            }
         }
         Ok(ValidTheme(theme))
     }

@@ -53,17 +53,19 @@ own change onto this version before it is released, so the number names
 exactly one wire format. The registry table in `group_id.rs` records the
 agreed allocations and is the layout contract for the batch.
 
-This release carries the first of them: true airspeed on the Air group.
+This release carries the allocations that have landed so far: true
+airspeed on the Air group, and the two autoflight groups.
 
 | Value | This release |
 |---|---|
 | State ABI | 8 |
 | Scene format | 1 |
 | Corpus | 4 |
-| Composition digest | `add8e694ff3e9ee2321f63f40e3f590d26dac5f6ddb9eec00ec876c7cac7573c` |
-| Panel set | `pfd`, `hsi`, `monitor` |
+| Composition digest | `605efe59ed47202b68c47c13f33b2bf662592be5228b2305442303ea705a64a2` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
 
-Panel set changed since the previous release: no.
+Panel set changed since the previous release: yes — the autoflight
+annunciator joins the set.
 
 ### State ABI v8 ([#58](https://github.com/luofang34/Indicate/issues/58))
 
@@ -89,6 +91,21 @@ Panel set changed since the previous release: no.
   [#55](https://github.com/luofang34/Indicate/issues/55)). Each append
   goes after the trailing `age_ms`. An older decoder accepts the longer
   payload and counts the tail.
+- **0x14 ApModes is a stamped group of 12 bytes.** Engagement, active
+  and armed lateral mode, active and armed vertical mode, three
+  reserved zero bytes, then the trailing `age_ms`. Each byte this build
+  cannot name decodes to its fail-closed `Unknown`, and one unknown
+  fails the whole group: annunciating the modes that did decode would
+  say the unreadable axis is holding nothing, which nobody claimed. The
+  group is stamped because an annunciation that outlives its source
+  says the automation is doing something it stopped doing.
+- **0x15 ApTargets is a declared group of 20 bytes.** Target airspeed,
+  the altitude target with the same reference-identity trio as the
+  selected altitude (class, geoid model, origin), and target vertical
+  speed. The layout mirrors the selections layout field for field. An
+  altitude target whose identity does not match the displayed datum is
+  withheld rather than drawn: a number the pilot could read against the
+  wrong datum is worse than no number.
 - **Group-status indexing no longer assumes contiguous ids.**
   `GroupStatuses` was a dense table keyed by `tag - 1`. The batch
   allocates 0x12 to 0x15 while 0x0E to 0x11 stay reserved, so the
@@ -109,6 +126,21 @@ Panel set changed since the previous release: no.
   failure looks like total signal loss rather than one short group. Emit
   the 16-byte payload, with a NaN in the true-airspeed slot when the
   source has none.
+- **The panel set gains the autoflight annunciator, which moves the
+  composition digest and the screen-composition digest.** A surface of
+  its own rather than a band inside the PFD: the PFD already
+  annunciates the flight director's mode, and a second mode vocabulary
+  competing for the same strip would leave a reader deciding which
+  annunciation answers which question. The shared `typical` state does
+  not feed the new groups, matching the posture — no feeder publishes
+  autoflight data — so the panel's pinned raster baseline is its
+  unfed presentation, and the panel's own extreme states carry the
+  engaged case.
+- **`Theme` gains `mode_active`, and a theme validation rule with it.**
+  The active-mode color must stay the same distance from both guidance
+  colors that those two must keep from each other. A mode annunciation
+  wearing the radio-nav green would say a receiver is guiding when what
+  it names is an automation state.
 - **The speed tape starts 25 units lower.** The true-airspeed box is
   opaque and owns the strip above the tape, so the tape no longer paints
   under it. The visible speed range above the pointer shrinks by about

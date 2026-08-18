@@ -7,7 +7,9 @@ use indicate_instrument_descriptor::{PanelDescriptor, PanelSet};
 use indicate_instrument_registry::{Registry, scene_digest};
 use indicate_instrument_scene::MAX_SCENE_BYTES;
 
-use super::{BUILTIN_PANELS, HSI_DESCRIPTOR, MONITOR_DESCRIPTOR, PFD_DESCRIPTOR};
+use super::{
+    AUTOFLIGHT_DESCRIPTOR, BUILTIN_PANELS, HSI_DESCRIPTOR, MONITOR_DESCRIPTOR, PFD_DESCRIPTOR,
+};
 
 fn hex(digest: [u8; 32]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
@@ -64,7 +66,7 @@ fn regrouping_panels_without_reordering_them_is_digest_neutral() {
     };
     static TAIL: PanelSet = PanelSet {
         id: "tail",
-        panels: &[HSI_DESCRIPTOR, MONITOR_DESCRIPTOR],
+        panels: &[HSI_DESCRIPTOR, AUTOFLIGHT_DESCRIPTOR, MONITOR_DESCRIPTOR],
     };
     static SPLIT: [&PanelSet; 2] = [&HEAD, &TAIL];
     let registry = Registry::from_sets(&SPLIT).expect("composes");

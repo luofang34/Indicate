@@ -119,6 +119,8 @@ const fn min_len(id: GroupId) -> usize {
         GroupId::Dynamics => 16,
         GroupId::MonitorText => monitor::MONITOR_LEN,
         GroupId::FlightDirector => 16,
+        GroupId::ApModes => 12,
+        GroupId::ApTargets => 20,
     }
 }
 
@@ -139,6 +141,8 @@ fn decode_group(state: &mut AircraftState, id: GroupId, payload: &[u8]) {
         GroupId::Dynamics => stamped::decode_dynamics(state, payload),
         GroupId::MonitorText => monitor::decode_monitor_text(state, payload),
         GroupId::FlightDirector => stamped::decode_director(state, payload),
+        GroupId::ApModes => stamped::decode_ap_modes(state, payload),
+        GroupId::ApTargets => declared::decode_ap_targets(state, payload),
     }
 }
 
@@ -164,6 +168,8 @@ fn encode_group(
         GroupId::Dynamics => stamped::encode_dynamics(state, out),
         GroupId::MonitorText => monitor::encode_monitor_text(state, out),
         GroupId::FlightDirector => stamped::encode_director(state, out),
+        GroupId::ApModes => stamped::encode_ap_modes(state, out),
+        GroupId::ApTargets => declared::encode_ap_targets(state, out),
     }
 }
 
@@ -289,6 +295,8 @@ pub(super) fn put_u32(payload: &mut [u8], off: usize, value: u32) {
     }
 }
 
+#[cfg(test)]
+mod autoflight_tests;
 #[cfg(test)]
 mod fixture_tests;
 #[cfg(test)]
