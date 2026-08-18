@@ -130,6 +130,30 @@ fn selections_fault(selections: &Selections) -> Option<GroupFault> {
 /// faults. Absent groups pass (their absence resolves `Missing`); the
 /// deterministic worst-of combination in `resolve` folds these faults
 /// into each signal's status.
+/// The nav group's own fault, if it has one.
+///
+/// An unknown scale fails with the other unknown enumerations: the
+/// deflection is in dots, and a dot means nothing until the scale says
+/// what it is worth.
+fn nav_fault(nav: &crate::aircraft::NavData) -> Option<GroupFault> {
+    if matches!(nav.source, NavSource::Unknown)
+        || matches!(nav.fromto, NavFromTo::Unknown)
+        || matches!(nav.scale, crate::aircraft::NavScale::Unknown)
+    {
+        return Some(GroupFault::UnknownEnum);
+    }
+    if nav.to_ident.is_invalid() || nav.from_ident.is_invalid() {
+        return Some(GroupFault::MalformedIdent);
+    }
+    if !(all_finite(&[nav.course_rad, nav.cdi_dots])
+        && opt_finite(nav.vdev_dots)
+        && opt_finite(nav.dist_nm))
+    {
+        return Some(GroupFault::NonFinite);
+    }
+    None
+}
+
 pub fn validate_state(state: &AircraftState) -> StateIntegrity {
     let mut integrity = StateIntegrity::default();
 
@@ -159,22 +183,7 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
         integrity.air = Some(GroupFault::NonFinite);
     }
     if let Some(nav) = &state.nav.data {
-        // An unknown scale fails with the other unknown enumerations:
-        // the deflection is in dots, and a dot means nothing until the
-        // scale says what it is worth.
-        if matches!(nav.source, NavSource::Unknown)
-            || matches!(nav.fromto, NavFromTo::Unknown)
-            || matches!(nav.scale, crate::aircraft::NavScale::Unknown)
-        {
-            integrity.nav = Some(GroupFault::UnknownEnum);
-        } else if nav.to_ident.is_invalid() || nav.from_ident.is_invalid() {
-            integrity.nav = Some(GroupFault::MalformedIdent);
-        } else if !(all_finite(&[nav.course_rad, nav.cdi_dots])
-            && opt_finite(nav.vdev_dots)
-            && opt_finite(nav.dist_nm))
-        {
-            integrity.nav = Some(GroupFault::NonFinite);
-        }
+        integrity.nav = nav_fault(nav);
     }
     if let Some(wind) = &state.wind.data
         && !all_finite(&[wind.from_rad, wind.speed_mps])
