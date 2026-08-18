@@ -157,7 +157,7 @@ cat > "$worktree_probe_dir/probe/Cargo.toml" <<'EOF'
 members = []
 EOF
 printf '//! Structure probe inside a linked worktree.\n' \
-    > "$worktree_probe_dir/probe/src/lib.rs"
+    > "$worktree_probe_dir/probe/src/mod.rs"
 if INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh >/dev/null 2>&1; then
     echo "ok: content under .worktrees is not walked"
     passed=$((passed + 1))
