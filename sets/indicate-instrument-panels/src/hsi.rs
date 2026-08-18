@@ -85,6 +85,9 @@ pub fn draw_hsi(
         && data.nav.course_rose_rad.status.shows_value()
     {
         cdi::draw_cdi(scene, &data.nav, up_rad)?;
+        // Under the needle's own gate: what a dot is worth is only
+        // readable while there is a needle to read it against.
+        cdi::draw_scale_label(scene, &data.nav)?;
     }
     boxes::vertical_deviation(scene, data)?;
     scene.end_layer(LayerId::Guidance)?;

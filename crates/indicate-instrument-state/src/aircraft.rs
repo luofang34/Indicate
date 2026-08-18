@@ -95,6 +95,67 @@ pub struct NavData {
     pub to_ident: IdentStr,
     /// Previous (FROM) waypoint ident; same rules as `to_ident`.
     pub from_ident: IdentStr,
+    /// What full-scale deflection means for this guidance.
+    pub scale: NavScale,
+}
+
+/// The deflection scale the guidance source is flying to.
+///
+/// Two dots is two dots on the glass whatever the phase, so the same
+/// needle position means a different distance in each. A source that
+/// changes scale without saying so changes the meaning of the picture
+/// and nothing on the panel could tell. The scale is therefore
+/// declared, never inferred from a distance the display was handed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum NavScale {
+    /// Enroute.
+    Enroute,
+    /// Terminal.
+    Terminal,
+    /// Approach.
+    Approach,
+    /// The wire carried a scale this build does not know, or none was
+    /// declared. Guidance whose scale is unknown means nothing, so the
+    /// nav group fails rather than drawing at a guessed scale.
+    #[default]
+    Unknown,
+}
+
+impl NavScale {
+    /// Fail-closed wire decoding.
+    #[must_use]
+    pub const fn from_u8(value: u8) -> Self {
+        match value {
+            0 => Self::Enroute,
+            1 => Self::Terminal,
+            2 => Self::Approach,
+            _ => Self::Unknown,
+        }
+    }
+
+    /// Wire encoding; `Unknown` round-trips as unknown.
+    #[must_use]
+    pub const fn to_u8(self) -> u8 {
+        match self {
+            Self::Enroute => 0,
+            Self::Terminal => 1,
+            Self::Approach => 2,
+            Self::Unknown => 255,
+        }
+    }
+
+    /// The label that names this scale to the pilot. Every character is
+    /// in the panel glyph vocabulary, which has no `+` and no `/`, so
+    /// the richer per-approach names cannot be spelled here yet.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Enroute => "ENR",
+            Self::Terminal => "TERM",
+            Self::Approach => "APR",
+            Self::Unknown => "",
+        }
+    }
 }
 
 /// Pilot selections and bugs. These are local UI state, not sensed data,

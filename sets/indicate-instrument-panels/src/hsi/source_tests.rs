@@ -125,3 +125,80 @@ fn heading_sustained_miscompare_is_annunciated() {
         "still names the retained primary: {last:?}"
     );
 }
+
+/// A live heading rose with GPS guidance at the given scale.
+fn nav_at_scale(scale: indicate_instrument_state::NavScale) -> PanelData {
+    use indicate_instrument_state::{
+        AircraftState, EstimateQuality, HeadingSample, NavData, NavFromTo, NavSource, Stamped,
+        ValidFlags, resolve,
+    };
+
+    let mut state = AircraftState {
+        heading: Stamped {
+            data: Some(HeadingSample {
+                heading_rad: 0.52,
+                reference: HeadingReference::Magnetic,
+            }),
+            age_ms: Some(10.0),
+        },
+        quality: EstimateQuality::Good,
+        valid: ValidFlags {
+            heading: true,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    state.nav = Stamped {
+        data: Some(NavData {
+            source: NavSource::Gps,
+            course_rad: 0.35,
+            course_reference: HeadingReference::Magnetic,
+            cdi_dots: -1.2,
+            fromto: NavFromTo::To,
+            scale,
+            ..NavData::default()
+        }),
+        age_ms: Some(10.0),
+    };
+    resolve(&state, &FreshnessPolicy::default())
+}
+
+/// The scale label names what a dot is worth, under the needle's own
+/// gate. Two dots is two dots on the glass whatever the scale, so the
+/// label is the only thing that stops one needle position from meaning
+/// different distances in different phases.
+#[test]
+fn the_scale_label_draws_with_the_needle_and_names_the_scale() {
+    use indicate_instrument_state::NavScale;
+
+    for (scale, label) in [
+        (NavScale::Enroute, "ENR"),
+        (NavScale::Terminal, "TERM"),
+        (NavScale::Approach, "APR"),
+    ] {
+        let t = texts(&nav_at_scale(scale));
+        assert!(
+            t.contains(&s(label)),
+            "{scale:?} annunciates {label}: {t:?}"
+        );
+    }
+}
+
+/// An unknown scale takes the whole nav group with it: a deflection in
+/// dots means nothing until the scale says what a dot is worth, so the
+/// needle goes too rather than drawing at a guessed scale.
+#[test]
+fn an_unknown_scale_fails_the_group_rather_than_guessing() {
+    use indicate_instrument_state::NavScale;
+
+    let data = nav_at_scale(NavScale::Unknown);
+    assert!(
+        !data.nav.status.shows_value(),
+        "an unknown scale fails the group: {:?}",
+        data.nav.status
+    );
+    let t = texts(&data);
+    for label in ["ENR", "TERM", "APR"] {
+        assert!(!t.contains(&s(label)), "no scale is invented: {t:?}");
+    }
+}

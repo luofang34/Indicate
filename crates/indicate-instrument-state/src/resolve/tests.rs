@@ -358,6 +358,7 @@ fn a_trusted_fresh_source_still_resolves_valid() {
 
 fn indicate_state_navdata_valid() -> crate::aircraft::NavData {
     crate::aircraft::NavData {
+        scale: crate::aircraft::NavScale::Terminal,
         source: crate::aircraft::NavSource::Gps,
         course_rad: 1.0,
         cdi_dots: 1.5,

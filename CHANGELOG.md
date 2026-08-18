@@ -53,14 +53,15 @@ own change onto this version before it is released, so the number names
 exactly one wire format. The registry table in `group_id.rs` records the
 agreed allocations and is the layout contract for the batch.
 
-This release carries the first of them: true airspeed on the Air group.
+This release carries two of them: true airspeed on the Air group, and
+the deflection scale on the Nav group.
 
 | Value | This release |
 |---|---|
 | State ABI | 8 |
 | Scene format | 1 |
 | Corpus | 4 |
-| Composition digest | `add8e694ff3e9ee2321f63f40e3f590d26dac5f6ddb9eec00ec876c7cac7573c` |
+| Composition digest | `b4b9030f31031b1971deb08b74386b3756b5e440112e52e82264c1949a3dfb54` |
 | Panel set | `pfd`, `hsi`, `monitor` |
 
 Panel set changed since the previous release: no.
@@ -69,6 +70,12 @@ Panel set changed since the previous release: no.
 
 - **v8 replaces v7.** `abi::v7` is gone rather than kept alongside. The
   golden frames are now `state-abi-v8.*.hex`.
+- **The Nav group declares its deflection scale.** `scale` takes the
+  spare byte at offset 3, so the payload length does not move. Enroute,
+  terminal and approach are 0, 1 and 2; every other value is Unknown,
+  and an Unknown scale fails the whole nav group. A deflection in dots
+  means nothing until the scale says what a dot is worth, so guidance
+  at an undeclared scale is not drawn at a guessed one.
 - **The Air group grows from 12 bytes to 16.** `tas_mps` follows the
   trailing `age_ms`, NaN-absent like the altimeter setting beside it.
   Its minimum length rises with it.
@@ -109,6 +116,10 @@ Panel set changed since the previous release: no.
   failure looks like total signal loss rather than one short group. Emit
   the 16-byte payload, with a NaN in the true-airspeed slot when the
   source has none.
+- **A state writer must also declare the nav scale.** A writer that
+  leaves the spare byte at zero declares enroute, which is a scale, so
+  this one fails loudly only for writers that put something else there.
+  Declare the scale the guidance is actually flown to.
 - **The speed tape starts 25 units lower.** The true-airspeed box is
   opaque and owns the strip above the tape, so the tape no longer paints
   under it. The visible speed range above the pointer shrinks by about

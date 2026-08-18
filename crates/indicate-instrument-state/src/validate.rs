@@ -159,7 +159,13 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
         integrity.air = Some(GroupFault::NonFinite);
     }
     if let Some(nav) = &state.nav.data {
-        if matches!(nav.source, NavSource::Unknown) || matches!(nav.fromto, NavFromTo::Unknown) {
+        // An unknown scale fails with the other unknown enumerations:
+        // the deflection is in dots, and a dot means nothing until the
+        // scale says what it is worth.
+        if matches!(nav.source, NavSource::Unknown)
+            || matches!(nav.fromto, NavFromTo::Unknown)
+            || matches!(nav.scale, crate::aircraft::NavScale::Unknown)
+        {
             integrity.nav = Some(GroupFault::UnknownEnum);
         } else if nav.to_ident.is_invalid() || nav.from_ident.is_invalid() {
             integrity.nav = Some(GroupFault::MalformedIdent);
