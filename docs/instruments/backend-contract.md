@@ -76,9 +76,31 @@ whether the step is measured from the minimum or from zero — and each
 will be locally green, because each only ever tests its own. The panel
 is the one thing that knows which frames it accepts, so ask the panel.
 
+Which admissible frame to ask for is decided once, here, for the same
+reason. A shell left to choose would invent a policy, and two shells
+given the same space and the same descriptor would ask for different
+frames.
+
+- **Ask for the largest admissible frame that fits the space.** A
+  frame fits a space when its width and height are not larger than the
+  space's. Test each candidate with `accepts`; the predicate is the
+  authority, and the arithmetic above is not to be re-implemented.
+- **Break ties by area, then by width, then by height.** Choose the
+  fitting admissible frame with the largest area. If two have equal
+  area, choose the wider one. If the widths are equal, choose the
+  taller one. The order is total, so the choice is deterministic.
+- **Refuse a space smaller than `frame_min`.** `frame_min` is the
+  readability floor. Do not ask for a frame below it, and do not serve
+  the space by shrinking the frame: there is no `SCALE` opcode, and
+  nothing on the draw path re-checks the argument.
+- **When no space constrains the choice, ask for the first canonical
+  frame.** A bench harness is the example.
+
 Every shipped panel currently declares a degenerate range —
 `frame_min == frame_max == 480×360`, one canonical frame — so the only
-frame a conforming shell may ask any of them for is 480×360.
+frame a conforming shell may ask any of them for is 480×360. The
+choosing policy resolves to that one frame today; it exists so that
+when a panel ships a real range, every shell makes the same choice.
 
 - Every backend clips at the frame it asked for: ink outside it never
   reaches a pixel, on any backend.

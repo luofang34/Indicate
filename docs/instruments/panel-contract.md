@@ -124,6 +124,12 @@ for — `accepts` is the predicate that says so, and a shell is expected
 to consult it, but nothing in the draw path re-checks the argument. Every
 shipped panel declares a degenerate range today.
 
+Which admissible frame a shell asks for is the shell's half of this
+contract, and it is written once, in `backend-contract.md`: the largest
+admissible frame that fits the space, under a total order stated there,
+so two shells given the same space and your descriptor ask for the same
+frame.
+
 What is refused is declaring a range and not using it. Admission renders
 a non-degenerate panel at both ends of its range, across the whole case
 matrix, and requires the bytes to differ in at least one case. One
