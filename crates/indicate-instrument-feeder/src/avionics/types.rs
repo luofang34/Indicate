@@ -149,7 +149,9 @@ pub struct IngressConfig {
 /// The current admitted state and trust of one ingress.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct IngressSnapshot {
-    /// Wrapping generation advanced only when admitted state changed.
+    /// Wrapping generation: one step per admitted publication, whatever
+    /// the payload holds. Two admitted publications carrying identical
+    /// numbers advance it twice — it counts production, not content.
     pub generation: u32,
     /// The pinned source id, once seen.
     pub source_id: Option<u64>,

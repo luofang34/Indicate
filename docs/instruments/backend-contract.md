@@ -292,8 +292,9 @@ JavaScript implementations must apply it identically.
 - **Comparison across a wrap uses serial-number arithmetic** of the
   RFC 1982 shape. Generation `a` is newer than generation `b` when
   `0 < (a - b) mod 2^32 < 2^31`. Equal values name the same production.
-  Two values exactly `2^31` apart are undefined, so a consumer must
-  compare within `2^31` productions of the producer. Producers count
+  At a distance of exactly `2^31` the rule says neither value is newer,
+  in both directions. A consumer must therefore compare within `2^31`
+  productions of the producer, where the answer is an order. Producers count
   with `wrapping_add(1)`, so the step from `u32::MAX` to `0` is a
   normal single advance, never a replay. `serial_is_newer` in
   `indicate-instrument-feeder::stamp` already implements this rule for
@@ -308,11 +309,24 @@ JavaScript implementations must apply it identically.
   data, and the generation still advances. No shell may substitute one
   notion for the other.
 
-One counter in this repository is deliberately not a generation under
-this rule. `SourceComparison::generation` in `indicate-instrument-state`
-advances only when the selected source, the reversion, or the
-comparison state changes. It is a change marker for that output. A
-consumer must not read it as a production sequence.
+Some counters in this repository are deliberately not generations under
+this rule. They are change markers for one output, and a consumer must
+not read any of them as a production sequence:
+
+- `SourceComparison::generation` in `indicate-instrument-state` advances
+  only when the selected source, the reversion, or the comparison state
+  changes.
+- `ActiveAlert::generation` in `indicate-alerts` advances only at the
+  alert's own state change, and `AlertOutput::generation` reports the
+  manager's value after a step. A manager stepped with no new alert
+  reports the same value again. A shell that read it as a production
+  sequence would raise a liveness fault on a healthy manager.
+
+The wire generation a shell decodes is `SnapshotMeta::generation`, which
+this rule governs. `IngressSnapshot::generation` is the feeder-internal
+counter it comes from. The raster pair `FrameId::frame_generation` and
+`FrameId::render_generation` are generations under this rule as well; a
+paint that fails produces no frame, so it advances neither.
 
 ## Conformance: what "correct" means
 
