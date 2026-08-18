@@ -57,9 +57,9 @@ evidence is pinned at are shapes the panel really declared.
 
 Note how far that reaches, and how far it does not: a valid range may
 still *contain* an in-range, on-grid frame that violates the aspect
-bounds. Choosing a frame inside the range, and clamping to what the
-panel supports, is the shell's job — nothing in the draw path re-checks
-the argument.
+bounds. Asking for a frame is the shell's job, and nothing in the draw
+path re-checks the argument — so the shell asks the panel which frame
+to use, with `choose_frame` below, rather than deriving one.
 
 **Do not re-derive the rule.** `PanelDescriptor::accepts(DesignFrame)`
 is the predicate over those fields, and it is the only copy of it. It
@@ -76,31 +76,38 @@ whether the step is measured from the minimum or from zero — and each
 will be locally green, because each only ever tests its own. The panel
 is the one thing that knows which frames it accepts, so ask the panel.
 
-Which admissible frame to ask for is decided once, here, for the same
-reason. A shell left to choose would invent a policy, and two shells
-given the same space and the same descriptor would ask for different
-frames.
+Which frame to ask for has the same answer, for the same reason.
+`accepts` can only refuse a frame you already hold; it cannot give you
+one. A shell that had to produce a candidate would walk the step grid
+itself, which is the arithmetic above. So the panel answers this too:
 
-- **Ask for the largest admissible frame that fits the space.** A
-  frame fits a space when its width and height are not larger than the
-  space's. Test each candidate with `accepts`; the predicate is the
-  authority, and the arithmetic above is not to be re-implemented.
-- **Break ties by area, then by width, then by height.** Choose the
-  fitting admissible frame with the largest area. If two have equal
-  area, choose the wider one. If the widths are equal, choose the
-  taller one. The order is total, so the choice is deterministic.
-- **Refuse a space smaller than `frame_min`.** `frame_min` is the
-  readability floor. Do not ask for a frame below it, and do not serve
-  the space by shrinking the frame: there is no `SCALE` opcode, and
-  nothing on the draw path re-checks the argument.
-- **When no space constrains the choice, ask for the first canonical
-  frame.** A bench harness is the example.
+```rust
+let frame = descriptor.choose_frame(space)?;
+```
+
+`PanelDescriptor::choose_frame` gives the largest frame by area that
+fits inside `space` on both axes and that `accepts` admits. Read its
+documentation for the rule; do not restate it in a shell.
+
+Three properties of it bind on you:
+
+- **The space is in logical units, the units a `DesignFrame` is in.**
+  It is not device pixels. A shell with a surface in physical pixels
+  divides by its own scale factor before it asks. Two shells that pass
+  different units for one window get different frames, which is what
+  this rule exists to prevent.
+- **A refusal is an answer.** A space too small for `frame_min` refuses
+  with `OutOfRange`. `frame_min` is the readability floor, so the panel
+  will not name a frame below it. What to do then is yours: scale the
+  frame you did get, letterbox it, or show a different panel.
+- **A shell under no constraint asks with `frame_max`** and gets it
+  back. There is no separate rule for the unconstrained case.
 
 Every shipped panel currently declares a degenerate range —
 `frame_min == frame_max == 480×360`, one canonical frame — so the only
-frame a conforming shell may ask any of them for is 480×360. The
-choosing policy resolves to that one frame today; it exists so that
-when a panel ships a real range, every shell makes the same choice.
+frame a conforming shell may ask any of them for is 480×360.
+`choose_frame` returns that one frame today. It exists so that when a
+panel ships a real range, every shell makes the same choice.
 
 - Every backend clips at the frame it asked for: ink outside it never
   reaches a pixel, on any backend.
