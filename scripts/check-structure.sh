@@ -34,7 +34,7 @@ is_excluded_path() {
 
 collect_rs_files() {
     find . \
-        -type d \( -name target -o -name generated \) -prune -o \
+        -type d \( -name target -o -name generated -o -name .worktrees \) -prune -o \
         -type f -name '*.rs' -print
 }
 
@@ -233,7 +233,8 @@ check_crate_naming() {
                 status=1
                 ;;
         esac
-    done < <(find . -name Cargo.toml -not -path './target/*' -not -path './.git/*' -mindepth 2)
+    done < <(find . -name Cargo.toml -not -path './target/*' -not -path './.git/*' \
+        -not -path './.worktrees/*' -mindepth 2)
 }
 
 # The tier law from #13. The tiers are only real if the tree enforces
@@ -337,7 +338,8 @@ check_crate_map() {
             echo "FORBIDDEN: $map has no row for $name" >&2
             status=1
         fi
-    done < <(find . -name Cargo.toml -not -path './target/*' -not -path './.git/*' -mindepth 2)
+    done < <(find . -name Cargo.toml -not -path './target/*' -not -path './.git/*' \
+        -not -path './.worktrees/*' -mindepth 2)
     while IFS= read -r name; do
         if [ ! -d "crates/$name" ] && [ ! -d "sets/$name" ]; then
             echo "FORBIDDEN: $map names $name, which is not a crate in this workspace" >&2
