@@ -86,8 +86,10 @@ let frame = descriptor.choose_frame(space)?;
 ```
 
 `PanelDescriptor::choose_frame` gives the largest frame by area that
-fits inside `space` on both axes and that `accepts` admits. Read its
-documentation for the rule; do not restate it in a shell.
+fits inside `space` on both axes and that `accepts` admits. It walks
+one axis and computes the other, so its cost is the declared width grid
+and not the product of both. Read its documentation for the rule. Do
+not restate the rule in a shell.
 
 Three properties of it bind on you:
 

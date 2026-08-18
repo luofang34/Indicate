@@ -272,3 +272,133 @@ fn a_single_frame_panel_offers_only_its_one_frame() {
         Err(FrameRefusal::OutOfRange)
     );
 }
+
+// ---- optimality, against a brute-force oracle -------------------------------
+
+/// Every admissible frame that fits, by exhaustive walk of the grid.
+/// Slow and obviously correct, which is the point: it is the only thing
+/// that can tell a suboptimal answer from a wrong one.
+fn largest_by_scan(d: &PanelDescriptor, space: DesignFrame) -> Option<DesignFrame> {
+    let mut best: Option<DesignFrame> = None;
+    let mut w = d.frame_min.width;
+    while w <= d.frame_max.width {
+        let mut h = d.frame_min.height;
+        while h <= d.frame_max.height {
+            let candidate = frame(w, h);
+            if candidate.width <= space.width
+                && candidate.height <= space.height
+                && d.accepts(candidate).is_ok()
+            {
+                let better =
+                    best.is_none_or(|b| candidate.width * candidate.height > b.width * b.height);
+                if better {
+                    best = Some(candidate);
+                }
+            }
+            h += d.frame_step.1;
+        }
+        w += d.frame_step.0;
+    }
+    best
+}
+
+/// A fixed aspect: the grid and the ratio do not align, so the largest
+/// fitting frame usually needs BOTH axes below the space. A closed form
+/// that fixed one axis at the clamp point could not express that, and
+/// refused spaces that comfortably hold `frame_min`.
+const FIXED_ASPECT: PanelDescriptor = PanelDescriptor {
+    frame_min: MIN,
+    frame_max: frame(960.0, 720.0),
+    frame_step: (10.0, 10.0),
+    aspect_min: 4.0 / 3.0,
+    aspect_max: 4.0 / 3.0,
+    ..RANGED
+};
+
+/// A band narrower than the grid's quantization, on a coarse step.
+const NARROW_BAND: PanelDescriptor = PanelDescriptor {
+    frame_min: MIN,
+    frame_max: frame(960.0, 680.0),
+    frame_step: (16.0, 16.0),
+    aspect_min: 1.20,
+    aspect_max: 1.50,
+    ..RANGED
+};
+
+/// Axes on different steps, so neither axis's grid implies the other's.
+const ODD_STEPS: PanelDescriptor = PanelDescriptor {
+    frame_min: MIN,
+    frame_max: frame(900.0, 690.0),
+    frame_step: (7.0, 11.0),
+    aspect_min: 1.20,
+    aspect_max: 1.50,
+    ..RANGED
+};
+
+#[test]
+fn a_fixed_aspect_is_served_not_refused() {
+    // A space that comfortably holds the panel's own minimum must not
+    // refuse: a shell would drop the panel for a space it fits in.
+    assert_eq!(FIXED_ASPECT.choose_frame(frame(500.0, 380.0)), Ok(MIN));
+    assert_eq!(
+        FIXED_ASPECT.choose_frame(frame(900.0, 500.0)),
+        Ok(frame(640.0, 480.0))
+    );
+}
+
+#[test]
+fn an_aspect_bound_landing_below_a_grid_line_does_not_lose_a_step() {
+    // 528 / 1.20 is 439.99997 in f32, and the grid is tested at zero
+    // tolerance, so flooring the quotient would drop to 424 and throw
+    // away a whole step.
+    assert_eq!(
+        NARROW_BAND.choose_frame(frame(539.0, 457.0)),
+        Ok(frame(528.0, 440.0))
+    );
+    assert_eq!(
+        ODD_STEPS.choose_frame(frame(565.0, 490.0)),
+        Ok(frame(564.0, 470.0))
+    );
+}
+
+/// The guarantee, swept: whatever `choose_frame` returns is what an
+/// exhaustive scan of the grid would have chosen, and a refusal means
+/// the scan finds nothing either. Soundness alone — that the answer is
+/// admissible and fits — cannot catch a suboptimal answer or a
+/// spurious refusal, which is how both survived the first pass.
+#[test]
+fn choose_frame_agrees_with_an_exhaustive_scan() {
+    let mut checked = 0;
+    let mut refusals = 0;
+    for d in [&RANGED, &FIXED_ASPECT, &NARROW_BAND, &ODD_STEPS] {
+        let mut w = 400.0f32;
+        while w <= 1000.0 {
+            let mut h = 300.0f32;
+            while h <= 760.0 {
+                let space = frame(w, h);
+                let scanned = largest_by_scan(d, space);
+                match (d.choose_frame(space), scanned) {
+                    (Ok(chosen), Some(best)) => {
+                        assert_eq!(
+                            chosen.width * chosen.height,
+                            best.width * best.height,
+                            "for {w}x{h} chose {chosen:?}, scan found {best:?}"
+                        );
+                        checked += 1;
+                    }
+                    (Err(_), None) => refusals += 1,
+                    (Ok(chosen), None) => {
+                        panic!("chose {chosen:?} for {w}x{h}, which the scan refuses")
+                    }
+                    (Err(why), Some(best)) => {
+                        panic!("refused {w}x{h} as {why:?}, but {best:?} fits")
+                    }
+                }
+                h += 13.0;
+            }
+            w += 17.0;
+        }
+    }
+    assert!(checked > 500, "the sweep agreed on {checked} answers");
+    assert!(refusals > 0, "the sweep exercised {refusals} refusals");
+}

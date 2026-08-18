@@ -67,8 +67,9 @@ consumers can reach the new predicate without pinning a bare revision.
 
 - **`choose_frame(space) -> Result<DesignFrame, FrameRefusal>`** gives
   the largest frame by area that fits `space` on both axes and that
-  `accepts` admits. It computes the answer; it does not enumerate
-  candidates.
+  `accepts` admits. It walks the declared width grid and computes each
+  width's tallest admissible height, so its cost is one axis and not
+  the product of both.
 - **`space` is in logical units**, the units a `DesignFrame` is in, not
   device pixels. A shell with a surface in physical pixels divides by
   its own scale factor before it asks.

@@ -31,6 +31,15 @@ pub enum FrameRefusal {
     Aspect,
 }
 
+/// How many grid steps [`PanelDescriptor::choose_frame`] will walk
+/// before it refuses.
+///
+/// The walk is over one axis, so a realistic declaration finishes in a
+/// few hundred steps. A step small enough to exceed this makes the grid
+/// unusable rather than merely large, and refusing says so instead of
+/// spinning.
+const MAX_GRID_STEPS: usize = 4096;
+
 /// The tolerance applied when testing a dimension against the step
 /// grid: exactly none.
 ///
@@ -93,75 +102,81 @@ impl PanelDescriptor {
     /// passes `frame_max` and receives it back.
     ///
     /// The frame returned is the largest by area that fits inside
-    /// `space` on both axes and that `accepts` admits. It is found in
-    /// closed form, never by enumeration: each axis is clamped into the
-    /// declared range and floored onto the step grid, and if that frame
-    /// is outside the aspect bounds the two frames that reach an aspect
-    /// bound exactly — one limited by width, one by height — are floored
-    /// the same way and the larger admissible one wins, width first when
-    /// their areas tie. A panel whose step cannot express its own grid
-    /// exactly refuses here through `accepts` rather than rounding onto
-    /// a line the arithmetic cannot reproduce.
+    /// `space` on both axes and that `accepts` admits.
+    ///
+    /// One axis is walked and the other computed. Widths are tried from
+    /// the widest admissible one downward; each width's tallest
+    /// admissible height follows from the aspect bounds, the space, and
+    /// the declared maximum, with no search. Area does not decrease with
+    /// width, so the first width that has any admissible height is the
+    /// answer.
+    ///
+    /// A closed form over both axes cannot express this. When the aspect
+    /// band is narrower than the grid's quantization — a fixed ratio,
+    /// most of all — the largest fitting frame usually needs both axes
+    /// below what the space alone allows, and a form that pins one axis
+    /// at the space's own limit refuses spaces that comfortably hold
+    /// `frame_min`.
+    ///
+    /// A panel whose step cannot express its own grid exactly refuses
+    /// here through `accepts` rather than rounding onto a line the
+    /// arithmetic cannot reproduce.
     pub fn choose_frame(&self, space: DesignFrame) -> Result<DesignFrame, FrameRefusal> {
         if !(finite_positive(space.width) && finite_positive(space.height)) {
             return Err(FrameRefusal::Degenerate);
         }
-        let clamped = self.floor_into_range(space)?;
-        if self.accepts(clamped).is_ok() {
-            return Ok(clamped);
-        }
-        // Only the aspect bounds can still refuse a frame that is inside
-        // the range and on the grid, and the largest frame under an
-        // aspect bound touches that bound on one axis.
-        let by_width = DesignFrame {
-            width: clamped.height * self.aspect_max,
-            height: clamped.height,
-        };
-        let by_height = DesignFrame {
-            width: clamped.width,
-            height: clamped.width / self.aspect_min,
-        };
-        let mut best: Option<DesignFrame> = None;
-        for candidate in [by_width, by_height] {
-            // Reaching an aspect bound can ask for more of an axis than
-            // the space has; the space is still the ceiling.
-            let bounded = DesignFrame {
-                width: candidate.width.min(space.width),
-                height: candidate.height.min(space.height),
-            };
-            let Ok(floored) = self.floor_into_range(bounded) else {
-                continue;
-            };
-            if self.accepts(floored).is_err() {
-                continue;
-            }
-            let better = match best {
-                None => true,
-                Some(b) => floored.width * floored.height > b.width * b.height,
-            };
-            if better {
-                best = Some(floored);
-            }
-        }
-        best.ok_or(FrameRefusal::Aspect)
-    }
-
-    /// Each axis clamped to the declared range and floored onto the step
-    /// grid. Refuses a space that cannot hold `frame_min`: a panel is
-    /// not served by a frame smaller than the one it declared it needs,
-    /// and shrinking one is the shell's business, not the panel's.
-    fn floor_into_range(&self, space: DesignFrame) -> Result<DesignFrame, FrameRefusal> {
-        let width = floor_on_grid(
+        // The widest admissible width, then narrower ones in turn. Area
+        // does not decrease with width: the tallest height a width can
+        // take is capped either by the space, which does not move, or by
+        // that width's own aspect bound, which only grows with it. So
+        // the first width that has any admissible height is the answer,
+        // and there is no need to compare areas.
+        let mut width = floor_on_grid(
             space.width.min(self.frame_max.width),
             self.frame_min.width,
             self.frame_step.0,
         )?;
-        let height = floor_on_grid(
-            space.height.min(self.frame_max.height),
-            self.frame_min.height,
-            self.frame_step.1,
-        )?;
-        Ok(DesignFrame { width, height })
+        let mut refusal = FrameRefusal::Aspect;
+        // The grid is finite by declaration — `Registry::new` refuses a
+        // step that is not finite and positive — but a step small enough
+        // to make it vast is a declaration to fix, not a loop to run. A
+        // panel that walks past this bound refuses rather than spinning.
+        for _ in 0..MAX_GRID_STEPS {
+            if width < self.frame_min.width {
+                break;
+            }
+            match self.tallest_admissible(width, space) {
+                Ok(frame) => return Ok(frame),
+                Err(FrameRefusal::OutOfRange) => refusal = FrameRefusal::OutOfRange,
+                Err(_) => {}
+            }
+            width -= self.frame_step.0;
+        }
+        Err(refusal)
+    }
+
+    /// The tallest admissible frame at this width, or why there is none.
+    ///
+    /// The height is computed, never searched: the aspect bounds put it
+    /// in `width / aspect_max ..= width / aspect_min`, the space and the
+    /// declared maximum cap it, and the grid line at or below that cap
+    /// is the only candidate worth testing.
+    fn tallest_admissible(
+        &self,
+        width: f32,
+        space: DesignFrame,
+    ) -> Result<DesignFrame, FrameRefusal> {
+        // Dividing by an aspect bound in f32 can land a hair below the
+        // grid line it aimed at, and the grid is tested at zero
+        // tolerance, so a whole step would be lost. The nudge is a few
+        // ulps and cannot reach the next line up; the caps below are
+        // applied after it, so it can never exceed the space.
+        let by_aspect = width / self.aspect_min * (1.0 + 4.0 * f32::EPSILON);
+        let ceiling = space.height.min(self.frame_max.height).min(by_aspect);
+        let height = floor_on_grid(ceiling, self.frame_min.height, self.frame_step.1)?;
+        let frame = DesignFrame { width, height };
+        self.accepts(frame)?;
+        Ok(frame)
     }
 }
 
