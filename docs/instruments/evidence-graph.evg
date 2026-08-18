@@ -157,34 +157,34 @@ locator docs/instruments/fha.md
 node RESULT-RASTER verification-result
 title raster extreme-attitude behavior — recorded pass
 attr command cargo test -p indicate-instrument-raster
-attr config-digest 6df8a8edaddfca003823e0b14c4ff60e02b608be
+attr config-digest a65fe5b647d1bbd3c99e3658ac496bf8ca4ac14d
 attr tool-version rustc 1.95.0 (59807616e 2026-04-14)
 attr source-digest git-blob:7d24b75c7952e564c2a392d5fe26c6a0a2c89139
 attr artifact docs/instruments/evidence-artifacts/att01/raster.run.txt
-attr output-digest sha256:1de4e3527826bfca44e437d02b8e6b63cd3cde673d3c9b49b10f50d2a7a4ea52
-attr run-id local:6df8a8edaddfca003823e0b14c4ff60e02b608be
+attr output-digest sha256:3ee520d9cc14b287cf50b5de636de7ac7f09f6b34c71e3ff87ea76f020eca036
+attr run-id local:a65fe5b647d1bbd3c99e3658ac496bf8ca4ac14d
 attr outcome pass
 
 node RESULT-PRESENTATION verification-result
 title SO(3) presentation unit suite — recorded pass
 attr command cargo test -p indicate-instrument-state
-attr config-digest 6df8a8edaddfca003823e0b14c4ff60e02b608be
+attr config-digest a65fe5b647d1bbd3c99e3658ac496bf8ca4ac14d
 attr tool-version rustc 1.95.0 (59807616e 2026-04-14)
 attr source-digest git-blob:d11595580cab8264e75e9e82ab9994de6d8bdeac
 attr artifact docs/instruments/evidence-artifacts/att01/presentation.run.txt
-attr output-digest sha256:1a16b16481596854779d9584778058b9b0082c0579d25915ba48a04d06e579b9
-attr run-id local:6df8a8edaddfca003823e0b14c4ff60e02b608be
+attr output-digest sha256:274d38ae91dee1555441b58351408da7b8b25ec9d527ec0166b6f312d7728293
+attr run-id local:a65fe5b647d1bbd3c99e3658ac496bf8ca4ac14d
 attr outcome pass
 
 node RESULT-PFD verification-result
 title PFD attitude panel suite — recorded pass
 attr command cargo test -p indicate-instrument-panels
-attr config-digest 6df8a8edaddfca003823e0b14c4ff60e02b608be
+attr config-digest a65fe5b647d1bbd3c99e3658ac496bf8ca4ac14d
 attr tool-version rustc 1.95.0 (59807616e 2026-04-14)
 attr source-digest git-blob:ee431cb9b52ad6e218b9525362af9610a1448a37
 attr artifact docs/instruments/evidence-artifacts/att01/panel.run.txt
-attr output-digest sha256:afffba4195031894cba10b1800927e6aab16ad04959c8a1dc0c22263779bc5be
-attr run-id local:6df8a8edaddfca003823e0b14c4ff60e02b608be
+attr output-digest sha256:d0615acbd37acdd436c0d0940e4e21627ccdbb1b785e284b7f6f000312a88e38
+attr run-id local:a65fe5b647d1bbd3c99e3658ac496bf8ca4ac14d
 attr outcome pass
 
 # --- Configuration and tool identity ---
@@ -192,8 +192,8 @@ attr outcome pass
 node CFG-WORKTREE configuration-item
 title engineering worktree baseline — the git working tree the recorded results were produced against (not certified SCM)
 attr scm git-worktree
-attr commit 6df8a8edaddfca003823e0b14c4ff60e02b608be
-attr tree c7ba8631c2fe5e74d7cbedff0523eb8ccecd1a78
+attr commit a65fe5b647d1bbd3c99e3658ac496bf8ca4ac14d
+attr tree 2bd1907cfebf698b6ca1e17ea6d7c69e072f44e4
 
 node TOOL-CARGO-TEST tool
 title cargo test on Rust stable — not DO-330 tool-qualified
