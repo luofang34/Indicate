@@ -9,6 +9,7 @@ use indicate_instrument_state::{ChevronSense, FdEngagement, GroupId, PanelData, 
 
 use indicate_instrument_symbology::{annunciation, palette, safety, source_label, status_paint};
 
+mod drum;
 mod horizon;
 mod panel_config;
 mod tapes;
@@ -381,6 +382,8 @@ mod attitude_tests;
 mod datum_tests;
 #[cfg(test)]
 mod director_tests;
+#[cfg(test)]
+mod drum_tests;
 #[cfg(test)]
 mod dyn_tests;
 #[cfg(test)]

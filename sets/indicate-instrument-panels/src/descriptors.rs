@@ -188,7 +188,7 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     // (REN-03).
     raster_baselines: &[(
         BUILTIN_FRAME,
-        "43b49bde6bbf7372d704d54214d4a3d0b9cd3ad09e86862a8ffc20fd6ae05ef1",
+        "ce41b047d4ab1e313d36b4d2fa9f3fbd6e97511cfd43a907f4591d16a041188f",
     )],
     draw: draw_pfd_panel,
 };
@@ -247,18 +247,6 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
                 y: 322.0,
                 width: 112.0,
                 height: 36.0,
-            },
-        ),
-        // Nav-source label (GPS/NAV1/NAV2) beside the rose, above the
-        // course box: the receiver identity is a nav-group value, so its
-        // surface is declared like the readouts.
-        (
-            GroupId::Nav,
-            Region {
-                x: 36.0,
-                y: 288.0,
-                width: 48.0,
-                height: 24.0,
             },
         ),
         // Heading-select box.
@@ -377,7 +365,7 @@ pub const BUILTIN_SET: PanelSet = PanelSet {
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "91767280cad68734f5859ad17edee1540bce47ec32866a0d784e1f30f34e4757";
+    "5cded14978b2e5ba3a17b61959ed0b35061334adf3fde4242f47e214f0f07aef";
 
 /// The measured criticality bands of [`BUILTIN_PANELS`], pinned beside
 /// the raster baselines: the union `Annunciation`/`Failure` ink bound
