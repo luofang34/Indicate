@@ -26,7 +26,8 @@
 #     the gate's `output-digest` check, not this one.
 set -euo pipefail
 
-root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+self="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+root_dir="$(cd "$(dirname "$self")/.." && pwd)"
 cd "$root_dir"
 
 artifact_dir="${INDICATE_EVIDENCE_ARTIFACTS:-docs/instruments/evidence-artifacts}"
@@ -56,9 +57,21 @@ recorded_summary() {
 }
 
 # What the command prints from this tree now, normalized the same way.
-current_summary() {
+#
+# The recorded command is run with `--locked --quiet` appended. That is
+# a variant of what the record names, not the record's command verbatim:
+# `--locked` only asserts the lockfile is current and `--quiet` keeps the
+# `test result:` lines, so neither changes which tests run or how many
+# pass. A recorded command carrying its own `--` would receive them as
+# harness arguments, which no recorded command does today.
+run_command() {
+    local output
     # shellcheck disable=SC2086
-    ${1} --quiet 2>&1 | sed -n 's/^\(test result:.*\)$/\1/p' | sed 's/; finished in .*//'
+    if ! output="$(${1} --locked --quiet 2>&1)"; then
+        printf '%s' "$output"
+        return 1
+    fi
+    printf '%s' "$output" | sed -n 's/^\(test result:.*\)$/\1/p' | sed 's/; finished in .*//'
 }
 
 check_artifact() {
@@ -76,7 +89,14 @@ check_artifact() {
         status=1
         return
     fi
-    current="$(current_summary "$command --locked")"
+    local output
+    if ! output="$(run_command "$command")"; then
+        echo "UNRUNNABLE: $artifact records '$command', which does not run here:" >&2
+        echo "$output" | tail -n 5 >&2
+        status=1
+        return
+    fi
+    current="$output"
     if [ "$recorded" != "$current" ]; then
         echo "DRIFT: $artifact records a run of '$command' that this tree" >&2
         echo "       no longer produces." >&2
@@ -96,28 +116,46 @@ selftest() {
     trap 'rm -rf "$dir"' RETURN
     count=0
 
+    # Artifacts live one directory deep, under a scope; fixtures must
+    # too, or every case would exit at the empty-directory guard without
+    # reaching the comparison it claims to prove.
+    mkdir -p "$dir/scope"
+
     # A record whose summary does not match its command.
-    printf 'command: echo\nsummary:\ntest result: ok. 1 passed\n' >"$dir/drift.run.txt"
-    if INDICATE_EVIDENCE_ARTIFACTS="$dir" "$0" >/dev/null 2>&1; then
+    printf 'command: echo\nsummary:\ntest result: ok. 1 passed\n' >"$dir/scope/drift.run.txt"
+    if INDICATE_EVIDENCE_ARTIFACTS="$dir" "$self" >/dev/null 2>&1; then
         echo "recorded-counts-selftest: a drifted count was accepted" >&2
         return 1
     fi
     count=$((count + 1))
 
-    # A record with no command at all.
-    rm -f "$dir/drift.run.txt"
-    printf 'summary:\ntest result: ok. 1 passed\n' >"$dir/nocmd.run.txt"
-    if INDICATE_EVIDENCE_ARTIFACTS="$dir" "$0" >/dev/null 2>&1; then
+    # A record with no command at all. The empty-command branch refuses
+    # it; so does the unrunnable branch if that check ever moves, which
+    # is why this case pins the refusal rather than the branch.
+    rm -f "$dir/scope/drift.run.txt"
+    printf 'summary:\ntest result: ok. 1 passed\n' >"$dir/scope/nocmd.run.txt"
+    if INDICATE_EVIDENCE_ARTIFACTS="$dir" "$self" >/dev/null 2>&1; then
         echo "recorded-counts-selftest: a record with no command was accepted" >&2
         return 1
     fi
     count=$((count + 1))
 
     # A record with no summary at all.
-    rm -f "$dir/nocmd.run.txt"
-    printf 'command: echo\n' >"$dir/nosum.run.txt"
-    if INDICATE_EVIDENCE_ARTIFACTS="$dir" "$0" >/dev/null 2>&1; then
+    rm -f "$dir/scope/nocmd.run.txt"
+    printf 'command: echo\n' >"$dir/scope/nosum.run.txt"
+    if INDICATE_EVIDENCE_ARTIFACTS="$dir" "$self" >/dev/null 2>&1; then
         echo "recorded-counts-selftest: a record with no summary was accepted" >&2
+        return 1
+    fi
+    count=$((count + 1))
+
+    # A record naming a command that cannot run must be reported as
+    # unrunnable, not pass and not abort in silence.
+    rm -f "$dir/scope/nosum.run.txt"
+    printf 'command: cargo test -p no-such-crate-here\nsummary:\ntest result: ok. 1 passed\n' \
+        >"$dir/scope/unrunnable.run.txt"
+    if INDICATE_EVIDENCE_ARTIFACTS="$dir" "$self" >/dev/null 2>&1; then
+        echo "recorded-counts-selftest: an unrunnable command was accepted" >&2
         return 1
     fi
     count=$((count + 1))

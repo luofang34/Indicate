@@ -153,7 +153,7 @@ recorded run did. Every other field is identity. A count is thus only as fresh
 as the last time the artifact was written. A test added to a suite, without an
 edit to the bound source file, changes no digest.
 
-To **re-record** an artifact is to do all of these in one change:
+**Re-record** an artifact in one change. Do all of these steps:
 
 1. Run the artifact's own `command:` against the current tree.
 2. Write its output into the artifact, with the current configuration
@@ -184,7 +184,7 @@ matches this tree may still have been written by hand. No check distinguishes
 a real execution from a consistent hand-edit. Only the discipline in
 `CONTRIBUTING.md` does.
 
-Declined alternatives, one sentence each:
+These alternatives were declined:
 
 - Run the suite inside the gate: the gate would then require a toolchain and
   a build, which `check-recorded-counts.sh` supplies beside it instead.
