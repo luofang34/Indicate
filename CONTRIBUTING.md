@@ -137,16 +137,22 @@ the tag is what a human owes it.
   sources by content digest and its baseline by commit: editing a
   recorded source file requires re-recording that evidence, and history
   rewrites that orphan the baseline commit are forbidden.
-- **Merge a pull request that touches recorded evidence with a merge
-  commit, not a squash.** A squash replaces the commit the run was
-  produced against, and the gate then refuses the record as unreachable
-  — correctly, because a fresh clone cannot fetch it. Re-anchoring
-  afterwards works but leaves `main` red until someone notices, and this
-  repository has paid that eleven times. Anchoring the record at an
-  older commit that survives the squash is not the way out: the bound
-  sources still resolve there, so the gate passes while the record
-  claims a run against a tree that produces different counts. Green and
-  false is worse than red and true.
+- **Use a merge commit when a branch changes a `config-digest` in the
+  evidence graph. Do not use a squash merge.** The test is mechanical:
+  `git diff` shows whether the branch moved one. A squash replaces the
+  commit that the record names, and the gate then refuses the record as
+  unreachable, correctly, because a fresh clone cannot fetch it.
+  `scripts/check-baseline-survives-merge.sh` reports which baselines a
+  squash would orphan, and CI runs it as an advisory step on every pull
+  request.
+- **Do not re-anchor the record at an older commit instead.** When the
+  branch changed a bound source, the gate refuses loudly, because the
+  older baseline never contained that source. When it changed only a
+  count, both gates pass while the record claims a run against a tree
+  that produces a different count. The first is noisy and the second is
+  silent, and neither is a way to keep the record true.
+- Re-anchoring after the merge does work, and this repository has done
+  it repeatedly. It leaves `main` red until the re-anchor lands.
 - Panels are authored against the frame range their descriptor declares
   and receive the chosen frame as a draw argument; unclipped ink past
   that frame's edge is counted and ratcheted per frame by the admission
