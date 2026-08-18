@@ -56,6 +56,7 @@ use crate::group_id::GroupId;
 pub mod fixtures;
 
 mod declared;
+mod equipment;
 mod monitor;
 mod stamped;
 
@@ -123,6 +124,8 @@ const fn min_len(id: GroupId) -> usize {
         GroupId::AirframeConfig => 24,
         GroupId::MonitorText => monitor::MONITOR_LEN,
         GroupId::FlightDirector => 16,
+        GroupId::ApModes => 12,
+        GroupId::ApTargets => 20,
     }
 }
 
@@ -141,10 +144,12 @@ fn decode_group(state: &mut AircraftState, id: GroupId, payload: &[u8]) {
         GroupId::Heading => stamped::decode_heading(state, payload),
         GroupId::Variation => stamped::decode_variation(state, payload),
         GroupId::Dynamics => stamped::decode_dynamics(state, payload),
-        GroupId::BearingPointers => stamped::decode_bearings(state, payload),
-        GroupId::AirframeConfig => stamped::decode_airframe(state, payload),
+        GroupId::BearingPointers => equipment::decode_bearings(state, payload),
+        GroupId::AirframeConfig => equipment::decode_airframe(state, payload),
         GroupId::MonitorText => monitor::decode_monitor_text(state, payload),
-        GroupId::FlightDirector => stamped::decode_director(state, payload),
+        GroupId::FlightDirector => equipment::decode_director(state, payload),
+        GroupId::ApModes => equipment::decode_ap_modes(state, payload),
+        GroupId::ApTargets => declared::decode_ap_targets(state, payload),
     }
 }
 
@@ -168,10 +173,12 @@ fn encode_group(
         GroupId::Heading => stamped::encode_heading(state, out),
         GroupId::Variation => stamped::encode_variation(state, out),
         GroupId::Dynamics => stamped::encode_dynamics(state, out),
-        GroupId::BearingPointers => stamped::encode_bearings(state, out),
-        GroupId::AirframeConfig => stamped::encode_airframe(state, out),
+        GroupId::BearingPointers => equipment::encode_bearings(state, out),
+        GroupId::AirframeConfig => equipment::encode_airframe(state, out),
         GroupId::MonitorText => monitor::encode_monitor_text(state, out),
-        GroupId::FlightDirector => stamped::encode_director(state, out),
+        GroupId::FlightDirector => equipment::encode_director(state, out),
+        GroupId::ApModes => equipment::encode_ap_modes(state, out),
+        GroupId::ApTargets => declared::encode_ap_targets(state, out),
     }
 }
 
@@ -297,6 +304,8 @@ pub(super) fn put_u32(payload: &mut [u8], off: usize, value: u32) {
     }
 }
 
+#[cfg(test)]
+mod autoflight_tests;
 #[cfg(test)]
 mod bearing_tests;
 #[cfg(test)]

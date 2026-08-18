@@ -28,10 +28,10 @@ fn unassigned_tags_do_not_resolve() {
 
 #[test]
 fn reserved_and_allocated_tags_have_no_status_slot_yet() {
-    // 0x0E–0x11 are planned and 0x13–0x15 are allocated with their
-    // layouts fixed, but neither has a variant. Until one lands, no such
-    // tag resolves to a variant, so none can key a `GroupStatuses` slot.
-    for value in (0x0Eu8..=0x11).chain(0x14u8..=0x15) {
+    // 0x0E–0x11 are planned, with their layouts not yet fixed. Until
+    // one lands, no such tag resolves to a variant, so none can key a
+    // `GroupStatuses` slot.
+    for value in 0x0Eu8..=0x11 {
         assert_eq!(GroupId::from_u8(value), None, "tag {value:#04x}");
     }
 }
@@ -46,15 +46,15 @@ fn index_is_dense_over_all() {
 #[test]
 fn index_is_not_wire_tag_arithmetic() {
     // The sparse allocation has arrived: 0x0E to 0x11 have no variant,
-    // so the highest tag is 0x13 and its slot is one below COUNT.
-    // Arithmetic on the tag would answer 18 and index past the table,
+    // so the highest tag is 0x15 and its slot is one below COUNT.
+    // Arithmetic on the tag would answer 20 and index past the table,
     // which is what the match exists to prevent — and this proves it
     // rather than describing it.
-    assert_eq!(GroupId::AirframeConfig.to_u8(), 0x13);
-    assert_eq!(GroupId::AirframeConfig.index(), GroupId::COUNT - 1);
+    assert_eq!(GroupId::ApTargets.to_u8(), 0x15);
+    assert_eq!(GroupId::ApTargets.index(), GroupId::COUNT - 1);
     assert_ne!(
-        GroupId::AirframeConfig.index(),
-        usize::from(GroupId::AirframeConfig.to_u8()) - 1,
+        GroupId::ApTargets.index(),
+        usize::from(GroupId::ApTargets.to_u8()) - 1,
         "the match and the arithmetic now disagree"
     );
 }
@@ -97,9 +97,10 @@ fn withholding_a_stamped_group_resolves_missing() {
             | GroupId::Dynamics
             | GroupId::BearingPointers
             | GroupId::AirframeConfig
+            | GroupId::ApModes
             | GroupId::FlightDirector
             | GroupId::MonitorText => true,
-            GroupId::Selections | GroupId::Trust | GroupId::Altitude => false,
+            GroupId::Selections | GroupId::Trust | GroupId::Altitude | GroupId::ApTargets => false,
         };
         if !stamped {
             continue;
@@ -124,6 +125,26 @@ fn withholding_is_idempotent_and_leaves_other_groups_fed() {
     assert!(once.nav.data.is_some());
     assert!(once.air.data.is_none());
     assert_eq!(once.air.age_ms, None);
+}
+
+/// The declared lane carries no sample to take away, so withholding is
+/// a return to the fail-closed default: every target absent, and an
+/// altitude identity that is incomplete rather than plausible.
+#[test]
+fn withholding_declared_targets_returns_the_fail_closed_default() {
+    let full = fixtures::full();
+    let withheld = withhold_group(&full, GroupId::ApTargets);
+    assert_eq!(withheld.ap_targets, Default::default());
+    assert!(
+        full.ap_targets != Default::default(),
+        "the fixture must feed the group, or this proves nothing"
+    );
+    let data = crate::resolve(&withheld, &FreshnessPolicy::default());
+    assert_eq!(
+        data.ap_targets.altitude_ft.status,
+        SignalStatus::Missing,
+        "a withheld target readout must not show a value"
+    );
 }
 
 #[test]

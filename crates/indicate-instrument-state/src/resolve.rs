@@ -46,6 +46,18 @@ pub struct ResolvedAltitude {
     pub bug_compatible: bool,
 }
 
+/// The autoflight targets in the units their readouts show.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ApTargetsResolved {
+    /// Target indicated airspeed in knots.
+    pub airspeed_kt: Sig<f32>,
+    /// Target vertical speed in feet per minute, positive up.
+    pub vertical_speed_fpm: Sig<f32>,
+    /// Target altitude in feet, `Missing` unless its reference identity
+    /// matches the displayed datum's.
+    pub altitude_ft: Sig<f32>,
+}
+
 /// Turn indication resolved from the typed dynamics group (DYN-01):
 /// the rate, its explicit basis, and nothing derived from body rates.
 /// The value is retained unclamped for monitoring — only the pointer
@@ -130,6 +142,11 @@ pub struct PanelData {
     /// when the caller resolves without source comparison;
     /// [`crate::resolve_with_sources`] populates it.
     pub sources: crate::source_monitor::SourceSelection,
+    /// Autoflight engagement and modes; `Missing` renders nothing, so
+    /// an annunciation never outlives the sample behind it.
+    pub ap_modes: Sig<crate::autopilot::ApModes>,
+    /// The values the automation is flying toward, in display units.
+    pub ap_targets: ApTargetsResolved,
     /// Machine-monitoring text channel (AIR-IN-014), advisory only; a
     /// hidden status leaves the default empty channel behind it.
     pub monitor_text: Sig<crate::monitor_text::MonitorText>,
@@ -258,16 +275,12 @@ pub fn resolve_stateful(
     let groups = group_status::group_statuses(state, policy, &trust, &integrity);
     let bug = heading_bug_presented(state, policy, rose);
 
-    let (bearings, bearings_rose_rad) = bearings_resolved(
-        state,
-        policy,
-        rose,
-        groups.status(crate::group_id::GroupId::BearingPointers),
-    );
-
+    let equipment = equipment_resolved(state, policy, &trust, &integrity, rose, &groups, &kin);
     PanelData {
-        bearings_rose_rad,
-        bearings,
+        bearings_rose_rad: equipment.bearings_rose_rad,
+        bearings: equipment.bearings,
+        ap_modes: equipment.ap_modes,
+        ap_targets: equipment.ap_targets,
         roll_rad: finite(Sig::with_status(presentation.bank_rad, att_status)),
         pitch_rad: finite(Sig::with_status(presentation.pitch_rad, att_status)),
         heading,
@@ -280,14 +293,7 @@ pub fn resolve_stateful(
         ias_kt: finite(ias),
         tas_kt: finite(tas),
         gs_kt: finite(kin.gs_kt),
-        altitude: altitude_resolved(
-            state,
-            policy,
-            &trust,
-            &integrity,
-            kin.position,
-            kin.rel_alt_ft,
-        ),
+        altitude: equipment.altitude,
         vsi_fpm: finite(kin.vsi_fpm),
         track_rad: finite(track),
         baro_hpa: finite(baro),
@@ -460,14 +466,15 @@ fn nav_resolved(
 }
 
 mod altitude_signal;
+mod autoflight_signal;
 mod bearings_signal;
 mod dynamics_signal;
+mod equipment_signal;
 mod group_status;
 mod kinematics_signal;
 mod wind_signal;
-use altitude_signal::altitude_resolved;
-use bearings_signal::bearings_resolved;
 use dynamics_signal::{ias_trend_resolved, slip_resolved, turn_resolved};
+use equipment_signal::equipment_resolved;
 use kinematics_signal::kinematic_signals;
 use wind_signal::wind_signal;
 mod heading_signal;

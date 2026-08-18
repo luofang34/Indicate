@@ -114,6 +114,7 @@ enforce its required layer mask before visible commit:
 |---|---|---|
 | PFD | `Attitude`, `Tapes`, `Guidance`, `Annunciation` | `Background`, `Failure` |
 | HSI | `Attitude`, `Tapes`, `Guidance`, `Annunciation` | `Background`, `Failure` |
+| Autoflight | `Tapes`, `Annunciation` | `Background`, `Attitude`, `Guidance`, `Failure` |
 | Monitor | `Tapes`, `Annunciation` | `Background`, `Attitude`, `Guidance`, `Failure` |
 
 This table is the `required_layers` mask of each shipped descriptor, not an

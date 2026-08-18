@@ -92,6 +92,11 @@ pub struct StateIntegrity {
     /// Airframe-configuration fault: a non-finite ratio, or one outside
     /// the range its axis is defined over.
     pub airframe: Option<GroupFault>,
+    /// Autoflight-mode fault: a mode or engagement byte this build
+    /// cannot name.
+    pub ap_modes: Option<GroupFault>,
+    /// Autoflight-target fault: a target present but not a number.
+    pub ap_targets: Option<GroupFault>,
 }
 
 fn all_finite(values: &[f32]) -> bool {
@@ -280,12 +285,40 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
     }
     integrity.dynamics = state.dynamics.data.as_ref().and_then(dynamics_fault);
     integrity.director = state.director.data.as_ref().and_then(director_fault);
+    integrity.ap_modes = state.ap_modes.data.as_ref().and_then(ap_modes_fault);
+    integrity.ap_targets = ap_targets_fault(&state.ap_targets);
     if let Some(text) = &state.monitor_text.data
         && text.is_malformed()
     {
         integrity.monitor_text = Some(GroupFault::MalformedIdent);
     }
     integrity
+}
+
+/// A mode this build cannot name fails the whole group. Annunciating
+/// the modes it could read beside a silence where the unreadable one
+/// belongs would say the automation holds nothing on that axis, which
+/// is a claim nobody made.
+fn ap_modes_fault(modes: &crate::autopilot::ApModes) -> Option<GroupFault> {
+    use crate::autopilot::{ApEngagement, LateralMode, VerticalMode};
+    let unknown = modes.engagement == ApEngagement::Unknown
+        || modes.lateral_active == LateralMode::Unknown
+        || modes.lateral_armed == LateralMode::Unknown
+        || modes.vertical_active == VerticalMode::Unknown
+        || modes.vertical_armed == VerticalMode::Unknown;
+    unknown.then_some(GroupFault::UnknownEnum)
+}
+
+/// A target the automation is flying toward has to be a number. The
+/// reference identity of the altitude target is not checked here: an
+/// identity that does not match the displayed declaration is a
+/// comparability question the resolver answers by withholding the
+/// readout, not a fault in the source.
+fn ap_targets_fault(targets: &crate::autopilot::ApTargets) -> Option<GroupFault> {
+    let finite = opt_finite(targets.airspeed_mps)
+        && opt_finite(targets.vertical_speed_mps)
+        && opt_finite(targets.altitude_m);
+    (!finite).then_some(GroupFault::NonFinite)
 }
 
 fn director_fault(director: &crate::director::FdSample) -> Option<GroupFault> {

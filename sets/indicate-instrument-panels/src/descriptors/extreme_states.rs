@@ -4,9 +4,10 @@
 
 use indicate_instrument_descriptor::states;
 use indicate_instrument_state::{
-    AirData, AircraftState, Attitude, BearingPointer, BearingPointers, DynSample, FdEngagement,
-    FdMode, FdSample, HeadingReference, HeadingSample, Kinematics, MonitorText, NavData, NavFromTo,
-    NavScale, NavSource, Quat, Stamped, TextLine, TurnBasis, TurnSample,
+    AirData, AircraftState, ApEngagement, ApModes, Attitude, BearingPointer, BearingPointers,
+    DynSample, FdEngagement, FdMode, FdSample, HeadingReference, HeadingSample, Kinematics,
+    LateralMode, MonitorText, NavData, NavFromTo, NavScale, NavSource, OriginId, Quat, Stamped,
+    TextLine, TurnBasis, TurnSample, VerticalMode,
 };
 
 /// Inverted, nose-low, rolling hard: the unusual-attitude tier, the
@@ -198,6 +199,33 @@ pub(super) fn hsi_bearing_split_references() -> AircraftState {
         }),
         age_ms: Some(40.0),
     };
+    state
+}
+
+/// The automation flying and armed on both axes, with every target
+/// set: the annunciator's full band, which the shared corpus does not
+/// reach because no shipped posture publishes autoflight data.
+pub(super) fn autoflight_engaged() -> AircraftState {
+    let mut state = states::fully_fed();
+    state.ap_modes = Stamped {
+        data: Some(ApModes {
+            engagement: ApEngagement::Autopilot,
+            lateral_active: LateralMode::Approach,
+            lateral_armed: LateralMode::Nav,
+            vertical_active: VerticalMode::GlideSlope,
+            vertical_armed: VerticalMode::Altitude,
+        }),
+        age_ms: Some(40.0),
+    };
+    state
+}
+
+/// An altitude target measured against another origin: present, finite,
+/// and still not comparable to the altitude the display is showing. The
+/// readout must dash while the other two targets stay live.
+pub(super) fn autoflight_incomparable_target() -> AircraftState {
+    let mut state = autoflight_engaged();
+    state.ap_targets.altitude_origin = OriginId(state.altitude.origin.0.wrapping_add(1));
     state
 }
 

@@ -23,8 +23,8 @@
 //! | 0x11 | terrain bands (planned) |
 //! | 0x12 | bearing pointers (stamped) |
 //! | 0x13 | airframe configuration (stamped) |
-//! | 0x14 | autopilot/flight-director modes (stamped; allocated) |
-//! | 0x15 | autopilot targets (declared; allocated) |
+//! | 0x14 | autopilot/flight-director modes (stamped) |
+//! | 0x15 | autopilot targets (declared) |
 //! | 0x16–0xDF | future standard groups |
 //! | 0xE0–0xEF | experimentation; never in committed fixtures |
 //! | 0xF0–0xFF | never assigned |
@@ -99,11 +99,15 @@ pub enum GroupId {
     BearingPointers = 0x12,
     /// Airframe configuration: flap position and trim.
     AirframeConfig = 0x13,
+    /// Autoflight engagement and the active and armed modes.
+    ApModes = 0x14,
+    /// The values the automation is flying toward.
+    ApTargets = 0x15,
 }
 
 impl GroupId {
     /// Number of defined groups.
-    pub const COUNT: usize = 15;
+    pub const COUNT: usize = 17;
 
     /// Every defined group in ascending id order — the canonical wire
     /// order and the index order of [`GroupStatuses`].
@@ -123,6 +127,8 @@ impl GroupId {
         GroupId::FlightDirector,
         GroupId::BearingPointers,
         GroupId::AirframeConfig,
+        GroupId::ApModes,
+        GroupId::ApTargets,
     ];
 
     /// The wire tag.
@@ -149,16 +155,17 @@ impl GroupId {
             0x0D => Some(GroupId::FlightDirector),
             0x12 => Some(GroupId::BearingPointers),
             0x13 => Some(GroupId::AirframeConfig),
+            0x14 => Some(GroupId::ApModes),
+            0x15 => Some(GroupId::ApTargets),
             _ => None,
         }
     }
 
     /// Position in [`Self::ALL`], for dense per-group tables.
     ///
-    /// The mapping is a match, not arithmetic on the wire tag. Assigned
-    /// ids are contiguous today, so `tag - 1` would give the same
-    /// answers; they stop being contiguous at the first variant above
-    /// 0x0D, and arithmetic would then index past the table. The
+    /// The mapping is a match, not arithmetic on the wire tag. The
+    /// assigned ids are not contiguous — the planned range 0x0E to
+    /// 0x11 has no variants — so `tag - 1` indexes past the table. The
     /// exhaustive match also fails to compile when a new variant has no
     /// slot, which arithmetic cannot do.
     pub const fn index(self) -> usize {
@@ -178,6 +185,8 @@ impl GroupId {
             GroupId::FlightDirector => 12,
             GroupId::BearingPointers => 13,
             GroupId::AirframeConfig => 14,
+            GroupId::ApModes => 15,
+            GroupId::ApTargets => 16,
         }
     }
 }
@@ -246,6 +255,8 @@ pub fn withhold_group(state: &AircraftState, group: GroupId) -> AircraftState {
         }
         GroupId::MonitorText => out.monitor_text = Default::default(),
         GroupId::FlightDirector => out.director = Default::default(),
+        GroupId::ApModes => out.ap_modes = Default::default(),
+        GroupId::ApTargets => out.ap_targets = Default::default(),
     }
     out
 }

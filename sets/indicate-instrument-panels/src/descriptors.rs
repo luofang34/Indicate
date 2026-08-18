@@ -9,6 +9,7 @@
 
 mod criticality_bands;
 mod extreme_states;
+mod supplementary;
 
 use indicate_alerts::AlertOutput;
 use indicate_instrument_descriptor::{
@@ -308,121 +309,13 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     draw: draw_hsi_panel,
 };
 
-fn draw_monitor_panel(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
-) -> Result<(), PanelDrawError> {
-    config.require_schema(MONITOR_DESCRIPTOR.config_schema)?;
-    crate::monitor::draw_monitor(data, alerts, frame, scene)?;
-    Ok(())
-}
-
-/// The machine-monitoring text panel (AIR-IN-014) — the registry's
-/// proof of modularity: it exists as this descriptor and a draw
-/// function, with no shell change beyond composition.
-pub const MONITOR_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
-    id: "monitor",
-    title: "Monitor",
-    required_layers: layer_bit(LayerId::Tapes) | layer_bit(LayerId::Annunciation),
-    required_groups: GroupSet::of(&[GroupId::MonitorText]),
-    frame_min: BUILTIN_FRAME,
-    frame_max: BUILTIN_FRAME,
-    frame_step: FRAME_STEP,
-    aspect_min: ASPECT_MIN,
-    aspect_max: ASPECT_MAX,
-    canonical_frames: CANONICAL_FRAMES,
-    // The panel owns its band with an opaque ground: text needs it, and
-    // declaring anything weaker would hand a compositor a black
-    // rectangle it was told is not painted.
-    background: BackgroundCapability::Opaque,
-    config_schema: &[],
-    // The whole text area is the channel's region: with MONITOR_TEXT
-    // withheld the panel shows dashes, never lines it was not given.
-    group_regions: &[(
-        GroupId::MonitorText,
-        Region {
-            x: 0.0,
-            y: 60.0,
-            width: 480.0,
-            height: 300.0,
-        },
-    )],
-    extreme_states: &[ExtremeState {
-        id: "full-channel",
-        build: extreme_states::monitor_full_channel,
-    }],
-    raster_baselines: &[(
-        BUILTIN_FRAME,
-        "40f44383f3ad46a0bbd65f04afc1d80fb9d94c11acff8dc66edbfcf7b8fa4c01",
-    )],
-    draw: draw_monitor_panel,
-};
-
 /// The panels this crate ships, in shell display order.
-pub const BUILTIN_PANELS: &[PanelDescriptor] =
-    &[PFD_DESCRIPTOR, HSI_DESCRIPTOR, MONITOR_DESCRIPTOR];
-
-fn draw_config_panel(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
-) -> Result<(), PanelDrawError> {
-    config.require_schema(CONFIG_DESCRIPTOR.config_schema)?;
-    crate::config::draw_config(data, alerts, frame, scene)?;
-    Ok(())
-}
-
-/// The airframe-configuration panel: flap position and trim.
-///
-/// A conventional-instrument surface, not a primary-flight one, so it
-/// ships in its own set rather than joining [`BUILTIN_PANELS`] — a shell
-/// composes it when the airframe has the sensors, and the builtin set's
-/// composition digest does not move for a panel nobody composed.
-pub const CONFIG_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
-    id: "config",
-    title: "Configuration",
-    required_layers: layer_bit(LayerId::Tapes) | layer_bit(LayerId::Annunciation),
-    required_groups: GroupSet::of(&[GroupId::AirframeConfig, GroupId::Trust]),
-    frame_min: BUILTIN_FRAME,
-    frame_max: BUILTIN_FRAME,
-    frame_step: FRAME_STEP,
-    aspect_min: ASPECT_MIN,
-    aspect_max: ASPECT_MAX,
-    canonical_frames: CANONICAL_FRAMES,
-    background: BackgroundCapability::Opaque,
-    config_schema: &[],
-    // The scales and their numerals: with the group withheld the panel
-    // dashes both, and the region has to hold the dashes as well as the
-    // readings.
-    group_regions: &[(
-        GroupId::AirframeConfig,
-        Region {
-            x: 40.0,
-            y: 40.0,
-            width: 400.0,
-            height: 300.0,
-        },
-    )],
-    extreme_states: &[],
-    // No baseline until the rasterizer covers this set; the contract
-    // asserts none that was never declared.
-    raster_baselines: &[],
-    draw: draw_config_panel,
-};
-
-/// The configuration panel as a set a shell can name.
-pub const CONFIG_SET: PanelSet = PanelSet {
-    id: "config",
-    panels: CONFIG_PANELS,
-};
-
-/// The panels in [`CONFIG_SET`].
-pub const CONFIG_PANELS: &[PanelDescriptor] = &[CONFIG_DESCRIPTOR];
+pub const BUILTIN_PANELS: &[PanelDescriptor] = &[
+    PFD_DESCRIPTOR,
+    HSI_DESCRIPTOR,
+    AUTOFLIGHT_DESCRIPTOR,
+    MONITOR_DESCRIPTOR,
+];
 
 /// The panels this crate ships, as the set a shell names.
 ///
@@ -444,9 +337,12 @@ pub const BUILTIN_SET: PanelSet = PanelSet {
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "b9494f3042aa7b6483d16555f4e14a0b48887772caeaeba0a2b35e52467bd9d3";
+    "3ed6079befa5e5f1cfc39276598a46d49ae9578dde29e46b3165e698b3123a35";
 
 pub use criticality_bands::BUILTIN_CRITICALITY_BANDS;
+pub use supplementary::{
+    AUTOFLIGHT_DESCRIPTOR, CONFIG_DESCRIPTOR, CONFIG_PANELS, CONFIG_SET, MONITOR_DESCRIPTOR,
+};
 
 #[cfg(test)]
 mod digest_tests;

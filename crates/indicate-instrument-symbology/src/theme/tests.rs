@@ -28,6 +28,51 @@ fn the_default_theme_is_the_palette() {
     assert_eq!(theme.radio_nav, palette::GREEN);
     assert_eq!(theme.selection, palette::CYAN);
     assert_eq!(theme.band_normal, palette::BAND_GREEN);
+    assert_eq!(theme.mode_active, palette::MODE_ACTIVE);
+}
+
+/// The active-mode color must not read as a guidance source. Green is
+/// what a conventional annunciator would use, and green is exactly what
+/// the radio-nav guidance color already means here, so a theme that
+/// reaches for it is refused rather than silently overloading the
+/// receiver colors.
+#[test]
+fn a_mode_color_wearing_a_guidance_hue_is_rejected() {
+    for guidance in [palette::GREEN, palette::MAGENTA] {
+        let overloaded = Theme {
+            mode_active: guidance,
+            ..Theme::DEFAULT
+        };
+        assert!(
+            matches!(
+                ValidTheme::validate(overloaded),
+                Err(ThemeError::ModeColorImitatesSource { .. })
+            ),
+            "a mode color equal to a guidance color must be refused"
+        );
+    }
+}
+
+/// The shipped active-mode color clears the same distance the two
+/// guidance colors must keep from each other, so the rule above is not
+/// satisfied by a hair.
+#[test]
+fn the_shipped_mode_color_clears_both_guidance_colors() {
+    for guidance in [palette::GREEN, palette::MAGENTA] {
+        let distance = [
+            palette::MODE_ACTIVE.r.abs_diff(guidance.r),
+            palette::MODE_ACTIVE.g.abs_diff(guidance.g),
+            palette::MODE_ACTIVE.b.abs_diff(guidance.b),
+        ]
+        .into_iter()
+        .max()
+        .unwrap_or(0);
+        assert!(
+            distance >= super::SAFETY_DISTANCE_MIN,
+            "mode_active holds {distance} against a guidance color, floor {}",
+            super::SAFETY_DISTANCE_MIN
+        );
+    }
 }
 
 #[test]

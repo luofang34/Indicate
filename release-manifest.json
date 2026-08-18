@@ -9,7 +9,7 @@
     "version": 4,
     "sha256": "1fb8e6de2734ff7506843b05869f39d501f0926599636c6110a7e3b0c6e1625e"
   },
-  "compositionDigest": "b9494f3042aa7b6483d16555f4e14a0b48887772caeaeba0a2b35e52467bd9d3",
+  "compositionDigest": "3ed6079befa5e5f1cfc39276598a46d49ae9578dde29e46b3165e698b3123a35",
   "screenComposition": {
     "fixture": "tools/instrument-bench",
     "screen": { "width": 960, "height": 720 },
@@ -18,17 +18,19 @@
       { "panel": "hsi", "x": 480, "y": 0, "width": 480, "height": 360 },
       { "panel": "monitor", "x": 0, "y": 360, "width": 480, "height": 360 }
     ],
-    "digest": "2a787ce5671488d5e187b366d68a60f8ef4b3a7e380e11a315d73b86cbf2cc76"
+    "digest": "ca5e33b6b45f97b522e15167a359671a164fc5ce2fc6bf325da255069f67834b"
   },
   "rasterBaselines": [
     { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "sha256": "411ef00fcbd4bb1c53f4e17effa67b9eb69f4fb19d1b80d2576336d12094834c" },
     { "panel": "hsi", "frame": { "width": 480, "height": 360 }, "sha256": "a6b8808adb6d3181e45c55c1f8c5cf68eb248a0b4a71dedb744e3fbae8b0ab7e" },
+    { "panel": "autoflight", "frame": { "width": 480, "height": 360 }, "sha256": "fbc6d9448f9e73fc736a82059afe796d0853c31610c4d8360111a1d150976ead" },
     { "panel": "monitor", "frame": { "width": 480, "height": 360 }, "sha256": "40f44383f3ad46a0bbd65f04afc1d80fb9d94c11acff8dc66edbfcf7b8fa4c01" }
   ],
   "glyphPackHash": "281eef6229feee417c7090d8c8ea79489c017cd1c02fc7234876b2a64a532158",
   "criticalityBands": [
     { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "band": { "x": 6, "y": 38, "width": 468, "height": 314 } },
     { "panel": "hsi", "frame": { "width": 480, "height": 360 }, "band": { "x": 98, "y": 48, "width": 284, "height": 304 } },
+    { "panel": "autoflight", "frame": { "width": 480, "height": 360 }, "band": { "x": 100, "y": 276, "width": 90.857147, "height": 76 } },
     { "panel": "monitor", "frame": { "width": 480, "height": 360 }, "band": { "x": 100, "y": 276, "width": 90.857147, "height": 76 } }
   ]
 }

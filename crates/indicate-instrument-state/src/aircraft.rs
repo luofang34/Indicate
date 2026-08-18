@@ -390,6 +390,14 @@ pub struct AircraftState {
     pub bearings: Stamped<BearingPointers>,
     /// Airframe configuration: flap position and trim.
     pub airframe: Stamped<AirframeConfig>,
+    /// Autoflight engagement and the active and armed modes
+    /// (AIR-IN-015). Stamped: an annunciation that outlives its source
+    /// says the automation is doing something it stopped doing.
+    pub ap_modes: Stamped<crate::autopilot::ApModes>,
+    /// The values the automation is flying toward (AIR-IN-015).
+    /// Declared beside the other selections: a target is UI state in
+    /// the same sense a heading bug is.
+    pub ap_targets: crate::autopilot::ApTargets,
 }
 
 impl Default for Selections {

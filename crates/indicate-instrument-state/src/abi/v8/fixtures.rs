@@ -149,14 +149,20 @@ fn baro_altitude(sample_m: f32, origin: u32) -> AltitudeDeclaration {
     }
 }
 
-/// Every group present, asymmetric on purpose.
-pub fn full() -> AircraftState {
-    let mut nav = nav(0.6, 0.7, "WPT-2", "KMRY", 80.0);
-    if let Some(data) = nav.data.as_mut() {
-        data.vdev_dots = Some(-0.4);
-        data.dist_nm = Some(12.4);
-    }
+/// The groups that describe equipment rather than the aircraft's
+/// motion: what is commanding, what each receiver reports, how the
+/// airframe is set, and what the automation holds.
+fn equipment() -> AircraftState {
     AircraftState {
+        director: stamped(
+            crate::director::FdSample {
+                pitch_cmd_rad: 0.08,
+                roll_cmd_rad: -0.2,
+                mode: crate::director::FdMode::Nav,
+                engagement: crate::director::FdEngagement::Engaged,
+            },
+            80.0,
+        ),
         airframe: stamped(
             crate::aircraft::AirframeConfig {
                 // Distinct on purpose: the group exists to keep sensed
@@ -171,35 +177,6 @@ pub fn full() -> AircraftState {
             },
             80.0,
         ),
-        attitude: attitude([0.5, 0.5, 0.5, 0.5], [0.02, -0.01, 0.05], 80.0),
-        director: stamped(
-            crate::director::FdSample {
-                pitch_cmd_rad: 0.08,
-                roll_cmd_rad: -0.2,
-                mode: crate::director::FdMode::Nav,
-                engagement: crate::director::FdEngagement::Engaged,
-            },
-            80.0,
-        ),
-        kinematics: kinematics([1200.0, 340.0, -305.0], [52.0, 9.0, -2.0], 80.0),
-        air: air(53.0, 1013.2, Some(58.0), 80.0),
-        nav,
-        wind: stamped(
-            Wind {
-                from_rad: 2.1,
-                speed_mps: 7.5,
-            },
-            80.0,
-        ),
-        selections: Selections {
-            heading_bug_rad: 1.0,
-            heading_bug_reference: HeadingReference::SimLocalTrue,
-            altitude_sel_m: Some(500.0),
-            altitude_sel_class: AltitudeClass::LocalRelative,
-            altitude_sel_origin: OriginId(7),
-            altitude_sel_model: GeoidModelId::UNDECLARED,
-            baro_sel_hpa: Some(1013.2),
-        },
         bearings: stamped(
             crate::aircraft::BearingPointers {
                 first: crate::aircraft::BearingPointer {
@@ -228,6 +205,60 @@ pub fn full() -> AircraftState {
         variation: variation(0.15, 3, 120.0),
         dynamics: dynamics(0.05, TurnBasis::HeadingRate, 0.3, 85.0),
         monitor_text: stamped(monitor(9, &["ENG 1 OK", "FUEL 82.5"]), 500.0),
+        // Five distinct wire bytes: a codec that read one mode slot
+        // where another lives would otherwise produce a byte-identical
+        // golden frame and annunciate the wrong axis or the wrong tense.
+        ap_modes: stamped(
+            crate::autopilot::ApModes {
+                engagement: crate::autopilot::ApEngagement::Autopilot,
+                lateral_active: crate::autopilot::LateralMode::Roll,
+                lateral_armed: crate::autopilot::LateralMode::Approach,
+                vertical_active: crate::autopilot::VerticalMode::GlideSlope,
+                vertical_armed: crate::autopilot::VerticalMode::AltitudeCapture,
+            },
+            80.0,
+        ),
+        ap_targets: crate::autopilot::ApTargets {
+            airspeed_mps: Some(61.0),
+            vertical_speed_mps: Some(2.5),
+            altitude_m: Some(1200.0),
+            altitude_class: AltitudeClass::LocalRelative,
+            altitude_origin: OriginId(7),
+            altitude_model: GeoidModelId::UNDECLARED,
+        },
+        ..AircraftState::default()
+    }
+}
+
+/// Every group present, asymmetric on purpose.
+pub fn full() -> AircraftState {
+    let mut nav = nav(0.6, 0.7, "WPT-2", "KMRY", 80.0);
+    if let Some(data) = nav.data.as_mut() {
+        data.vdev_dots = Some(-0.4);
+        data.dist_nm = Some(12.4);
+    }
+    AircraftState {
+        attitude: attitude([0.5, 0.5, 0.5, 0.5], [0.02, -0.01, 0.05], 80.0),
+        kinematics: kinematics([1200.0, 340.0, -305.0], [52.0, 9.0, -2.0], 80.0),
+        air: air(53.0, 1013.2, Some(58.0), 80.0),
+        nav,
+        wind: stamped(
+            Wind {
+                from_rad: 2.1,
+                speed_mps: 7.5,
+            },
+            80.0,
+        ),
+        selections: Selections {
+            heading_bug_rad: 1.0,
+            heading_bug_reference: HeadingReference::SimLocalTrue,
+            altitude_sel_m: Some(500.0),
+            altitude_sel_class: AltitudeClass::LocalRelative,
+            altitude_sel_origin: OriginId(7),
+            altitude_sel_model: GeoidModelId::UNDECLARED,
+            baro_sel_hpa: Some(1013.2),
+        },
+        ..equipment()
     }
 }
 

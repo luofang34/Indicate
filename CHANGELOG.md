@@ -53,23 +53,24 @@ own change onto this version before it is released, so the number names
 exactly one wire format. The registry table in `group_id.rs` records the
 agreed allocations and is the layout contract for the batch.
 
-This release carries the allocations that have landed so far: true
-airspeed on the Air group, the airspeed trend on the Dynamics group,
-the deflection scale on the Nav group, the bearing-pointer group, and
-the airframe-configuration group.
+This release carries every group the batch allocates and all but one of
+its field appends: true airspeed on the Air group, the airspeed trend on
+the Dynamics group, the deflection scale on the Nav group, and the
+bearing-pointer, airframe-configuration and autoflight groups.
+`facility_type` on Nav follows with its consumer.
 
 | Value | This release |
 |---|---|
 | State ABI | 8 |
 | Scene format | 1 |
 | Corpus | 4 |
-| Composition digest | `b9494f3042aa7b6483d16555f4e14a0b48887772caeaeba0a2b35e52467bd9d3` |
-| Panel set | `pfd`, `hsi`, `monitor` |
+| Composition digest | `3ed6079befa5e5f1cfc39276598a46d49ae9578dde29e46b3165e698b3123a35` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
 
-Panel set changed since the previous release: no. The configuration
-panel ships in its own set, `config`, which a shell composes when the
-airframe has the sensors — so `BUILTIN_PANELS` and its composition
-digest are unchanged by it.
+Panel set changed since the previous release: yes — the autoflight
+annunciator joins the set. The configuration panel ships in its own
+set, `config`, which a shell composes when the airframe has the
+sensors, so it does not move `BUILTIN_PANELS`.
 
 ### State ABI v8 ([#58](https://github.com/luofang34/Indicate/issues/58))
 
@@ -131,6 +132,21 @@ digest are unchanged by it.
   reports magnetic bearings and an attitude source that reports true
   heading are a normal pairing, and the display converts between them
   or draws nothing.
+- **0x14 ApModes is a stamped group of 12 bytes.** Engagement, active
+  and armed lateral mode, active and armed vertical mode, three
+  reserved zero bytes, then the trailing `age_ms`. Each byte this build
+  cannot name decodes to its fail-closed `Unknown`, and one unknown
+  fails the whole group: annunciating the modes that did decode would
+  say the unreadable axis is holding nothing, which nobody claimed. The
+  group is stamped because an annunciation that outlives its source
+  says the automation is doing something it stopped doing.
+- **0x15 ApTargets is a declared group of 20 bytes.** Target airspeed,
+  the altitude target with the same reference-identity trio as the
+  selected altitude (class, geoid model, origin), and target vertical
+  speed. The layout mirrors the selections layout field for field. An
+  altitude target whose identity does not match the displayed datum is
+  withheld rather than drawn: a number the pilot could read against the
+  wrong datum is worse than no number.
 - **Group-status indexing no longer assumes contiguous ids.**
   `GroupStatuses` was a dense table keyed by `tag - 1`. The batch
   allocates 0x12 to 0x15 while 0x0E to 0x11 stay reserved, so the
@@ -160,6 +176,21 @@ digest are unchanged by it.
   group's minimum, and the decoder rejects the whole frame exactly as
   it does for a short Air group. Declare the scale the guidance is
   actually flown to; there is no value that means "not stated".
+- **The panel set gains the autoflight annunciator, which moves the
+  composition digest and the screen-composition digest.** A surface of
+  its own rather than a band inside the PFD: the PFD already
+  annunciates the flight director's mode, and a second mode vocabulary
+  competing for the same strip would leave a reader deciding which
+  annunciation answers which question. The shared `typical` state does
+  not feed the new groups, matching the posture — no feeder publishes
+  autoflight data — so the panel's pinned raster baseline is its
+  unfed presentation, and the panel's own extreme states carry the
+  engaged case.
+- **`Theme` gains `mode_active`, and a theme validation rule with it.**
+  The active-mode color must stay the same distance from both guidance
+  colors that those two must keep from each other. A mode annunciation
+  wearing the radio-nav green would say a receiver is guiding when what
+  it names is an automation state.
 - **The speed tape starts 25 units lower.** The true-airspeed box is
   opaque and owns the strip above the tape, so the tape no longer paints
   under it. The visible speed range above the pointer shrinks by about
