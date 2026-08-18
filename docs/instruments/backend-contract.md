@@ -276,9 +276,10 @@ exists; take it only with the set in hand.
 ## A generation counts output made, not content
 
 Each producer makes one kind of output, and this section calls that its
-**unit of output**. An ingress gate makes a snapshot. A renderer makes a
-frame. A **generation** is a `u32` counter. A producer advances it when
-the producer completes one unit of output successfully.
+**unit of output**. An input validation and time/integrity gate admits a
+snapshot. A renderer makes a frame. A **generation** is a `u32` counter.
+A producer advances it when the producer completes one unit of output
+successfully.
 
 Generations appear at every shell boundary: the state snapshot, the
 render generation a liveness check watches, and the markers a consumer
@@ -332,9 +333,15 @@ read any of them as a count of a producer's output:
   the authorization, which is a content change.
 
 The wire generation a shell decodes is `SnapshotMeta::generation`. This
-rule governs that one, so a shell advances it once per snapshot it
-admits. A shell must not forward the feeder's counter into it: that one
+rule governs that one, and the gate advances it once per snapshot the
+gate admits. A shell hosts the gate; it does not supply the counter, and
+a source never does — a source sits on the untrusted side of the
+boundary the snapshot describes.
+
+`IngressSnapshot::generation` above and `SnapshotMeta::generation` here
+are two counters, not one. The first is the feeder's own, and it
 advances on an authorization change as well, which this rule excludes.
+A shell must not forward it into the second.
 
 `FrameId::frame_generation` and `FrameId::render_generation` cross the
 raster boundary as data. The rasterizer is stateless: it carries both

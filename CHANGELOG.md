@@ -43,6 +43,43 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.5.1] — 2026-08-18
+
+`SnapshotMeta::generation` counts snapshots admitted, not source groups
+advanced. The meaning is stated once, for every shell, in
+`backend-contract.md`
+([#47](https://github.com/luofang34/Indicate/issues/47)).
+
+**This changes what a consumer holding the old meaning reads.** A
+generation that stops advancing used to mean the sources stopped
+changing; it now means the gate stopped admitting. A consumer that
+raised a liveness fault on a stalled generation was reporting quiet
+data and now reports a stalled producer, which is the question liveness
+asks. A consumer that compared generations to detect a content change
+was always wrong under both meanings and is now wrong more often: two
+admissions of identical content advance the counter twice. Compare the
+content.
+
+The gate assigns the counter, never a source. A source sits on the
+untrusted side of the boundary the snapshot describes, so a counter a
+source supplied would be the thing being judged rather than the
+judgement.
+
+No wire byte moves: the field, its width and its offset are unchanged.
+The ABI number therefore does not move either, which is why this note
+exists — no gate can see a meaning change, and `check-release-markers`
+compares numbers.
+
+| Value | This release |
+|---|---|
+| State ABI | 7 |
+| Scene format | 1 |
+| Corpus | 5 |
+| Composition digest | `5cded14978b2e5ba3a17b61959ed0b35061334adf3fde4242f47e214f0f07aef` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no.
+
 ## [0.5.0] — 2026-08-18
 
 The altitude readout becomes a rolling-digit drum. The final digit pair
