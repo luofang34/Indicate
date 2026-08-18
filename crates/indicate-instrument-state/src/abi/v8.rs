@@ -30,15 +30,18 @@
 //!
 //! # The v8 batch (issue #58)
 //!
-//! Version 8 changes no wire layout: every payload is byte-identical to
-//! version 7 and only the version byte moves. Version 8 is the
-//! coordination point for one batch of allocations that issues #50 to
-//! #55 and #57 agreed. The registry table in [`crate::group_id`] is the
-//! layout contract for that batch: it fixes each new group id, its lane
-//! (stamped or declared), and each field append to an existing group.
-//! Each allocation lands as its own change stacked on this version, as a
-//! full vertical slice of codec, resolve, feeder, drawing, and
-//! guardrails.
+//! The bump itself changed no wire layout: every payload inherited from
+//! version 7 is byte-identical to its v7 form and only the version byte
+//! moved. Version 8 is the coordination point for one batch of
+//! allocations that issues #50 to #55 and #57 agreed. The registry table
+//! in [`crate::group_id`] is the layout contract for that batch: it
+//! fixes each new group id, its lane (stamped or declared), and each
+//! field append to an existing group. Each allocation lands as its own
+//! change stacked on this version, as a full vertical slice of codec,
+//! resolve, feeder, drawing, and guardrails.
+//!
+//! Landed allocations: the Air group carries `tas_mps` after its
+//! trailing `age_ms` (issue #52), so its minimum payload is 16 bytes.
 
 use crate::aircraft::AircraftState;
 use crate::group_id::GroupId;
@@ -100,7 +103,7 @@ const fn min_len(id: GroupId) -> usize {
     match id {
         GroupId::Attitude => 32,
         GroupId::Kinematics => 28,
-        GroupId::Air => 12,
+        GroupId::Air => 16,
         GroupId::Nav => 42,
         GroupId::Wind => 12,
         GroupId::Selections => 20,

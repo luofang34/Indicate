@@ -59,7 +59,7 @@ is the layout contract for the batch.
 | State ABI | 8 |
 | Scene format | 1 |
 | Corpus | 4 |
-| Composition digest | `f814183b31aef360455cb91c627fd59597a5e0463747b5f83aa613e6b500f79f` |
+| Composition digest | `bd680a5f2f936b641ee0342abb0a6fb4b6d88cf0034b72d1eba1acce935e5de8` |
 | Panel set | `pfd`, `hsi`, `monitor` |
 
 Panel set changed since the previous release: no.

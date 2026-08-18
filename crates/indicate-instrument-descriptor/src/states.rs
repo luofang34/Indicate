@@ -38,6 +38,10 @@ pub const CANONICAL_STATES: &[CanonicalState] = &[
         id: "source-unusable",
         build: source_unusable,
     },
+    CanonicalState {
+        id: "ias-without-tas",
+        build: ias_without_tas,
+    },
 ];
 
 /// Cold start: no group has ever been fed. Every signal must resolve
@@ -79,6 +83,7 @@ pub fn typical() -> AircraftState {
             data: Some(AirData {
                 ias_mps: Some(53.0),
                 baro_setting_hpa: Some(1013.2),
+                tas_mps: Some(58.0),
             }),
             age_ms: Some(80.0),
         },
@@ -204,6 +209,17 @@ pub fn fully_fed() -> AircraftState {
 pub fn source_unusable() -> AircraftState {
     let mut state = typical();
     state.quality = EstimateQuality::Unusable;
+    state
+}
+
+/// A source that supplies indicated airspeed but no true airspeed: the
+/// display never derives one from the other (ADR-0017). The tape and
+/// IAS readout stay live; only the TAS box shows `Missing`.
+pub fn ias_without_tas() -> AircraftState {
+    let mut state = typical();
+    if let Some(air) = state.air.data.as_mut() {
+        air.tas_mps = None;
+    }
     state
 }
 

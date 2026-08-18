@@ -18,7 +18,8 @@ const PX_PER_KT: f32 = 7.2;
 const PX_PER_FT: f32 = 1.2;
 const CENTER_Y: f32 = 180.0;
 
-/// Left-edge airspeed tape with bands, readout, and groundspeed box.
+/// Left-edge airspeed tape with bands, readout, and the TAS and
+/// groundspeed boxes at its head and foot.
 pub fn speed_tape(
     scene: &mut SceneWriter<'_>,
     data: &PanelData,
@@ -70,6 +71,8 @@ pub fn speed_tape(
         &IAS_READOUT,
     )?;
 
+    tas_box(scene, data)?;
+
     // Groundspeed box under the tape.
     let gs = data.gs_kt;
     let gs_text = fmt_label!(12, "GS {:.0}kt", gs.value);
@@ -86,6 +89,28 @@ pub fn speed_tape(
         gs.status,
     )?;
     Ok(())
+}
+
+/// True-airspeed box at the head of the tape, mirroring the groundspeed
+/// box at its foot. TAS is air data, so the box wears primary white
+/// where the kinematic-derived GS box wears magenta; an absent TAS (a
+/// source may supply IAS alone) shows this box's dashes and leaves the
+/// tape itself untouched.
+fn tas_box(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneError> {
+    let tas = data.tas_kt;
+    let tas_text = fmt_label!(12, "TAS {:.0}kt", tas.value);
+    status_paint::readout_box(
+        scene,
+        GroupId::Air.to_u8(),
+        0.0,
+        0.0,
+        90.0,
+        25.0,
+        tas_text.as_str(),
+        palette::WHITE,
+        16.0,
+        tas.status,
+    )
 }
 
 fn speed_bands(scene: &mut SceneWriter<'_>, ias: f32, v: &VSpeeds) -> Result<(), SceneError> {

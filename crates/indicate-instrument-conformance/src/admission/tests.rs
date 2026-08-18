@@ -11,26 +11,29 @@ use super::{admit, criticality_bands};
 fn builtin_panels_pass_admission() {
     let registry = Registry::new(BUILTIN_PANELS).expect("composes");
     let report = admit(&registry).expect("shipped panels must be admissible");
-    // PFD: (4 canonical + 3 extreme) states × (1 fed + 8 withheld);
-    // HSI: (4 + 2) × 8; monitor: 5 × 2 — each drawn twice, quiet and
+    // PFD: (5 canonical + 3 extreme) states × (1 fed + 8 withheld);
+    // HSI: (5 + 2) × 8; monitor: 6 × 2 — each drawn twice, quiet and
     // with the saturated alert stack.
-    assert_eq!(report.cases, 242);
-    // Every warning is the PFD's groundspeed or baro readout: their
-    // boxes are 90 units wide but a wide value at size 16 has ~107
-    // units of nominal ink, so the run overhangs its box and the frame
-    // edge (status_paint::readout_box draws at the requested size with
-    // no fit shrink). Real display debt, honestly counted across every
-    // corpus and extreme state; fixing the paint moves frame hashes and
-    // is its own change. The ratchet makes any NEW unclipped off-frame
-    // text a deliberate decision.
-    // Twice the quiet-frame count, because the overhanging runs are the
-    // groundspeed and baro readouts, which the alert stack does not
-    // touch: each overhangs on both sides of the alert axis.
-    assert_eq!(report.warnings.len(), 166);
+    assert_eq!(report.cases, 280);
+    // Every warning is one of the PFD's three `readout_box` values —
+    // true airspeed, groundspeed, baro: each box is 90 units wide but a
+    // wide value at size 16 has ~107 units of nominal ink, so the run
+    // overhangs its box and the frame edge (status_paint::readout_box
+    // draws at the requested size with no fit shrink, unlike the
+    // pointed readouts, which fit). Real display debt, honestly counted
+    // across every corpus and extreme state; fixing the paint moves
+    // frame hashes and is its own change, for all three at once. The
+    // ratchet makes any NEW unclipped off-frame text a deliberate
+    // decision, and this count grows for two such decisions: a third
+    // box of that shape, and a fifth canonical state that exercises all
+    // three.
+    // Twice the quiet-frame count, because the alert stack does not
+    // touch these boxes: each overhangs on both sides of the alert axis.
+    assert_eq!(report.warnings.len(), 266);
     assert!(report.warnings.iter().all(|w| matches!(
         w,
         super::AdmissionWarning::FrameOverflow { panel: "pfd", text, .. }
-            if text.starts_with("GS ") || text.starts_with("SET ")
+            if text.starts_with("TAS ") || text.starts_with("GS ") || text.starts_with("SET ")
     )));
 }
 

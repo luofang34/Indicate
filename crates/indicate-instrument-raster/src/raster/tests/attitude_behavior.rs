@@ -83,6 +83,7 @@ fn state_from_quat(quat: Quat) -> AircraftState {
         data: Some(AirData {
             ias_mps: Some(40.0),
             baro_setting_hpa: Some(1013.0),
+            tas_mps: Some(45.0),
         }),
         age_ms: Some(20.0),
     };
