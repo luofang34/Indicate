@@ -122,6 +122,16 @@ fn group_status(
             integrity.dynamics,
             state.valid.turn && state.valid.slip,
         ),
+        // Configuration folds source trust like the rest: a position
+        // reported by a source the state does not trust is not a
+        // position. It declares no validity bit of its own — the trust
+        // group's bits cover sensed estimates, and a flap setting is a
+        // reading rather than an estimate.
+        GroupId::AirframeConfig => fold(
+            &Ctx::of(policy, trust, &state.airframe),
+            integrity.airframe,
+            true,
+        ),
         // The director folds source trust like nav: a command from an
         // untrusted source must not draw bars.
         GroupId::FlightDirector => fold(

@@ -20,6 +20,7 @@
 //! | heading | reference u8; 0×3; heading f32; age f32 | 12 |
 //! | variation | source u8; 0×3; east f32; age f32 | 12 |
 //! | dynamics | basis u8; 0×3; turn f32; lateral f32; age f32 | 16 |
+//! | airframe | flap f32; flap sel f32; elev f32; ail f32; rud f32; age f32 | 24 |
 
 use super::{AbiError, get_f32, get_u8, put_f32, put_u8};
 use crate::abi::{opt, or_nan};
@@ -388,4 +389,36 @@ pub(super) fn encode_director(
     put_f32(p, 8, director.roll_cmd_rad);
     put_f32(p, 12, or_nan(state.director.age_ms));
     Ok(Some(16))
+}
+
+pub(super) fn decode_airframe(state: &mut AircraftState, p: &[u8]) {
+    let age = opt(get_f32(p, 20));
+    state.airframe = Stamped {
+        data: age.map(|_| crate::aircraft::AirframeConfig {
+            flap_ratio: opt(get_f32(p, 0)),
+            flap_selected_ratio: opt(get_f32(p, 4)),
+            elevator_trim_ratio: opt(get_f32(p, 8)),
+            aileron_trim_ratio: opt(get_f32(p, 12)),
+            rudder_trim_ratio: opt(get_f32(p, 16)),
+        }),
+        age_ms: age,
+    };
+}
+
+pub(super) fn encode_airframe(
+    state: &AircraftState,
+    out: &mut [u8],
+) -> Result<Option<usize>, AbiError> {
+    if absent(&state.airframe) {
+        return Ok(None);
+    }
+    let p = sized(out, 24)?;
+    let config = state.airframe.data.unwrap_or_default();
+    put_f32(p, 0, or_nan(config.flap_ratio));
+    put_f32(p, 4, or_nan(config.flap_selected_ratio));
+    put_f32(p, 8, or_nan(config.elevator_trim_ratio));
+    put_f32(p, 12, or_nan(config.aileron_trim_ratio));
+    put_f32(p, 16, or_nan(config.rudder_trim_ratio));
+    put_f32(p, 20, or_nan(state.airframe.age_ms));
+    Ok(Some(24))
 }

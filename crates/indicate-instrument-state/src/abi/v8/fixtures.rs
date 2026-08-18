@@ -154,6 +154,16 @@ pub fn full() -> AircraftState {
         data.dist_nm = Some(12.4);
     }
     AircraftState {
+        airframe: stamped(
+            crate::aircraft::AirframeConfig {
+                flap_ratio: Some(0.5),
+                flap_selected_ratio: Some(0.5),
+                elevator_trim_ratio: Some(-0.2),
+                aileron_trim_ratio: Some(0.05),
+                rudder_trim_ratio: None,
+            },
+            80.0,
+        ),
         attitude: attitude([0.5, 0.5, 0.5, 0.5], [0.02, -0.01, 0.05], 80.0),
         director: stamped(
             crate::director::FdSample {

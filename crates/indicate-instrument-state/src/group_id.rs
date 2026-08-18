@@ -22,7 +22,7 @@
 //! | 0x10 | projection view (synthetic vision; planned) |
 //! | 0x11 | terrain bands (planned) |
 //! | 0x12 | bearing pointers (stamped; allocated) |
-//! | 0x13 | airframe configuration (stamped; allocated) |
+//! | 0x13 | airframe configuration (stamped) |
 //! | 0x14 | autopilot/flight-director modes (stamped; allocated) |
 //! | 0x15 | autopilot targets (declared; allocated) |
 //! | 0x16–0xDF | future standard groups |
@@ -95,11 +95,13 @@ pub enum GroupId {
     MonitorText = 0x0C,
     /// Flight-director commanded attitude, mode, and engagement.
     FlightDirector = 0x0D,
+    /// Airframe configuration: flap position and trim.
+    AirframeConfig = 0x13,
 }
 
 impl GroupId {
     /// Number of defined groups.
-    pub const COUNT: usize = 13;
+    pub const COUNT: usize = 14;
 
     /// Every defined group in ascending id order — the canonical wire
     /// order and the index order of [`GroupStatuses`].
@@ -117,6 +119,7 @@ impl GroupId {
         GroupId::Dynamics,
         GroupId::MonitorText,
         GroupId::FlightDirector,
+        GroupId::AirframeConfig,
     ];
 
     /// The wire tag.
@@ -141,6 +144,7 @@ impl GroupId {
             0x0B => Some(GroupId::Dynamics),
             0x0C => Some(GroupId::MonitorText),
             0x0D => Some(GroupId::FlightDirector),
+            0x13 => Some(GroupId::AirframeConfig),
             _ => None,
         }
     }
@@ -168,6 +172,7 @@ impl GroupId {
             GroupId::Dynamics => 10,
             GroupId::MonitorText => 11,
             GroupId::FlightDirector => 12,
+            GroupId::AirframeConfig => 13,
         }
     }
 }
@@ -217,6 +222,7 @@ pub fn withhold_group(state: &AircraftState, group: GroupId) -> AircraftState {
             out.valid = Default::default();
             out.snapshot = Default::default();
         }
+        GroupId::AirframeConfig => out.airframe = Default::default(),
         GroupId::Altitude => out.altitude = Default::default(),
         GroupId::Heading => {
             out.heading = Default::default();

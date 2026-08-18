@@ -53,7 +53,8 @@ own change onto this version before it is released, so the number names
 exactly one wire format. The registry table in `group_id.rs` records the
 agreed allocations and is the layout contract for the batch.
 
-This release carries the first of them: true airspeed on the Air group.
+This release carries true airspeed on the Air group and the first new
+group, airframe configuration.
 
 | Value | This release |
 |---|---|
@@ -63,12 +64,24 @@ This release carries the first of them: true airspeed on the Air group.
 | Composition digest | `add8e694ff3e9ee2321f63f40e3f590d26dac5f6ddb9eec00ec876c7cac7573c` |
 | Panel set | `pfd`, `hsi`, `monitor` |
 
-Panel set changed since the previous release: no.
+Panel set changed since the previous release: no. The configuration
+panel ships in its own set, `config`, which a shell composes when the
+airframe has the sensors — so `BUILTIN_PANELS` and its composition
+digest are unchanged by it.
 
 ### State ABI v8 ([#58](https://github.com/luofang34/Indicate/issues/58))
 
 - **v8 replaces v7.** `abi::v7` is gone rather than kept alongside. The
   golden frames are now `state-abi-v8.*.hex`.
+- **Group 0x13, `AirframeConfig`, is on the wire.** A stamped group of
+  24 bytes: sensed flap ratio, selected flap detent, and elevator,
+  aileron and rudder trim ratios, each optional and NaN-absent. A ratio
+  outside the range its axis is defined over faults the group rather
+  than being clamped — a clamped pointer would sit at a limit the
+  airframe never reached.
+- **Assigned group ids stop being contiguous.** 0x0E to 0x12 have no
+  variant, so `GroupId::index` and the wire tag now genuinely disagree,
+  and the test that could only describe that difference proves it.
 - **The Air group grows from 12 bytes to 16.** `tas_mps` follows the
   trailing `age_ms`, NaN-absent like the altimeter setting beside it.
   Its minimum length rises with it.

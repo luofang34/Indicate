@@ -31,7 +31,7 @@ fn reserved_and_allocated_tags_have_no_status_slot_yet() {
     // 0x0E–0x11 are planned and 0x12–0x15 are allocated with their
     // layouts fixed, but neither has a variant. Until one lands, no such
     // tag resolves to a variant, so none can key a `GroupStatuses` slot.
-    for value in 0x0Eu8..=0x15 {
+    for value in (0x0Eu8..=0x12).chain(0x14..=0x15) {
         assert_eq!(GroupId::from_u8(value), None, "tag {value:#04x}");
     }
 }
@@ -44,17 +44,23 @@ fn index_is_dense_over_all() {
 }
 
 #[test]
-fn the_highest_tag_maps_to_the_last_slot() {
-    // Says only what it can say while every assigned id is contiguous:
-    // `tag - 1` gives these same answers, so this does not distinguish
-    // the match from arithmetic. The test below is what would catch the
-    // arithmetic.
-    assert_eq!(GroupId::FlightDirector.to_u8(), 0x0D);
-    assert_eq!(GroupId::FlightDirector.index(), GroupId::COUNT - 1);
+fn index_is_not_wire_tag_arithmetic() {
+    // The sparse allocation has arrived: 0x0E to 0x12 have no variant,
+    // so the highest tag is 0x13 and its slot is 13. Arithmetic on the
+    // tag would answer 18 and index past a 14-slot table, which is what
+    // the match exists to prevent — and this now proves it rather than
+    // describing it.
+    assert_eq!(GroupId::AirframeConfig.to_u8(), 0x13);
+    assert_eq!(GroupId::AirframeConfig.index(), GroupId::COUNT - 1);
+    assert_ne!(
+        GroupId::AirframeConfig.index(),
+        usize::from(GroupId::AirframeConfig.to_u8()) - 1,
+        "the match and the arithmetic now disagree"
+    );
 }
 
 #[test]
-fn wire_tag_arithmetic_would_index_past_the_table() {
+fn the_next_allocation_would_also_escape_the_table() {
     // The next id the registry allocates is not the next tag after the
     // last variant, so the first allocation to gain a variant makes
     // `tag - 1` index past a `[SignalStatus; COUNT]` table. `index()` is

@@ -126,6 +126,30 @@ pub struct Selections {
     pub baro_sel_hpa: Option<f32>,
 }
 
+/// Airframe configuration: what the airframe is set to, as distinct
+/// from what it is doing.
+///
+/// Every field is optional because a vehicle without the sensor must
+/// display `Missing`, not a substitute (ADR-0017). Sensed and selected
+/// are never conflated: a detent the pilot chose is not a position the
+/// airframe reached, and a disagreement between them is a fact worth
+/// showing rather than averaging away.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct AirframeConfig {
+    /// Sensed flap position, 0.0 retracted to 1.0 fully extended.
+    pub flap_ratio: Option<f32>,
+    /// The detent the pilot selected, in the same units. Absent when the
+    /// airframe has no detented selector or the source does not report
+    /// one.
+    pub flap_selected_ratio: Option<f32>,
+    /// Elevator trim, -1.0 fully nose-down to 1.0 fully nose-up.
+    pub elevator_trim_ratio: Option<f32>,
+    /// Aileron trim, -1.0 fully left-wing-down to 1.0 right.
+    pub aileron_trim_ratio: Option<f32>,
+    /// Rudder trim, -1.0 fully nose-left to 1.0 nose-right.
+    pub rudder_trim_ratio: Option<f32>,
+}
+
 /// Wind estimate.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Wind {
@@ -265,6 +289,8 @@ pub struct AircraftState {
     /// Machine-monitoring text channel (AIR-IN-014); advisory content
     /// with its own slow freshness policy, never flight data.
     pub monitor_text: Stamped<crate::monitor_text::MonitorText>,
+    /// Airframe configuration: flap position and trim.
+    pub airframe: Stamped<AirframeConfig>,
 }
 
 impl Default for Selections {

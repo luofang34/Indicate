@@ -355,6 +355,65 @@ pub const MONITOR_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
 pub const BUILTIN_PANELS: &[PanelDescriptor] =
     &[PFD_DESCRIPTOR, HSI_DESCRIPTOR, MONITOR_DESCRIPTOR];
 
+fn draw_config_panel(
+    data: &PanelData,
+    config: &ConfigBlob<'_>,
+    alerts: Option<&AlertOutput>,
+    frame: DesignFrame,
+    scene: &mut SceneWriter<'_>,
+) -> Result<(), PanelDrawError> {
+    config.require_schema(CONFIG_DESCRIPTOR.config_schema)?;
+    crate::config::draw_config(data, alerts, frame, scene)?;
+    Ok(())
+}
+
+/// The airframe-configuration panel: flap position and trim.
+///
+/// A conventional-instrument surface, not a primary-flight one, so it
+/// ships in its own set rather than joining [`BUILTIN_PANELS`] — a shell
+/// composes it when the airframe has the sensors, and the builtin set's
+/// composition digest does not move for a panel nobody composed.
+pub const CONFIG_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
+    id: "config",
+    title: "Configuration",
+    required_layers: layer_bit(LayerId::Tapes) | layer_bit(LayerId::Annunciation),
+    required_groups: GroupSet::of(&[GroupId::AirframeConfig]),
+    frame_min: BUILTIN_FRAME,
+    frame_max: BUILTIN_FRAME,
+    frame_step: FRAME_STEP,
+    aspect_min: ASPECT_MIN,
+    aspect_max: ASPECT_MAX,
+    canonical_frames: CANONICAL_FRAMES,
+    background: BackgroundCapability::Opaque,
+    config_schema: &[],
+    // The scales and their numerals: with the group withheld the panel
+    // dashes both, and the region has to hold the dashes as well as the
+    // readings.
+    group_regions: &[(
+        GroupId::AirframeConfig,
+        Region {
+            x: 40.0,
+            y: 40.0,
+            width: 400.0,
+            height: 300.0,
+        },
+    )],
+    extreme_states: &[],
+    // No baseline until the rasterizer covers this set; the contract
+    // asserts none that was never declared.
+    raster_baselines: &[],
+    draw: draw_config_panel,
+};
+
+/// The configuration panel as a set a shell can name.
+pub const CONFIG_SET: PanelSet = PanelSet {
+    id: "config",
+    panels: CONFIG_PANELS,
+};
+
+/// The panels in [`CONFIG_SET`].
+pub const CONFIG_PANELS: &[PanelDescriptor] = &[CONFIG_DESCRIPTOR];
+
 /// The panels this crate ships, as the set a shell names.
 ///
 /// A shell composing this crate alongside another provider names sets

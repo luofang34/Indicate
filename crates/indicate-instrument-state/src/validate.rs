@@ -86,6 +86,9 @@ pub struct StateIntegrity {
     /// Flight-director fault: non-finite or out-of-envelope commanded
     /// attitude, or an unknown mode/engagement byte.
     pub director: Option<GroupFault>,
+    /// Airframe-configuration fault: a non-finite ratio, or one outside
+    /// the range its axis is defined over.
+    pub airframe: Option<GroupFault>,
 }
 
 fn all_finite(values: &[f32]) -> bool {
@@ -126,6 +129,32 @@ fn selections_fault(selections: &Selections) -> Option<GroupFault> {
     }
 }
 
+/// The airframe group's own fault, if it has one.
+///
+/// A ratio outside the range its axis is defined over is not a reading
+/// the display can place on a scale, so it faults rather than clamping:
+/// a clamped pointer would sit at a limit the airframe never reached.
+fn airframe_fault(config: &crate::aircraft::AirframeConfig) -> Option<GroupFault> {
+    let in_unit = |value: Option<f32>| match value {
+        Some(v) => v.is_finite() && (0.0..=1.0).contains(&v),
+        None => true,
+    };
+    let in_signed = |value: Option<f32>| match value {
+        Some(v) => v.is_finite() && (-1.0..=1.0).contains(&v),
+        None => true,
+    };
+    if in_unit(config.flap_ratio)
+        && in_unit(config.flap_selected_ratio)
+        && in_signed(config.elevator_trim_ratio)
+        && in_signed(config.aileron_trim_ratio)
+        && in_signed(config.rudder_trim_ratio)
+    {
+        None
+    } else {
+        Some(GroupFault::NonFinite)
+    }
+}
+
 /// Validates every received group of `state` and reports per-group
 /// faults. Absent groups pass (their absence resolves `Missing`); the
 /// deterministic worst-of combination in `resolve` folds these faults
@@ -157,6 +186,9 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
         && !(opt_finite(air.ias_mps) && opt_finite(air.baro_setting_hpa) && opt_finite(air.tas_mps))
     {
         integrity.air = Some(GroupFault::NonFinite);
+    }
+    if let Some(config) = &state.airframe.data {
+        integrity.airframe = airframe_fault(config);
     }
     if let Some(nav) = &state.nav.data {
         if matches!(nav.source, NavSource::Unknown) || matches!(nav.fromto, NavFromTo::Unknown) {
