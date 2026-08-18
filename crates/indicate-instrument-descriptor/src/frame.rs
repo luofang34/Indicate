@@ -209,7 +209,12 @@ fn floor_on_grid(value: f32, min: f32, step: f32) -> Result<f32, FrameRefusal> {
     let k = (steps as i64) as f32;
     let line = min + k * step;
     // Binary rounding can put the computed line a hair above the value
-    // it was floored from; the line below is then the real answer.
+    // it was floored from; the line below is then the real answer. No
+    // search has produced an input that reaches this, so it stands as a
+    // backstop rather than a path with a case of its own — the
+    // invariant it holds (a chosen frame never exceeds its space) is
+    // asserted by the oracle test, which is what would catch its
+    // absence if an input ever does reach it.
     if line > value && k >= 1.0 {
         return Ok(min + (k - 1.0) * step);
     }

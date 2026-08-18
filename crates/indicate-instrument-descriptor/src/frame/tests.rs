@@ -308,9 +308,9 @@ fn largest_by_scan(d: &PanelDescriptor, space: DesignFrame) -> Option<DesignFram
 }
 
 /// A fixed aspect: the grid and the ratio do not align, so the largest
-/// fitting frame usually needs BOTH axes below the space. A closed form
-/// that fixed one axis at the clamp point could not express that, and
-/// refused spaces that comfortably hold `frame_min`.
+/// fitting frame usually needs BOTH axes below the space. Any rule that
+/// holds one axis at its clamp point cannot express that, and refuses
+/// spaces which comfortably hold `frame_min`.
 const FIXED_ASPECT: PanelDescriptor = PanelDescriptor {
     frame_min: MIN,
     frame_max: frame(960.0, 720.0),
@@ -368,7 +368,8 @@ fn a_wide_short_space_is_served_from_a_wide_range() {
         WIDE_SPAN.choose_frame(frame(5120.0, 400.0)),
         Ok(frame(704.0, 396.0))
     );
-    // The same panel where the walk was always short: unchanged.
+    // A wide span against a short one, on the same panel: the width
+    // clamps and the height decides.
     assert_eq!(
         WIDE_SPAN.choose_frame(frame(4000.0, 300.0)),
         Ok(frame(528.0, 297.0))
@@ -405,7 +406,31 @@ fn an_aspect_bound_landing_below_a_grid_line_does_not_lose_a_step() {
 /// exhaustive scan of the grid would have chosen, and a refusal means
 /// the scan finds nothing either. Soundness alone — that the answer is
 /// admissible and fits — cannot catch a suboptimal answer or a
-/// spurious refusal, which is how both survived the first pass.
+/// spurious refusal, and neither is visible from soundness alone.
+/// What the scan's answer has to say about the chosen one.
+///
+/// Equal area is the optimality claim. The two bounds beside it are the
+/// soundness claims area cannot make: an area tie is not a frame, and a
+/// frame outside the space or below the declared floor has the same
+/// area as one inside it. The upper bound is also the invariant the
+/// back-off in `floor_on_grid` exists to hold, asserted where it can be
+/// observed rather than trusted.
+fn agrees_with(d: &PanelDescriptor, space: DesignFrame, chosen: DesignFrame, best: DesignFrame) {
+    assert_eq!(
+        chosen.width * chosen.height,
+        best.width * best.height,
+        "chose {chosen:?} in {space:?}, scan found {best:?}"
+    );
+    assert!(
+        chosen.width <= space.width && chosen.height <= space.height,
+        "chose {chosen:?}, which does not fit {space:?}"
+    );
+    assert!(
+        chosen.width >= d.frame_min.width && chosen.height >= d.frame_min.height,
+        "chose {chosen:?}, below the declared floor"
+    );
+}
+
 #[test]
 fn choose_frame_agrees_with_an_exhaustive_scan() {
     let mut checked = 0;
@@ -419,11 +444,7 @@ fn choose_frame_agrees_with_an_exhaustive_scan() {
                 let scanned = largest_by_scan(d, space);
                 match (d.choose_frame(space), scanned) {
                     (Ok(chosen), Some(best)) => {
-                        assert_eq!(
-                            chosen.width * chosen.height,
-                            best.width * best.height,
-                            "for {w}x{h} chose {chosen:?}, scan found {best:?}"
-                        );
+                        agrees_with(d, space, chosen, best);
                         checked += 1;
                     }
                     (Err(_), None) => refusals += 1,
