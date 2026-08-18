@@ -116,7 +116,10 @@ fn trend_bar(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneE
     } else {
         (CENTER_Y, tip - CENTER_Y)
     };
-    if height <= 0.0 {
+    // A not-a-number rate fails every ordering comparison, so a bare
+    // length test passes it straight through to a rect no backend can
+    // paint. Finiteness is the first question, length the second.
+    if !height.is_finite() || height <= 0.0 {
         return Ok(());
     }
     scene.fill_color(palette::MAGENTA)?;
