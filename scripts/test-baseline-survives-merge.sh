@@ -65,11 +65,52 @@ fi
 graph_with "$work/unknown.evg" "0123456789abcdef0123456789abcdef01234567"
 INDICATE_EVIDENCE_GRAPH="$work/unknown.evg" expect 1 "an unplaceable baseline is refused"
 
-# A graph that parses to no baseline at all: the digest is one character
-# short, so the pattern matches nothing and the loop never runs.
-graph_with "$work/short.evg" >/dev/null
-echo "attr config-digest 0123456789abcdef0123456789abcdef0123456" > "$work/short.evg"
-INDICATE_EVIDENCE_GRAPH="$work/short.evg" expect 1 "a graph with no parsable baseline is refused"
+# A graph that parses to no baseline at all. The value has to be
+# unparsable rather than merely short: the pattern takes 7 to 40
+# characters, so a 39-character digest is a form it accepts.
+echo "attr config-digest not-a-digest" > "$work/unparsable.evg"
+INDICATE_EVIDENCE_GRAPH="$work/unparsable.evg" expect 1 "a graph with no parsable baseline is refused"
+
+# A graph with no `config-digest` line at all is the case that counts
+# zero, and a counter that treats an empty count as an error kills the
+# script before its message runs.
+echo "node RESULT-PROBE verification-result" > "$work/no-attr.evg"
+INDICATE_EVIDENCE_GRAPH="$work/no-attr.evg" expect 1 "a graph declaring no baseline is refused"
+
+said="$(INDICATE_EVIDENCE_GRAPH="$work/no-attr.evg" "$check" 2>&1 || true)"
+if [ -n "$said" ]; then
+    echo "ok: a graph declaring no baseline says why before it exits"
+    passed=$((passed + 1))
+else
+    echo "REGRESSION: the no-baseline path exits silently" >&2
+    failed=$((failed + 1))
+fi
+
+# And it must say so rather than dying quietly: an exit status with no
+# message is indistinguishable from a crash, which is the shape the
+# script's own header argues against.
+# Captured rather than piped: this script runs under `pipefail`, so a
+# pipeline would carry the check's own non-zero status and say nothing
+# about whether it spoke.
+said="$(INDICATE_EVIDENCE_GRAPH="$work/unparsable.evg" "$check" 2>&1 || true)"
+if [ -n "$said" ]; then
+    echo "ok: an unparsable graph says why before it exits"
+    passed=$((passed + 1))
+else
+    echo "REGRESSION: the unparsable-graph path exits silently" >&2
+    failed=$((failed + 1))
+fi
+
+# One placeable baseline beside one the pattern cannot read. The loop
+# would place the first and report the all-clear, so the count of
+# distinct declarations against distinct parses is what refuses it.
+{
+    echo "node RESULT-PROBE verification-result"
+    echo "attr config-digest $on_base"
+    echo "attr config-digest not-a-digest"
+} > "$work/partly-parsable.evg"
+INDICATE_EVIDENCE_GRAPH="$work/partly-parsable.evg" \
+    expect 1 "a baseline the pattern cannot read refuses the whole run"
 
 # A graph that cannot be read at all.
 INDICATE_EVIDENCE_GRAPH="$work/absent.evg" expect 1 "an unreadable graph is refused"

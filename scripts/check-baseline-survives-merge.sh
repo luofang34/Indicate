@@ -53,7 +53,9 @@ digests="$(sed -n 's/^attr config-digest *\([0-9a-fA-F]\{7,40\}\) *$/\1/p' "$gra
 # Distinct declared values, so this compares like with like: a gap
 # between the two counts means the graph declares a baseline in a form
 # this script did not parse, which is the shape that fails open.
-declared="$(sed -n 's/^attr config-digest *//p' "$graph" | sed 's/ *$//' | sort -u | grep -c .)"
+declared="$(sed -n 's/^attr config-digest *//p' "$graph" | sed 's/ *$//' | sort -u \
+    | grep -c . || true)"
+declared="${declared:-0}"
 if [ -z "$digests" ]; then
     echo "UNCHECKED: $graph declares no baseline this script can parse" >&2
     exit 1
