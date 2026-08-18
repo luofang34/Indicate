@@ -273,6 +273,47 @@ exists; take it only with the set in hand.
    (REN-04's 1000 ms frame budget derives from it) assumes a repaint
    clock that keeps ticking when data stops.
 
+## A generation counts production, not content
+
+A **generation** is a `u32` counter that a producer advances when it
+successfully produces a frame. Generations appear at every shell
+boundary: the state-ingress snapshot (`IngressSnapshot::generation`),
+the render generation a liveness check watches, and the markers a
+consumer compares to detect producer progress. This section states what
+a generation means, once, for every shell. The Rust, Swift, and
+JavaScript implementations must apply it identically.
+
+- **A generation is a successful-production sequence. It is not a
+  content identity.** It advances when the producer successfully
+  produces a frame, whatever the frame contains. Two produced frames
+  with identical content advance the generation twice. A consumer that
+  must know whether the content changed compares content; it does not
+  compare generations.
+- **Comparison across a wrap uses serial-number arithmetic** of the
+  RFC 1982 shape. Generation `a` is newer than generation `b` when
+  `0 < (a - b) mod 2^32 < 2^31`. Equal values name the same production.
+  Two values exactly `2^31` apart are undefined, so a consumer must
+  compare within `2^31` productions of the producer. Producers count
+  with `wrapping_add(1)`, so the step from `u32::MAX` to `0` is a
+  normal single advance, never a replay. `serial_is_newer` in
+  `indicate-instrument-feeder::stamp` already implements this rule for
+  stamp sequences; generation comparison is the same rule on every
+  shell.
+- **A generation and a freshness judgement answer different questions.**
+  A generation answers "has the producer advanced?". Telemetry
+  freshness answers "is the data inside recent?". Liveness keys on the
+  production clock: the 1000 ms deadline (REN-04) measures frame
+  production, never data arrival. A frame produced on time from stale
+  data is a live frame that carries stale data; freshness flags the
+  data, and the generation still advances. No shell may substitute one
+  notion for the other.
+
+One counter in this repository is deliberately not a generation under
+this rule. `SourceComparison::generation` in `indicate-instrument-state`
+advances only when the selected source, the reversion, or the
+comparison state changes. It is a change marker for that output. A
+consumer must not read it as a production sequence.
+
 ## Conformance: what "correct" means
 
 An interpreter is correct only **relative to a corpus version**. The
