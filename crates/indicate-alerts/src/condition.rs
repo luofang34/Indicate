@@ -189,7 +189,8 @@ impl MiscompareFault {
 /// compares states, not vocabularies. The registry is append-only, like
 /// the scene opcode vocabulary (ADR-0017): a new reason takes the next
 /// free code, and codes are never renumbered, reused, or removed, so an
-/// older shell degrades gracefully on a reason it does not know.
+/// older shell can still show that the display is not current when it
+/// does not know the reason.
 /// `docs/instruments/display-reason-registry.md` states the contract,
 /// the unknown-reason mapping, and the mirror obligation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

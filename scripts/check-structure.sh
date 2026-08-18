@@ -196,16 +196,37 @@ check_safety_constant_count() {
 # variant set — and then every variant's code is its own position.
 check_display_reason_completeness() {
     local file=./crates/indicate-alerts/src/condition.rs
-    local declared variants
+    local declarations declared variants
+    # Exactly one `ALL` may answer for this enum. A second one anywhere
+    # in the file would make the length ambiguous, and an ambiguous
+    # comparison must refuse rather than pass: `condition.rs` holds
+    # several fault families, and giving another the same registry
+    # treatment is the natural next change.
+    declarations=$(grep -c 'pub const ALL: \[Self; [0-9]*\]' "$file")
+    if [ "$declarations" -ne 1 ]; then
+        echo "FORBIDDEN: condition.rs declares $declarations \`ALL\` lengths; this check answers for one registry and cannot tell which (fail-closed)" >&2
+        status=1
+        return
+    fi
     declared=$(sed -n 's/.*pub const ALL: \[Self; \([0-9]*\)\].*/\1/p' "$file")
-    variants=$(awk '/^pub enum DisplayFault \{/{inside=1; next} inside && /^\}/{inside=0} inside && /^    [A-Z][A-Za-z0-9]*,$/{n++} END{print n+0}' "$file")
-    if [ -z "$declared" ]; then
-        echo "FORBIDDEN: condition.rs declares no DisplayFault::ALL length to check" >&2
+    # Count the arms of the exhaustive `slot` match, not the variant
+    # declarations: rustc guarantees an arm for every variant whatever
+    # syntax the declaration uses, so a variant with an explicit
+    # discriminant or a payload cannot slip past the way it can past a
+    # declaration parser.
+    variants=$(awk '
+        /const fn slot\(self\) -> usize \{/ { inside = 1; next }
+        inside && /^    \}/ { inside = 0 }
+        inside && /^            Self::[A-Za-z0-9]+ => [0-9]+,$/ { n++ }
+        END { print n + 0 }
+    ' "$file")
+    if [ "$variants" -eq 0 ]; then
+        echo "FORBIDDEN: condition.rs has no readable \`slot\` match to count; the display-reason registry is unguarded (fail-closed)" >&2
         status=1
         return
     fi
     if [ "$declared" -ne "$variants" ]; then
-        echo "FORBIDDEN: DisplayFault has $variants variants but ALL holds $declared; a variant outside ALL takes a code no test can see, and a duplicated slot then collides with an existing reason's identity and class" >&2
+        echo "FORBIDDEN: DisplayFault has $variants slots but ALL holds $declared; a variant outside ALL takes a code no test can see, and a duplicated slot then collides with an existing reason's identity and class" >&2
         status=1
     fi
 }

@@ -31,8 +31,8 @@ the cross-shell identity of a reason.
 The table lists every reason in ascending code order. `DisplayFault::ALL`
 carries the same list in the same order. The registry doc tests in
 `crates/indicate-alerts/src/condition/tests.rs` parse this table and fail
-the build when the table and the code disagree, so a registry change must
-arrive with its row. The section holds this one table and no other.
+the build when the table and the code disagree. A change to the registry
+must include its row. The section holds this one table and no other.
 
 Annunciation labels such as `DSP STALL` are shell presentation. They are
 not part of the registry.
@@ -77,8 +77,8 @@ table above. A mirror must not declare a reason that this registry does
 not define.
 
 No mechanism in this repository makes a stale mirror fail. An append
-moves none of the five contract values, so a pinned consumer stays
-green across it. Each downstream repository must therefore carry its
+moves none of the five contract values, so a pinned consumer reports no
+error across it. Each downstream repository must therefore carry its
 own drift check against this table, and must run it. Until a mirror
 carries one, agreement between the shells is a convention, not a
 guarantee.
