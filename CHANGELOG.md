@@ -77,8 +77,8 @@ Panel set changed since the previous release: no.
 - **The Air group grows from 12 bytes to 16.** `tas_mps` follows the
   trailing `age_ms`, NaN-absent like the altimeter setting beside it.
   Its minimum length rises with it.
-- **The batch allocates four group ids and three field appends. This
-  release implements the Air append only.** The ids are 0x12 BearingPointers (stamped,
+- **The batch allocates four group ids and three field appends.** The
+  ids are 0x12 BearingPointers (stamped,
   [#53](https://github.com/luofang34/Indicate/issues/53)), 0x13
   AirframeConfig (stamped,
   [#57](https://github.com/luofang34/Indicate/issues/57)), 0x14 ApModes

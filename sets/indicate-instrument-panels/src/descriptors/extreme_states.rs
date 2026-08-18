@@ -38,10 +38,10 @@ pub(super) fn pfd_unusual_inverted() -> AircraftState {
 /// Level flight, accelerating: the pinned case that paints the cues the
 /// unusual-attitude tier removes.
 ///
-/// Every pinned state that resolved a flying attitude resolved an
-/// unusual one, so the turn cue and the trend bar were decluttered out
-/// of all of them and no pinned case drew either. This one is level, and
-/// declares turn, slip and trend valid, so it draws both.
+/// Every other pinned state with a flying attitude resolves an unusual
+/// one, which declutters the turn cue and the trend bar away, so none of
+/// them draws either. This one is level and declares turn, slip, and
+/// trend valid, so it draws both.
 ///
 /// It does not draw the speed bands. Those need `v_speeds`, and every
 /// pinned path renders the empty configuration by design, so the bands
