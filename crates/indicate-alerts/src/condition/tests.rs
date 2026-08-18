@@ -225,12 +225,14 @@ fn the_documented_registry_matches_the_code() {
 /// parallel list: every reason holds its own slot, `ALL` holds it at
 /// that slot, and its code round-trips.
 ///
-/// This is what makes a reused code impossible by hand. A code is a
-/// slot, and a duplicate code is a duplicate slot, which fails here.
-/// The residual gap is a variant added with a fresh slot and left out
-/// of `ALL`: the exhaustive `slot` match forces the slot, and
-/// `the_documented_registry_matches_the_code` forces the row, but
-/// nothing can enumerate variants to prove `ALL` is complete.
+/// This is what makes a reused code impossible. A code is a slot, and a
+/// duplicate code is a duplicate slot, which fails here — for every
+/// reason `ALL` holds. Nothing in Rust can enumerate an enum's
+/// variants, so a variant left out of `ALL` would escape this test
+/// entirely, and one given an already-used slot would collide with an
+/// existing reason's identity, label, and class. `check-structure.sh`
+/// closes that by counting: these entries are pairwise distinct, so N
+/// of them drawn from N variants means `ALL` is the variant set.
 #[test]
 fn every_reason_holds_its_own_slot_and_code() {
     let mut seen = [false; DisplayFault::ALL.len()];

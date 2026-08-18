@@ -184,6 +184,32 @@ check_safety_constant_count() {
     fi
 }
 
+# The display-reason registry is append-only, and a code IS a position in
+# `DisplayFault::ALL`, so reuse is impossible for any reason that list
+# holds. What the Rust tests cannot see is a variant the list does not
+# hold: nothing in Rust enumerates an enum's variants, so a variant given
+# an already-used slot and left out of `ALL` collides with an existing
+# reason's identity, label, and class, and every test still passes.
+#
+# Counting closes it. `ALL` is proven pairwise distinct by its own test,
+# so N distinct entries drawn from N variants means `ALL` is exactly the
+# variant set — and then every variant's code is its own position.
+check_display_reason_completeness() {
+    local file=./crates/indicate-alerts/src/condition.rs
+    local declared variants
+    declared=$(sed -n 's/.*pub const ALL: \[Self; \([0-9]*\)\].*/\1/p' "$file")
+    variants=$(awk '/^pub enum DisplayFault \{/{inside=1; next} inside && /^\}/{inside=0} inside && /^    [A-Z][A-Za-z0-9]*,$/{n++} END{print n+0}' "$file")
+    if [ -z "$declared" ]; then
+        echo "FORBIDDEN: condition.rs declares no DisplayFault::ALL length to check" >&2
+        status=1
+        return
+    fi
+    if [ "$declared" -ne "$variants" ]; then
+        echo "FORBIDDEN: DisplayFault has $variants variants but ALL holds $declared; a variant outside ALL takes a code no test can see, and a duplicated slot then collides with an existing reason's identity and class" >&2
+        status=1
+    fi
+}
+
 # The family is named after this repository, not after a consumer of it.
 # This checks NAMES ONLY — crate directories and package names. Values
 # that are hashed or pinned downstream keep whatever string they were
@@ -369,6 +395,7 @@ check_file_length
 check_function_length
 check_safety_palette_aliases
 check_safety_constant_count
+check_display_reason_completeness
 check_crate_naming
 check_tier_law
 check_crate_map

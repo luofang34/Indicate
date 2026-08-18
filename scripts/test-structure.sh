@@ -143,6 +143,30 @@ expect_term_refusal "InstrumentSceneKit" "InstrumentSceneKit"
 expect_term_refusal "IndicateAppleDisplay" "IndicateAppleDisplay"
 expect_term_refusal "Swift SceneKit backend" "Swift SceneKit backend"
 
+# The display-reason completeness check: a variant outside `ALL` takes a
+# code no Rust test can see, and a duplicated slot then collides with an
+# existing reason's identity. Probe it by adding exactly that variant.
+condition_file="crates/indicate-alerts/src/condition.rs"
+condition_backup="$(mktemp)"
+cp "$condition_file" "$condition_backup"
+python3 - "$condition_file" <<'PROBE'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace("    RetainedImage,\n}", "    RetainedImage,\n    /// Probe.\n    ProbeReason,\n}", 1)
+s = s.replace("            Self::RetainedImage => 4,", "            Self::RetainedImage => 4,\n            Self::ProbeReason => 2,", 1)
+open(p, "w").write(s)
+PROBE
+if INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh >/dev/null 2>&1; then
+    echo "REGRESSION: a reason outside ALL was accepted; it can take a code no test sees" >&2
+    failed=$((failed + 1))
+else
+    echo "ok: a reason outside DisplayFault::ALL refused"
+    passed=$((passed + 1))
+fi
+cp "$condition_backup" "$condition_file"
+rm -f "$condition_backup"
+
 if [ "$failed" -ne 0 ]; then
     echo "structure-selftest: FAILED ($failed of $((passed + failed)) cases)" >&2
     exit 1

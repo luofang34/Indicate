@@ -49,7 +49,7 @@ computes it from that position. Two reasons therefore cannot be given
 the same code by hand.
 
 A reason is not deleted. To retire one, keep its row and its code, and
-write `retired` in its row. The code stays spent. This is the same rule
+write `retired` in its row. The code is not used again. This is the same rule
 the requirement registry uses: a retired identifier stays in the
 registry with its disposition.
 
