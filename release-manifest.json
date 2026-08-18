@@ -23,12 +23,14 @@
   "rasterBaselines": [
     { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "sha256": "411ef00fcbd4bb1c53f4e17effa67b9eb69f4fb19d1b80d2576336d12094834c" },
     { "panel": "hsi", "frame": { "width": 480, "height": 360 }, "sha256": "a6b8808adb6d3181e45c55c1f8c5cf68eb248a0b4a71dedb744e3fbae8b0ab7e" },
+    { "panel": "autoflight", "frame": { "width": 480, "height": 360 }, "sha256": "fbc6d9448f9e73fc736a82059afe796d0853c31610c4d8360111a1d150976ead" },
     { "panel": "monitor", "frame": { "width": 480, "height": 360 }, "sha256": "40f44383f3ad46a0bbd65f04afc1d80fb9d94c11acff8dc66edbfcf7b8fa4c01" }
   ],
   "glyphPackHash": "281eef6229feee417c7090d8c8ea79489c017cd1c02fc7234876b2a64a532158",
   "criticalityBands": [
     { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "band": { "x": 6, "y": 38, "width": 468, "height": 314 } },
     { "panel": "hsi", "frame": { "width": 480, "height": 360 }, "band": { "x": 98, "y": 48, "width": 284, "height": 304 } },
+    { "panel": "autoflight", "frame": { "width": 480, "height": 360 }, "band": { "x": 100, "y": 276, "width": 90.857147, "height": 76 } },
     { "panel": "monitor", "frame": { "width": 480, "height": 360 }, "band": { "x": 100, "y": 276, "width": 90.857147, "height": 76 } }
   ]
 }
