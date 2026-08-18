@@ -25,6 +25,7 @@ pub(crate) fn flying_state() -> AircraftState {
             data: Some(AirData {
                 ias_mps: None,
                 baro_setting_hpa: Some(1013.25),
+                tas_mps: None,
             }),
             age_ms: Some(100.0),
         },
@@ -60,6 +61,28 @@ fn absent_airspeed_is_missing_not_zero() {
     assert_eq!(p.ias_kt.status, SignalStatus::Missing);
     // Baro from the same group is still valid.
     assert_eq!(p.baro_hpa.status, SignalStatus::Valid);
+}
+
+#[test]
+fn true_airspeed_resolves_independently_of_indicated() {
+    let mut s = flying_state();
+    let air = s.air.data.as_mut().expect("air fed");
+    air.ias_mps = Some(40.0);
+    air.tas_mps = Some(50.0);
+    let p = resolve(&s, &FreshnessPolicy::default());
+    // 50 m/s ≈ 97.2 kt.
+    assert!((p.tas_kt.value - 97.2).abs() < 0.1);
+    assert_eq!(p.tas_kt.status, SignalStatus::Valid);
+
+    // A source may supply IAS without TAS (ADR-0017): TAS resolves
+    // Missing — never derived from IAS — and the tape stays live.
+    let mut s = flying_state();
+    let air = s.air.data.as_mut().expect("air fed");
+    air.ias_mps = Some(40.0);
+    air.tas_mps = None;
+    let p = resolve(&s, &FreshnessPolicy::default());
+    assert_eq!(p.tas_kt.status, SignalStatus::Missing);
+    assert_eq!(p.ias_kt.status, SignalStatus::Valid);
 }
 
 #[test]

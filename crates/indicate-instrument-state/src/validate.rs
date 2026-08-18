@@ -154,7 +154,7 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
         }
     }
     if let Some(air) = &state.air.data
-        && !(opt_finite(air.ias_mps) && opt_finite(air.baro_setting_hpa))
+        && !(opt_finite(air.ias_mps) && opt_finite(air.baro_setting_hpa) && opt_finite(air.tas_mps))
     {
         integrity.air = Some(GroupFault::NonFinite);
     }

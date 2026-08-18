@@ -126,6 +126,16 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
                 height: 25.0,
             },
         ),
+        // TAS box at the head of the speed tape.
+        (
+            GroupId::Air,
+            Region {
+                x: 0.0,
+                y: 0.0,
+                width: 90.0,
+                height: 25.0,
+            },
+        ),
         // Groundspeed box.
         (
             GroupId::Kinematics,
@@ -188,7 +198,7 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     // (REN-03).
     raster_baselines: &[(
         BUILTIN_FRAME,
-        "43b49bde6bbf7372d704d54214d4a3d0b9cd3ad09e86862a8ffc20fd6ae05ef1",
+        "411ef00fcbd4bb1c53f4e17effa67b9eb69f4fb19d1b80d2576336d12094834c",
     )],
     draw: draw_pfd_panel,
 };
@@ -365,7 +375,7 @@ pub const BUILTIN_SET: PanelSet = PanelSet {
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "f814183b31aef360455cb91c627fd59597a5e0463747b5f83aa613e6b500f79f";
+    "add8e694ff3e9ee2321f63f40e3f590d26dac5f6ddb9eec00ec876c7cac7573c";
 
 /// The measured criticality bands of [`BUILTIN_PANELS`], pinned beside
 /// the raster baselines: the union `Annunciation`/`Failure` ink bound

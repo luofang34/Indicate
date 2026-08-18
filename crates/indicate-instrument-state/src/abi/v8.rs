@@ -44,6 +44,9 @@
 //! would give two incompatible formats the same number, and a consumer
 //! comparing its pins against the manifest would see agreement while
 //! every frame it emits was rejected.
+//!
+//! Landed so far: the Air group carries `tas_mps` after its trailing
+//! `age_ms`, so its minimum payload is 16 bytes.
 
 use crate::aircraft::AircraftState;
 use crate::group_id::GroupId;
@@ -105,7 +108,7 @@ const fn min_len(id: GroupId) -> usize {
     match id {
         GroupId::Attitude => 32,
         GroupId::Kinematics => 28,
-        GroupId::Air => 12,
+        GroupId::Air => 16,
         GroupId::Nav => 42,
         GroupId::Wind => 12,
         GroupId::Selections => 20,

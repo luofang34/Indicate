@@ -71,7 +71,8 @@ pub enum GroupId {
     Attitude = 0x01,
     /// NED position and velocity.
     Kinematics = 0x02,
-    /// Air data: indicated airspeed and applied altimeter setting.
+    /// Air data: indicated airspeed, applied altimeter setting, and
+    /// true airspeed.
     Air = 0x03,
     /// Lateral/vertical navigation guidance, including waypoint idents.
     Nav = 0x04,
