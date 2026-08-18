@@ -28,10 +28,10 @@ fn unassigned_tags_do_not_resolve() {
 
 #[test]
 fn reserved_and_allocated_tags_have_no_status_slot_yet() {
-    // 0x0E–0x11 are planned and 0x12–0x15 are allocated with their
+    // 0x0E–0x11 are planned and 0x13–0x15 are allocated with their
     // layouts fixed, but neither has a variant. Until one lands, no such
     // tag resolves to a variant, so none can key a `GroupStatuses` slot.
-    for value in 0x0Eu8..=0x15 {
+    for value in (0x0Eu8..=0x11).chain(0x13u8..=0x15) {
         assert_eq!(GroupId::from_u8(value), None, "tag {value:#04x}");
     }
 }
@@ -45,25 +45,20 @@ fn index_is_dense_over_all() {
 
 #[test]
 fn the_highest_tag_maps_to_the_last_slot() {
-    // Says only what it can say while every assigned id is contiguous:
-    // `tag - 1` gives these same answers, so this does not distinguish
-    // the match from arithmetic. The test below is what would catch the
-    // arithmetic.
-    assert_eq!(GroupId::FlightDirector.to_u8(), 0x0D);
-    assert_eq!(GroupId::FlightDirector.index(), GroupId::COUNT - 1);
+    assert_eq!(GroupId::BearingPointers.to_u8(), 0x12);
+    assert_eq!(GroupId::BearingPointers.index(), GroupId::COUNT - 1);
 }
 
 #[test]
 fn wire_tag_arithmetic_would_index_past_the_table() {
-    // The next id the registry allocates is not the next tag after the
-    // last variant, so the first allocation to gain a variant makes
-    // `tag - 1` index past a `[SignalStatus; COUNT]` table. `index()` is
-    // a match for this reason; this test fails if a future allocation
-    // ever makes the arithmetic safe again, at which point the reason
-    // has to be restated rather than silently lost.
-    const NEXT_ALLOCATED: u8 = 0x12;
-    assert_eq!(GroupId::from_u8(NEXT_ALLOCATED), None, "still variantless");
-    let arithmetic_slot = usize::from(NEXT_ALLOCATED) - 1;
+    // The assigned tags are not contiguous: a tag skipped over the
+    // planned range makes `tag - 1` index past a `[SignalStatus;
+    // COUNT]` table. `index()` is a match for this reason. This test
+    // fails if a later allocation fills the gaps and makes the
+    // arithmetic safe again, at which point the reason has to be
+    // restated rather than silently lost.
+    let highest = GroupId::ALL[GroupId::COUNT - 1];
+    let arithmetic_slot = usize::from(highest.to_u8()) - 1;
     assert!(
         arithmetic_slot >= GroupId::COUNT,
         "slot {arithmetic_slot} from tag arithmetic is still inside a \
@@ -76,17 +71,29 @@ fn wire_tag_arithmetic_would_index_past_the_table() {
 fn withholding_a_stamped_group_resolves_missing() {
     let full = fixtures::full();
     let policy = FreshnessPolicy::default();
-    for group in [
-        GroupId::Attitude,
-        GroupId::Kinematics,
-        GroupId::Air,
-        GroupId::Nav,
-        GroupId::Wind,
-        GroupId::Heading,
-        GroupId::Variation,
-        GroupId::Dynamics,
-        GroupId::MonitorText,
-    ] {
+    for group in GroupId::ALL {
+        // Exhaustive on purpose: a group added to the registry cannot
+        // reach the wire without a decision here, so no `withhold_group`
+        // arm ships without a test that exercises it. The declared lane
+        // carries no sample to take away — the tests below say what
+        // withholding does to those groups instead.
+        let stamped = match group {
+            GroupId::Attitude
+            | GroupId::Kinematics
+            | GroupId::Air
+            | GroupId::Nav
+            | GroupId::Wind
+            | GroupId::Heading
+            | GroupId::Variation
+            | GroupId::Dynamics
+            | GroupId::BearingPointers
+            | GroupId::FlightDirector
+            | GroupId::MonitorText => true,
+            GroupId::Selections | GroupId::Trust | GroupId::Altitude => false,
+        };
+        if !stamped {
+            continue;
+        }
         let withheld = withhold_group(&full, group);
         let data = crate::resolve(&withheld, &policy);
         assert_eq!(

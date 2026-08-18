@@ -4,10 +4,10 @@
 //! [`crate::ExtremeState`]; these are the floor every panel meets.
 
 use indicate_instrument_state::{
-    AirData, AircraftState, AltitudeDeclaration, Attitude, DynSample, EstimateQuality,
-    HeadingReference, HeadingSample, IdentStr, Kinematics, MonitorText, NavData, NavFromTo,
-    NavSource, Quat, Selections, SnapshotCoherence, SnapshotMeta, Stamped, TextLine, TurnBasis,
-    TurnSample, ValidFlags, Wind,
+    AirData, AircraftState, AltitudeDeclaration, Attitude, BearingPointer, BearingPointers,
+    DynSample, EstimateQuality, HeadingReference, HeadingSample, IdentStr, Kinematics, MonitorText,
+    NavData, NavFromTo, NavSource, Quat, Selections, SnapshotCoherence, SnapshotMeta, Stamped,
+    TextLine, TurnBasis, TurnSample, ValidFlags, Wind,
 };
 
 /// One shared corpus entry.
@@ -124,6 +124,27 @@ pub fn typical() -> AircraftState {
         dynamics: typical_dynamics(),
         director: Stamped::default(),
         monitor_text: Stamped::default(),
+        bearings: typical_bearings(),
+    }
+}
+
+fn typical_bearings() -> Stamped<BearingPointers> {
+    Stamped {
+        data: Some(BearingPointers {
+            first: BearingPointer {
+                source: NavSource::Nav1,
+                bearing_rad: 1.9,
+                reference: HeadingReference::SimLocalTrue,
+                valid: true,
+            },
+            second: BearingPointer {
+                source: NavSource::Nav2,
+                bearing_rad: 4.4,
+                reference: HeadingReference::SimLocalTrue,
+                valid: true,
+            },
+        }),
+        age_ms: Some(80.0),
     }
 }
 
