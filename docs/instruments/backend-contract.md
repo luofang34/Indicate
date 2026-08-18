@@ -273,28 +273,29 @@ exists; take it only with the set in hand.
    (REN-04's 1000 ms frame budget derives from it) assumes a repaint
    clock that keeps ticking when data stops.
 
-## A generation counts production, not content
+## A generation counts frames made, not content
 
-A **generation** is a `u32` counter that a producer advances when it
-successfully produces a frame. Generations appear at every shell
-boundary: the state-ingress snapshot (`IngressSnapshot::generation`),
-the render generation a liveness check watches, and the markers a
-consumer compares to detect producer progress. This section states what
-a generation means, once, for every shell. The Rust, Swift, and
-JavaScript implementations must apply it identically.
+A **generation** is a `u32` counter. A producer advances it when the
+producer successfully makes a frame. Generations appear at every shell
+boundary: the state-ingress snapshot, the render generation a liveness
+check watches, and the markers a consumer compares to see that a
+producer advances. This section states what a generation means, once,
+for every shell. The Rust, Swift, and JavaScript implementations must
+apply it identically.
 
-- **A generation is a successful-production sequence. It is not a
-  content identity.** It advances when the producer successfully
-  produces a frame, whatever the frame contains. Two produced frames
-  with identical content advance the generation twice. A consumer that
-  must know whether the content changed compares content; it does not
-  compare generations.
+- **A generation counts the frames a producer makes. It is not a
+  content identity.** It advances for each frame the producer makes
+  successfully, whatever the frame contains. Two frames with identical
+  content advance the generation twice. A consumer that must know
+  whether the content changed compares the content. It does not compare
+  generations.
 - **Comparison across a wrap uses serial-number arithmetic** of the
   RFC 1982 shape. Generation `a` is newer than generation `b` when
-  `0 < (a - b) mod 2^32 < 2^31`. Equal values name the same production.
+  `0 < (a - b) mod 2^32 < 2^31`. Equal values name the same frame.
   At a distance of exactly `2^31` the rule says neither value is newer,
   in both directions. A consumer must therefore compare within `2^31`
-  productions of the producer, where the answer is an order. Producers count
+  steps of the producer. In that range the rule always names which value
+  is newer. Producers count
   with `wrapping_add(1)`, so the step from `u32::MAX` to `0` is a
   normal single advance, never a replay. `serial_is_newer` in
   `indicate-instrument-feeder::stamp` already implements this rule for
@@ -303,30 +304,39 @@ JavaScript implementations must apply it identically.
 - **A generation and a freshness judgement answer different questions.**
   A generation answers "has the producer advanced?". Telemetry
   freshness answers "is the data inside recent?". Liveness keys on the
-  production clock: the 1000 ms deadline (REN-04) measures frame
-  production, never data arrival. A frame produced on time from stale
-  data is a live frame that carries stale data; freshness flags the
-  data, and the generation still advances. No shell may substitute one
+  clock that makes frames: the 1000 ms deadline (REN-04) measures how
+  often a frame is made, never when data arrives. A frame made on time
+  from stale data is a live frame that carries stale data. Freshness
+  flags the data. The generation still advances. No shell may substitute one
   notion for the other.
 
 Some counters in this repository are deliberately not generations under
-this rule. They are change markers for one output, and a consumer must
-not read any of them as a production sequence:
+this rule. Each marks a change in its own output. A consumer must not
+read any of them as a count of frames:
 
 - `SourceComparison::generation` in `indicate-instrument-state` advances
   only when the selected source, the reversion, or the comparison state
   changes.
 - `ActiveAlert::generation` in `indicate-alerts` advances only at the
-  alert's own state change, and `AlertOutput::generation` reports the
-  manager's value after a step. A manager stepped with no new alert
-  reports the same value again. A shell that read it as a production
-  sequence would raise a liveness fault on a healthy manager.
+  alert's own state change. `AlertOutput::generation` reports the
+  manager's value after a step, so a manager stepped with no new alert
+  reports the same value again. A shell that read that value as a count
+  of frames would raise a liveness fault on a healthy manager.
 
-The wire generation a shell decodes is `SnapshotMeta::generation`, which
-this rule governs. `IngressSnapshot::generation` is the feeder-internal
-counter it comes from. The raster pair `FrameId::frame_generation` and
-`FrameId::render_generation` are generations under this rule as well; a
-paint that fails produces no frame, so it advances neither.
+- `IngressSnapshot::generation` in `indicate-instrument-feeder` counts
+  publications that moved the admitted state. Admitting a group advances
+  it, and so does a publication that admitted nothing and only narrowed
+  the authorization, which is a content change.
+
+The wire generation a shell decodes is `SnapshotMeta::generation`. This
+rule governs that one.
+
+`FrameId::frame_generation` and `FrameId::render_generation` cross the
+raster boundary as data. The rasterizer is stateless: it carries both
+from input to report and advances neither. A shell owns them, and this
+rule governs how a shell advances them — a failed paint produces no
+frame, so it advances no render generation, and a frame generation is
+the snapshot's, so two paints of one snapshot carry one value.
 
 ## Conformance: what "correct" means
 

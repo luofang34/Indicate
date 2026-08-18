@@ -149,9 +149,15 @@ pub struct IngressConfig {
 /// The current admitted state and trust of one ingress.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct IngressSnapshot {
-    /// Wrapping generation: one step per admitted publication, whatever
-    /// the payload holds. Two admitted publications carrying identical
-    /// numbers advance it twice — it counts production, not content.
+    /// Wrapping counter of publications that moved the admitted state:
+    /// one that admitted a group, or one whose authorization narrowed
+    /// the valid flags or the quality. Two admitted publications
+    /// carrying identical numbers advance it twice, so it does not
+    /// track content — but a publication that admitted nothing and only
+    /// narrowed authorization advances it too, so it is not a pure
+    /// production sequence either. The generation a shell decodes is
+    /// `SnapshotMeta::generation`; this is the feeder-internal counter
+    /// behind it.
     pub generation: u32,
     /// The pinned source id, once seen.
     pub source_id: Option<u64>,

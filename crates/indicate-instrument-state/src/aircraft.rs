@@ -217,7 +217,7 @@ pub enum SnapshotCoherence {
 /// Metadata assigned by the ingress gate to one immutable state generation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SnapshotMeta {
-    /// Wrapping generation: one step per snapshot the feeder admits,
+    /// Wrapping generation: one step per snapshot a source produces,
     /// whatever the groups hold. It counts production, not content, so
     /// a consumer detecting a content change compares content.
     pub generation: u32,

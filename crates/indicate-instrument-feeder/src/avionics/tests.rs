@@ -261,11 +261,12 @@ fn excessive_skew_between_groups_is_a_counted_transition() {
     assert_eq!(counters.excessive_skew, 1);
 }
 
-/// A generation counts admitted publications, never content changes.
-/// Two samples carrying byte-identical payloads on distinct sequences
-/// advance it twice. A consumer watching for producer progress would
-/// otherwise read a live producer as stalled every time the world held
-/// still, which is the substitution the contract forbids.
+/// Admitting a publication advances the counter whatever the payload
+/// holds: two samples carrying byte-identical numbers on distinct
+/// sequences advance it twice. A consumer watching for producer
+/// progress would otherwise read a live producer as stalled every time
+/// the world held still, which is the substitution the contract
+/// forbids.
 #[test]
 fn identical_payloads_on_distinct_sequences_advance_the_generation_twice() {
     let mut ingress = AvionicsIngress::new(config(IncarnationPolicy::PinFirst));
