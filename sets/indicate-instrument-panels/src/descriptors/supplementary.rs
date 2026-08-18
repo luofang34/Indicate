@@ -177,16 +177,20 @@ pub const CONFIG_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     canonical_frames: CANONICAL_FRAMES,
     background: BackgroundCapability::Opaque,
     config_schema: &[],
-    // The scales and their numerals: with the group withheld the panel
-    // dashes both, and the region has to hold the dashes as well as the
-    // readings.
+    // The two numerals, and nothing else. The dashes a withheld group
+    // draws are plain text carrying no claim, so they are not what this
+    // region is measured against — only attributed runs are, and the
+    // panel attributes exactly the flap reading and the trim reading.
+    // The height is most of the frame because the flap numeral rides
+    // its pointer down the whole scale; the width is not, because
+    // neither numeral leaves the column they share.
     group_regions: &[(
         GroupId::AirframeConfig,
         Region {
-            x: 40.0,
-            y: 40.0,
-            width: 400.0,
-            height: 300.0,
+            x: 170.0,
+            y: 50.0,
+            width: 170.0,
+            height: 290.0,
         },
     )],
     extreme_states: &[],

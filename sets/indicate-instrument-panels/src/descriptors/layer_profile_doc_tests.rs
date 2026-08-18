@@ -11,7 +11,7 @@ use std::vec::Vec;
 use indicate_instrument_descriptor::PanelDescriptor;
 use indicate_instrument_scene::{LAYER_COUNT, LayerId};
 
-use super::{BUILTIN_PANELS, layer_bit};
+use super::{BUILTIN_PANELS, CONFIG_PANELS, layer_bit};
 
 const PROTOCOL_DOC: &str = include_str!("../../../../docs/instruments/scene-layer-protocol.md");
 
@@ -114,7 +114,7 @@ fn documented_rows() -> Vec<(String, String, String)> {
 /// A second table in the section could assert profiles nothing checks.
 #[test]
 fn the_profiles_section_holds_exactly_one_table() {
-    let expected = BUILTIN_PANELS.len() + 2;
+    let expected = shipped_panels().len() + 2;
     assert_eq!(
         table_lines().len(),
         expected,
@@ -123,11 +123,20 @@ fn the_profiles_section_holds_exactly_one_table() {
     );
 }
 
+/// Every panel this crate ships, in table order: the flight set, then
+/// the sets a shell composes on its own. A table checked against
+/// `BUILTIN_PANELS` alone cannot see a panel that ships outside it,
+/// which is how the configuration panel reached a release without a
+/// row.
+fn shipped_panels() -> Vec<&'static PanelDescriptor> {
+    BUILTIN_PANELS.iter().chain(CONFIG_PANELS.iter()).collect()
+}
+
 #[test]
 fn every_shipped_panel_has_a_row_in_shell_order() {
     let documented: Vec<String> = documented_rows().into_iter().map(|row| row.0).collect();
-    let shipped: Vec<String> = BUILTIN_PANELS
-        .iter()
+    let shipped: Vec<String> = shipped_panels()
+        .into_iter()
         .map(|panel| String::from(panel.title))
         .collect();
     assert_eq!(
@@ -143,10 +152,10 @@ fn the_documented_profiles_are_the_descriptor_masks() {
     // missing its last panel would pass by describing nothing.
     assert_eq!(
         rows.len(),
-        BUILTIN_PANELS.len(),
+        shipped_panels().len(),
         "every shipped panel needs a row before its mask can be checked"
     );
-    for (panel, row) in BUILTIN_PANELS.iter().zip(rows) {
+    for (panel, row) in shipped_panels().into_iter().zip(rows) {
         let (required, optional) = cells_from_mask(panel);
         assert_eq!(
             row.1, required,

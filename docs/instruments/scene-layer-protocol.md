@@ -116,6 +116,7 @@ enforce its required layer mask before visible commit:
 | HSI | `Attitude`, `Tapes`, `Guidance`, `Annunciation` | `Background`, `Failure` |
 | Autoflight | `Tapes`, `Annunciation` | `Background`, `Attitude`, `Guidance`, `Failure` |
 | Monitor | `Tapes`, `Annunciation` | `Background`, `Attitude`, `Guidance`, `Failure` |
+| Configuration | `Tapes`, `Annunciation` | `Background`, `Attitude`, `Guidance`, `Failure` |
 
 This table is the `required_layers` mask of each shipped descriptor, not an
 independent statement of intent: the required column is the mask, the optional

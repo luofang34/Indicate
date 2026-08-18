@@ -181,6 +181,18 @@ altitude shall declare the same reference identity its class requires, and a
 target whose identity does not match the displayed datum shall not be
 presented as comparable to it.
 
+<a id="air-in-016"></a>
+### AIR-IN-016 — Airframe configuration input
+
+Sensed control-surface configuration — flap position, and trim on each axis
+the airframe declares — shall be received with source identity, source time,
+and quality, and shall declare the range each axis is defined over. A value
+outside its declared range shall fail its group rather than be clamped: a
+clamped indication shows a position the airframe never reached. A selected
+detent and a sensed position are separate quantities and shall not be
+substituted for one another; an airframe that reports one and not the other
+shall present the one it reports and no indication for the other.
+
 ## Outputs and functions
 
 <a id="air-out-001"></a>

@@ -84,8 +84,11 @@ normal dependency of one.**
 
 ### Sets — `sets/`
 
-Panel providers, one crate per set, each exporting one `PanelSet`. A set
-lives here whether or not it was written in this repository.
+Panel providers, one crate per set family, each exporting at least one
+`PanelSet`. A crate may export more than one when the sets carry the
+same tier obligations; `panel-contract.md` states when they belong
+apart. A set lives here whether or not it was written in this
+repository.
 
 Normal dependencies are kernel-only, so a set cannot reach the machinery
 that judges it. The registry is allowed as a **dev**-dependency: that

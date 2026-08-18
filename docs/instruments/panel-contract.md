@@ -21,7 +21,22 @@ because the crate is the one that has to compile.
 
 ## Where a panel lives
 
-Under `sets/`, one crate per set, exporting one `PanelSet`. A set's
+Under `sets/`, one crate per set family. A crate exports at least one
+`PanelSet` and may export more than one: the crate is the compilation
+and dependency unit, a `PanelSet` is the composition unit, and a shell
+selects sets rather than crates. Two sets belong in one crate when they
+carry the same tier obligations and share their geometry; they belong in
+separate crates when a consumer of one should not have to compile the
+other.
+
+`indicate-instrument-panels` exports two. `BUILTIN_SET` is the shipped
+flight set. `CONFIG_SET` holds the configuration panel, which a shell
+composes only when the airframe has the sensors — keeping it out of
+`BUILTIN_PANELS` is what leaves the composition digest, the
+screen-composition digest and the panel-set release value unmoved by a
+panel most airframes do not show.
+
+A set's
 normal dependencies are kernel-only — `crates/README.md` states the tier
 law and `check-structure.sh` enforces it, so a set cannot *ship* against
 the registry, the rasterizer, or the conformance harness that judges it.
