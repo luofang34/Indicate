@@ -220,6 +220,7 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         GroupId::Trust,
         GroupId::Heading,
         GroupId::Variation,
+        GroupId::BearingPointers,
     ]),
     frame_min: BUILTIN_FRAME,
     frame_max: BUILTIN_FRAME,
@@ -291,10 +292,14 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
             id: "track-up",
             build: extreme_states::hsi_track_up,
         },
+        ExtremeState {
+            id: "bearing-split-references",
+            build: extreme_states::hsi_bearing_split_references,
+        },
     ],
     raster_baselines: &[(
         BUILTIN_FRAME,
-        "66653ce135e6f2163fa48d805a0ab1a8f3d0ac51d778f7b1eb2aa4ec05bfbb7c",
+        "fe3ab150d2d24b7abe2e9b57e2c7202b48bbb748320992685e538b2200cf55ea",
     )],
     draw: draw_hsi_panel,
 };
@@ -435,7 +440,7 @@ pub const BUILTIN_SET: PanelSet = PanelSet {
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "add8e694ff3e9ee2321f63f40e3f590d26dac5f6ddb9eec00ec876c7cac7573c";
+    "b15a5d866a8672f05cfec561b8e1480f7e622f813570f5d62809afef2515c1b6";
 
 pub use criticality_bands::BUILTIN_CRITICALITY_BANDS;
 

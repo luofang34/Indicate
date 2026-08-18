@@ -144,6 +144,14 @@ fn group_status(
             integrity.dynamics,
             state.valid.turn && state.valid.slip,
         ),
+        // Bearings fold source trust like nav: a needle from a source
+        // the state does not trust must not point anywhere. Their own
+        // per-pointer validity is a second gate the panel applies.
+        GroupId::BearingPointers => fold(
+            &Ctx::of(policy, trust, &state.bearings),
+            integrity.bearings,
+            true,
+        ),
         // Configuration folds source trust like the rest: a position
         // reported by a source the state does not trust is not a
         // position. It declares no validity bit of its own — the trust

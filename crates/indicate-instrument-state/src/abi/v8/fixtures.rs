@@ -197,6 +197,23 @@ pub fn full() -> AircraftState {
             altitude_sel_model: GeoidModelId::UNDECLARED,
             baro_sel_hpa: Some(1013.2),
         },
+        bearings: stamped(
+            crate::aircraft::BearingPointers {
+                first: crate::aircraft::BearingPointer {
+                    source: crate::aircraft::NavSource::Nav1,
+                    bearing_rad: 1.2,
+                    reference: HeadingReference::SimLocalTrue,
+                    valid: true,
+                },
+                second: crate::aircraft::BearingPointer {
+                    source: crate::aircraft::NavSource::Nav2,
+                    bearing_rad: 4.1,
+                    reference: HeadingReference::SimLocalTrue,
+                    valid: true,
+                },
+            },
+            80.0,
+        ),
         quality: EstimateQuality::Good,
         valid: all_valid(),
         snapshot: SnapshotMeta {

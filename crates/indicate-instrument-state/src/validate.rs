@@ -86,6 +86,9 @@ pub struct StateIntegrity {
     /// Flight-director fault: non-finite or out-of-envelope commanded
     /// attitude, or an unknown mode/engagement byte.
     pub director: Option<GroupFault>,
+    /// Bearing-pointer fault: an unknown source or reference, or a
+    /// non-finite bearing.
+    pub bearings: Option<GroupFault>,
     /// Airframe-configuration fault: a non-finite ratio, or one outside
     /// the range its axis is defined over.
     pub airframe: Option<GroupFault>,
@@ -129,6 +132,26 @@ fn selections_fault(selections: &Selections) -> Option<GroupFault> {
     }
 }
 
+/// The bearing group's own fault, if it has one.
+///
+/// A pointer whose source this build cannot name, or whose north it
+/// cannot resolve, fails the group: a needle pointing somewhere on
+/// behalf of nobody is worse than no needle. A pointer the source
+/// declares unusable is not a fault — it is simply not drawn.
+fn bearings_fault(pointers: &crate::aircraft::BearingPointers) -> Option<GroupFault> {
+    for pointer in [&pointers.first, &pointers.second] {
+        if matches!(pointer.source, crate::aircraft::NavSource::Unknown)
+            || matches!(pointer.reference, crate::heading::HeadingReference::Unknown)
+        {
+            return Some(GroupFault::UnknownEnum);
+        }
+        if pointer.valid && !pointer.bearing_rad.is_finite() {
+            return Some(GroupFault::NonFinite);
+        }
+    }
+    None
+}
+
 /// The airframe group's own fault, if it has one.
 ///
 /// A ratio outside the range its axis is defined over is not a reading
@@ -155,13 +178,11 @@ fn airframe_fault(config: &crate::aircraft::AirframeConfig) -> Option<GroupFault
     }
 }
 
-/// Validates every received group of `state` and reports per-group
-/// faults. Absent groups pass (their absence resolves `Missing`); the
-/// deterministic worst-of combination in `resolve` folds these faults
-/// into each signal's status.
-pub fn validate_state(state: &AircraftState) -> StateIntegrity {
-    let mut integrity = StateIntegrity::default();
-
+/// The two groups whose members fault separately: attitude reports its
+/// quaternion and its rates apart, and kinematics reports position and
+/// each velocity axis apart, because a consumer of one is not
+/// necessarily a consumer of the others.
+fn validate_state_estimates(state: &AircraftState, integrity: &mut StateIntegrity) {
     if let Some(attitude) = &state.attitude.data {
         if let Err(fault) = validate_quat(attitude.quat) {
             integrity.attitude = Some(fault);
@@ -182,10 +203,23 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
             integrity.velocity_vertical = Some(GroupFault::NonFinite);
         }
     }
+}
+
+/// Validates every received group of `state` and reports per-group
+/// faults. Absent groups pass (their absence resolves `Missing`); the
+/// deterministic worst-of combination in `resolve` folds these faults
+/// into each signal's status.
+pub fn validate_state(state: &AircraftState) -> StateIntegrity {
+    let mut integrity = StateIntegrity::default();
+
+    validate_state_estimates(state, &mut integrity);
     if let Some(air) = &state.air.data
         && !(opt_finite(air.ias_mps) && opt_finite(air.baro_setting_hpa) && opt_finite(air.tas_mps))
     {
         integrity.air = Some(GroupFault::NonFinite);
+    }
+    if let Some(pointers) = &state.bearings.data {
+        integrity.bearings = bearings_fault(pointers);
     }
     if let Some(config) = &state.airframe.data {
         integrity.airframe = airframe_fault(config);

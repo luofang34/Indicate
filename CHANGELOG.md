@@ -53,15 +53,16 @@ own change onto this version before it is released, so the number names
 exactly one wire format. The registry table in `group_id.rs` records the
 agreed allocations and is the layout contract for the batch.
 
-This release carries true airspeed on the Air group and the first new
-group, airframe configuration.
+This release carries the allocations that have landed so far: true
+airspeed on the Air group, the bearing-pointer group, and the
+airframe-configuration group.
 
 | Value | This release |
 |---|---|
 | State ABI | 8 |
 | Scene format | 1 |
 | Corpus | 4 |
-| Composition digest | `add8e694ff3e9ee2321f63f40e3f590d26dac5f6ddb9eec00ec876c7cac7573c` |
+| Composition digest | `b15a5d866a8672f05cfec561b8e1480f7e622f813570f5d62809afef2515c1b6` |
 | Panel set | `pfd`, `hsi`, `monitor` |
 
 Panel set changed since the previous release: no. The configuration
@@ -102,6 +103,15 @@ digest are unchanged by it.
   [#55](https://github.com/luofang34/Indicate/issues/55)). Each append
   goes after the trailing `age_ms`. An older decoder accepts the longer
   payload and counts the tail.
+- **0x12 BearingPointers is a stamped group of 20 bytes.** Each of the
+  two pointers writes a source byte, a heading-reference byte, a
+  validity byte, one pad byte, and a `f32` bearing in radians. The
+  trailing `age_ms` follows the pair. A pointer names the north its own
+  receiver measured against, so the reference travels with the bearing
+  rather than being inherited from the heading group: a receiver that
+  reports magnetic bearings and an attitude source that reports true
+  heading are a normal pairing, and the display converts between them
+  or draws nothing.
 - **Group-status indexing no longer assumes contiguous ids.**
   `GroupStatuses` was a dense table keyed by `tag - 1`. The batch
   allocates 0x12 to 0x15 while 0x0E to 0x11 stay reserved, so the
@@ -122,6 +132,10 @@ digest are unchanged by it.
   failure looks like total signal loss rather than one short group. Emit
   the 16-byte payload, with a NaN in the true-airspeed slot when the
   source has none.
+- **The HSI gains two bearing needles, so its raster baseline and the
+  composed-frame hashes move.** The shared `typical` state now feeds
+  both pointers, and the HSI contributes a `bearing-split-references`
+  extreme state, which raises the admission case count.
 - **The speed tape starts 25 units lower.** The true-airspeed box is
   opaque and owns the strip above the tape, so the tape no longer paints
   under it. The visible speed range above the pointer shrinks by about

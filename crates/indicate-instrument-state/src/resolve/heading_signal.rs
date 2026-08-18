@@ -182,3 +182,22 @@ pub(super) fn presented_wind(
         )
     }
 }
+
+/// The heading bug converted into the rose's reference.
+///
+/// The bug is a selection, so it carries no age and enters the
+/// conversion Valid; what can refuse it is the conversion itself, when
+/// the north it was set against cannot be resolved into the rose's.
+pub(super) fn heading_bug_presented(
+    state: &AircraftState,
+    policy: &FreshnessPolicy,
+    rose: HeadingReference,
+) -> Sig<f32> {
+    presented_angle(
+        Sig::with_status(state.selections.heading_bug_rad, SignalStatus::Valid),
+        state.selections.heading_bug_reference,
+        rose,
+        state,
+        policy,
+    )
+}

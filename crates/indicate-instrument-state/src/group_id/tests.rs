@@ -28,10 +28,10 @@ fn unassigned_tags_do_not_resolve() {
 
 #[test]
 fn reserved_and_allocated_tags_have_no_status_slot_yet() {
-    // 0x0E–0x11 are planned and 0x12–0x15 are allocated with their
+    // 0x0E–0x11 are planned and 0x13–0x15 are allocated with their
     // layouts fixed, but neither has a variant. Until one lands, no such
     // tag resolves to a variant, so none can key a `GroupStatuses` slot.
-    for value in (0x0Eu8..=0x12).chain(0x14..=0x15) {
+    for value in (0x0Eu8..=0x11).chain(0x14u8..=0x15) {
         assert_eq!(GroupId::from_u8(value), None, "tag {value:#04x}");
     }
 }
@@ -45,11 +45,11 @@ fn index_is_dense_over_all() {
 
 #[test]
 fn index_is_not_wire_tag_arithmetic() {
-    // The sparse allocation has arrived: 0x0E to 0x12 have no variant,
-    // so the highest tag is 0x13 and its slot is 13. Arithmetic on the
-    // tag would answer 18 and index past a 14-slot table, which is what
-    // the match exists to prevent — and this now proves it rather than
-    // describing it.
+    // The sparse allocation has arrived: 0x0E to 0x11 have no variant,
+    // so the highest tag is 0x13 and its slot is one below COUNT.
+    // Arithmetic on the tag would answer 18 and index past the table,
+    // which is what the match exists to prevent — and this proves it
+    // rather than describing it.
     assert_eq!(GroupId::AirframeConfig.to_u8(), 0x13);
     assert_eq!(GroupId::AirframeConfig.index(), GroupId::COUNT - 1);
     assert_ne!(
@@ -60,16 +60,14 @@ fn index_is_not_wire_tag_arithmetic() {
 }
 
 #[test]
-fn the_next_allocation_would_also_escape_the_table() {
-    // The next id the registry allocates is not the next tag after the
-    // last variant, so the first allocation to gain a variant makes
-    // `tag - 1` index past a `[SignalStatus; COUNT]` table. `index()` is
-    // a match for this reason; this test fails if a future allocation
-    // ever makes the arithmetic safe again, at which point the reason
-    // has to be restated rather than silently lost.
-    const NEXT_ALLOCATED: u8 = 0x12;
-    assert_eq!(GroupId::from_u8(NEXT_ALLOCATED), None, "still variantless");
-    let arithmetic_slot = usize::from(NEXT_ALLOCATED) - 1;
+fn wire_tag_arithmetic_would_index_past_the_table() {
+    // Derived from the registry rather than from a pinned tag, so it
+    // keeps saying something after the next allocation. This test fails
+    // if a later allocation fills the gaps and makes the arithmetic
+    // safe again, at which point the reason has to be restated rather
+    // than silently lost.
+    let highest = GroupId::ALL[GroupId::COUNT - 1];
+    let arithmetic_slot = usize::from(highest.to_u8()) - 1;
     assert!(
         arithmetic_slot >= GroupId::COUNT,
         "slot {arithmetic_slot} from tag arithmetic is still inside a \
@@ -82,17 +80,30 @@ fn the_next_allocation_would_also_escape_the_table() {
 fn withholding_a_stamped_group_resolves_missing() {
     let full = fixtures::full();
     let policy = FreshnessPolicy::default();
-    for group in [
-        GroupId::Attitude,
-        GroupId::Kinematics,
-        GroupId::Air,
-        GroupId::Nav,
-        GroupId::Wind,
-        GroupId::Heading,
-        GroupId::Variation,
-        GroupId::Dynamics,
-        GroupId::MonitorText,
-    ] {
+    for group in GroupId::ALL {
+        // Exhaustive on purpose: a group added to the registry cannot
+        // reach the wire without a decision here, so no `withhold_group`
+        // arm ships without a test that exercises it. The declared lane
+        // carries no sample to take away — the tests below say what
+        // withholding does to those groups instead.
+        let stamped = match group {
+            GroupId::Attitude
+            | GroupId::Kinematics
+            | GroupId::Air
+            | GroupId::Nav
+            | GroupId::Wind
+            | GroupId::Heading
+            | GroupId::Variation
+            | GroupId::Dynamics
+            | GroupId::BearingPointers
+            | GroupId::AirframeConfig
+            | GroupId::FlightDirector
+            | GroupId::MonitorText => true,
+            GroupId::Selections | GroupId::Trust | GroupId::Altitude => false,
+        };
+        if !stamped {
+            continue;
+        }
         let withheld = withhold_group(&full, group);
         let data = crate::resolve(&withheld, &policy);
         assert_eq!(
