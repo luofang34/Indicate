@@ -53,23 +53,36 @@ own change onto this version before it is released, so the number names
 exactly one wire format. The registry table in `group_id.rs` records the
 agreed allocations and is the layout contract for the batch.
 
-This release carries two of them: true airspeed on the Air group, and
-the deflection scale on the Nav group.
+This release carries the allocations that have landed so far: true
+airspeed on the Air group, the deflection scale on the Nav group, the
+bearing-pointer group, and the airframe-configuration group.
 
 | Value | This release |
 |---|---|
 | State ABI | 8 |
 | Scene format | 1 |
 | Corpus | 4 |
-| Composition digest | `7c9d50db25660db172618dd7949e3367c0215f749a4e789d5b676ca5ed91643d` |
+| Composition digest | `1664fc825323b6bcbd05ecde470c0d82fe9faaf94bdf61caabc28edcaf0a0f02` |
 | Panel set | `pfd`, `hsi`, `monitor` |
 
-Panel set changed since the previous release: no.
+Panel set changed since the previous release: no. The configuration
+panel ships in its own set, `config`, which a shell composes when the
+airframe has the sensors — so `BUILTIN_PANELS` and its composition
+digest are unchanged by it.
 
 ### State ABI v8 ([#58](https://github.com/luofang34/Indicate/issues/58))
 
 - **v8 replaces v7.** `abi::v7` is gone rather than kept alongside. The
   golden frames are now `state-abi-v8.*.hex`.
+- **Group 0x13, `AirframeConfig`, is on the wire.** A stamped group of
+  24 bytes: sensed flap ratio, selected flap detent, and elevator,
+  aileron and rudder trim ratios, each optional and NaN-absent. A ratio
+  outside the range its axis is defined over faults the group rather
+  than being clamped — a clamped pointer would sit at a limit the
+  airframe never reached.
+- **Assigned group ids stop being contiguous.** 0x0E to 0x11 have no
+  variant, so `GroupId::index` and the wire tag now genuinely disagree,
+  and the test that could only describe that difference proves it.
 - **The Nav group grows from 42 bytes to 43 and declares its deflection
   scale.** `scale` appends after the group's existing tail, per the
   stamped-lane growth policy. Enroute, terminal and approach are 0, 1
@@ -104,6 +117,15 @@ Panel set changed since the previous release: no.
   [#55](https://github.com/luofang34/Indicate/issues/55)). Each append
   goes after the trailing `age_ms`. An older decoder accepts the longer
   payload and counts the tail.
+- **0x12 BearingPointers is a stamped group of 20 bytes.** Each of the
+  two pointers writes a source byte, a heading-reference byte, a
+  validity byte, one pad byte, and a `f32` bearing in radians. The
+  trailing `age_ms` follows the pair. A pointer names the north its own
+  receiver measured against, so the reference travels with the bearing
+  rather than being inherited from the heading group: a receiver that
+  reports magnetic bearings and an attitude source that reports true
+  heading are a normal pairing, and the display converts between them
+  or draws nothing.
 - **Group-status indexing no longer assumes contiguous ids.**
   `GroupStatuses` was a dense table keyed by `tag - 1`. The batch
   allocates 0x12 to 0x15 while 0x0E to 0x11 stay reserved, so the
@@ -124,6 +146,10 @@ Panel set changed since the previous release: no.
   failure looks like total signal loss rather than one short group. Emit
   the 16-byte payload, with a NaN in the true-airspeed slot when the
   source has none.
+- **The HSI gains two bearing needles, so its raster baseline and the
+  composed-frame hashes move.** The shared `typical` state now feeds
+  both pointers, and the HSI contributes a `bearing-split-references`
+  extreme state, which raises the admission case count.
 - **A state writer must also write the longer Nav group.** A writer
   that omits the scale emits a 42-byte payload, which is now below the
   group's minimum, and the decoder rejects the whole frame exactly as

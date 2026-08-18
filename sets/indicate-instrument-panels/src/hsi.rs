@@ -9,6 +9,7 @@ use indicate_instrument_state::{GroupId, NavSource, PanelData, RoseBasis, Signal
 
 use indicate_instrument_symbology::{annunciation, palette, safety, source_label, status_paint};
 
+mod bearing;
 mod boxes;
 mod cdi;
 mod rose;
@@ -79,20 +80,30 @@ pub fn draw_hsi(
     scene.end_layer(LayerId::Tapes)?;
 
     scene.begin_layer(LayerId::Guidance)?;
-    if let Some((up_rad, _)) = up
-        && data.nav.data.source != NavSource::None
-        && data.nav.status.shows_value()
-        && data.nav.course_rose_rad.status.shows_value()
-        // Belt and suspenders, like the rose basis above: the group's
-        // fault path already fails an unknown scale, and the needle
-        // still refuses to draw without one. A deflection in dots is
-        // not a distance until the scale says what a dot is worth.
-        && !data.nav.data.scale.label().is_empty()
-    {
-        cdi::draw_cdi(scene, &data.nav, up_rad)?;
-        // Under the needle's own gate: what a dot is worth is only
-        // readable while there is a needle to read it against.
-        cdi::draw_scale_label(scene, &data.nav)?;
+    if let Some((up_rad, _)) = up {
+        if data.nav.data.source != NavSource::None
+            && data.nav.status.shows_value()
+            && data.nav.course_rose_rad.status.shows_value()
+            // Belt and suspenders, like the rose basis above: the
+            // group's fault path already fails an unknown scale, and
+            // the needle still refuses to draw without one. A
+            // deflection in dots is not a distance until the scale
+            // says what a dot is worth.
+            && !data.nav.data.scale.label().is_empty()
+        {
+            cdi::draw_cdi(scene, &data.nav, up_rad)?;
+            // Under the needle's own gate: what a dot is worth is only
+            // readable while there is a needle to read it against.
+            cdi::draw_scale_label(scene, &data.nav)?;
+        }
+        // A pointer follows its own receiver, so it carries its own
+        // gate: it draws whether or not a course is selected.
+        bearing::draw_bearing_pointers(
+            scene,
+            &data.bearings.value,
+            data.bearings_rose_rad,
+            up_rad,
+        )?;
     }
     boxes::vertical_deviation(scene, data)?;
     scene.end_layer(LayerId::Guidance)?;

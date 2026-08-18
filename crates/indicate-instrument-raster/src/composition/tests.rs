@@ -30,7 +30,7 @@ use crate::{FrameId, FramebufferDims, RasterError, RenderStatus};
 ///
 /// Each covers a different composition shape, because placement, opaque
 /// overlap, and overlay show-through fail in different ways.
-const SIDE_BY_SIDE_HASH: &str = "cf926b01b89c71098096851e46b5238fd90f8cb9e95be1b8001c22e8782011c8";
+const SIDE_BY_SIDE_HASH: &str = "88ea50c7b563a403d1dec235f1aac21a9d9fb2c37358daaebfcc2a91d870a4db";
 const OPAQUE_INSET_HASH: &str = "521729352acb1e7bd5bf6db8b6471e46491844b97f8f6525b2827a5d2fd1de08";
 const OVERLAY_HASH: &str = "d9ec53b6527d6e5a93d45a3acf0c1cb01deb0e1405b3411f463860eaa20ea45a";
 

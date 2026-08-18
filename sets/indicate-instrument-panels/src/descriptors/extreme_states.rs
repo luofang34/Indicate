@@ -4,9 +4,9 @@
 
 use indicate_instrument_descriptor::states;
 use indicate_instrument_state::{
-    AirData, AircraftState, Attitude, DynSample, FdEngagement, FdMode, FdSample, HeadingReference,
-    HeadingSample, Kinematics, MonitorText, NavData, NavFromTo, NavScale, NavSource, Quat, Stamped,
-    TextLine, TurnBasis, TurnSample,
+    AirData, AircraftState, Attitude, BearingPointer, BearingPointers, DynSample, FdEngagement,
+    FdMode, FdSample, HeadingReference, HeadingSample, Kinematics, MonitorText, NavData, NavFromTo,
+    NavScale, NavSource, Quat, Stamped, TextLine, TurnBasis, TurnSample,
 };
 
 /// Inverted, nose-low, rolling hard: the unusual-attitude tier, the
@@ -123,6 +123,32 @@ pub(super) fn hsi_track_up() -> AircraftState {
     state.heading = Stamped {
         data: None,
         age_ms: None,
+    };
+    state
+}
+
+/// One pointer the rose can carry and one it cannot: a true-referenced
+/// bearing beside a magnetic one, with no variation sample to convert
+/// the second. The panel must draw one needle and remove the other in
+/// the same frame, which no state written for the whole family reaches.
+pub(super) fn hsi_bearing_split_references() -> AircraftState {
+    let mut state = states::typical();
+    state.bearings = Stamped {
+        data: Some(BearingPointers {
+            first: BearingPointer {
+                source: NavSource::Gps,
+                bearing_rad: 0.6,
+                reference: HeadingReference::SimLocalTrue,
+                valid: true,
+            },
+            second: BearingPointer {
+                source: NavSource::Nav2,
+                bearing_rad: 4.4,
+                reference: HeadingReference::Magnetic,
+                valid: true,
+            },
+        }),
+        age_ms: Some(40.0),
     };
     state
 }

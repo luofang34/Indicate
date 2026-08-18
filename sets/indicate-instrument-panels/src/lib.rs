@@ -22,6 +22,7 @@ extern crate std;
 
 #[cfg(test)]
 mod alert_stack_tests;
+mod config;
 mod descriptors;
 mod hsi;
 mod monitor;
@@ -29,9 +30,11 @@ mod pfd;
 
 use indicate_instrument_descriptor::DesignFrame;
 
+pub use config::draw_config;
 pub use descriptors::{
-    BUILTIN_CRITICALITY_BANDS, BUILTIN_PANELS, BUILTIN_SCENE_DIGEST, BUILTIN_SET, HSI_DESCRIPTOR,
-    MONITOR_DESCRIPTOR, PFD_DESCRIPTOR,
+    BUILTIN_CRITICALITY_BANDS, BUILTIN_PANELS, BUILTIN_SCENE_DIGEST, BUILTIN_SET,
+    CONFIG_DESCRIPTOR, CONFIG_PANELS, CONFIG_SET, HSI_DESCRIPTOR, MONITOR_DESCRIPTOR,
+    PFD_DESCRIPTOR,
 };
 pub use hsi::draw_hsi;
 pub use monitor::draw_monitor;
