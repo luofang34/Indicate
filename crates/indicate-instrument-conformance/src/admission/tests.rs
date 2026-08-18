@@ -11,30 +11,27 @@ use super::{admit, criticality_bands};
 fn builtin_panels_pass_admission() {
     let registry = Registry::new(BUILTIN_PANELS).expect("composes");
     let report = admit(&registry).expect("shipped panels must be admissible");
-    // PFD: (4 canonical + 4 extreme) states × (1 fed + 8 withheld);
-    // HSI: (4 + 2) × 8; monitor: 5 × 2 — each drawn twice, quiet and
+    // PFD: (5 canonical + 4 extreme) states × (1 fed + 8 withheld);
+    // HSI: (5 + 2) × 8; monitor: 6 × 2 — each drawn twice, quiet and
     // with the saturated alert stack.
-    assert_eq!(report.cases, 260);
-    // Every warning is the PFD's groundspeed or baro readout: their
-    // boxes are 90 units wide but a wide value at size 16 has ~107
-    // units of nominal ink, so the run overhangs its box and the frame
-    // edge (status_paint::readout_box draws at the requested size with
-    // no fit shrink). Real display debt, honestly counted across every
-    // corpus and extreme state; fixing the paint moves frame hashes and
-    // is its own change. The ratchet makes any NEW unclipped off-frame
-    // text a deliberate decision.
-    // Twice the quiet-frame count, because the overhanging runs are the
-    // groundspeed and baro readouts, which the alert stack does not
-    // touch: each overhangs on both sides of the alert axis.
+    assert_eq!(report.cases, 298);
+    // Every warning is the PFD's groundspeed or baro readout: each box
+    // is 90 units wide but a wide value at size 16 has ~107 units of
+    // nominal ink, so the run overhangs its box and the frame edge —
+    // `status_paint::readout_box` paints at the size it is given. Real
+    // display debt, honestly counted across every corpus and extreme
+    // state; fixing it moves frame hashes and is its own change, for
+    // both boxes at once.
     //
     // Thirty per PFD state that paints both boxes with wide values, and
     // sixteen for source-unusable, where only the groundspeed box
     // dashes — its baro box still paints a wide value, because a dialed
-    // setting is not an estimate and does not fold source quality.
-    // Declutter has nothing to do with it: neither box is on the
-    // priority table, so a new pinned state costs the same thirty
-    // whatever its attitude.
-    assert_eq!(report.warnings.len(), 196);
+    // setting is not an estimate and does not fold source quality. The
+    // true-airspeed box adds none of them: it sizes its label to its own
+    // width, so a third readout arrives without a third overflow.
+    // Twice the quiet-frame count, because the alert stack does not
+    // touch these boxes: each overhangs on both sides of the alert axis.
+    assert_eq!(report.warnings.len(), 226);
     assert!(report.warnings.iter().all(|w| matches!(
         w,
         super::AdmissionWarning::FrameOverflow { panel: "pfd", text, .. }

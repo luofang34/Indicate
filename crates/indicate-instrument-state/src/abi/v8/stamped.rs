@@ -1,7 +1,10 @@
 //! Payload codecs for the age-stamped groups.
 //!
-//! Every stamped group's payload ends with its `age_ms` (NaN = never).
-//! Presence semantics: data decodes only when the age is present, and
+//! Every stamped group's minimum layout ends with its `age_ms`
+//! (NaN = never); a batch field append lands AFTER that trailing age
+//! (see `crate::group_id` for the v8 allocation contract), so the age
+//! keeps its offset and the new field is the new tail. Presence
+//! semantics: data decodes only when the age is present, and
 //! the encoder omits the tag entirely when the [`Stamped`] carries
 //! neither data nor age — absence on the wire IS the never-fed group.
 //!
@@ -11,7 +14,7 @@
 //! |-------|--------|----:|
 //! | attitude | quat w x y z f32×4; rates p q r f32×3; age f32 | 32 |
 //! | kinematics | pos NED f32×3; vel NED f32×3; age f32 | 28 |
-//! | air | ias f32; baro f32; age f32 | 12 |
+//! | air | ias f32; baro f32; age f32; tas f32 | 16 |
 //! | nav | source u8; fromto u8; course ref u8; 0; course f32; cdi f32; vdev f32; dist f32; age f32; to ident 9; from ident 9 | 42 |
 //! | wind | from f32; speed f32; age f32 | 12 |
 //! | heading | reference u8; 0×3; heading f32; age f32 | 12 |
@@ -115,6 +118,7 @@ pub(super) fn decode_air(state: &mut AircraftState, p: &[u8]) {
         data: age.map(|_| AirData {
             ias_mps: opt(get_f32(p, 0)),
             baro_setting_hpa: opt(get_f32(p, 4)),
+            tas_mps: opt(get_f32(p, 12)),
         }),
         age_ms: age,
     };
@@ -124,12 +128,13 @@ pub(super) fn encode_air(state: &AircraftState, out: &mut [u8]) -> Result<Option
     if absent(&state.air) {
         return Ok(None);
     }
-    let p = sized(out, 12)?;
+    let p = sized(out, 16)?;
     let air = state.air.data.unwrap_or_default();
     put_f32(p, 0, or_nan(air.ias_mps));
     put_f32(p, 4, or_nan(air.baro_setting_hpa));
     put_f32(p, 8, or_nan(state.air.age_ms));
-    Ok(Some(12))
+    put_f32(p, 12, or_nan(air.tas_mps));
+    Ok(Some(16))
 }
 
 fn ident_at(p: &[u8], off: usize) -> IdentStr {

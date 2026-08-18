@@ -89,6 +89,10 @@ pub struct PanelData {
     pub ias_trend_kt_s: Sig<f32>,
     /// Indicated airspeed, knots.
     pub ias_kt: Sig<f32>,
+    /// True airspeed, knots. Source-supplied only: the display never
+    /// derives it from indicated airspeed (ADR-0017), so a source that
+    /// supplies one Air field and not the other leaves this `Missing`.
+    pub tas_kt: Sig<f32>,
     /// Groundspeed, knots.
     pub gs_kt: Sig<f32>,
     /// Datum-qualified altitude.
@@ -235,7 +239,7 @@ pub fn resolve_stateful(
 
     let kin = kinematic_signals(state, policy, &trust, &integrity);
 
-    let (ias, baro) = air_signals(state, policy, trust.quality, &integrity);
+    let (ias, tas, baro) = air_signals(state, policy, trust.quality, &integrity);
     let heading = heading_resolved(state, policy, &trust, &integrity);
     let basis = rose_basis(&heading, kin.track_rad.status.shows_value());
     let rose = basis.display_reference(heading.reference);
@@ -261,6 +265,7 @@ pub fn resolve_stateful(
         slip_lat_mps2: slip_resolved(state, policy, &trust, &integrity),
         ias_trend_kt_s: ias_trend_resolved(state, policy, &trust, &integrity),
         ias_kt: finite(ias),
+        tas_kt: finite(tas),
         gs_kt: finite(kin.gs_kt),
         altitude: altitude_resolved(
             state,
@@ -369,11 +374,18 @@ fn air_signals(
     policy: &FreshnessPolicy,
     quality: SignalStatus,
     integrity: &StateIntegrity,
-) -> (Sig<f32>, Sig<f32>) {
+) -> (Sig<f32>, Sig<f32>, Sig<f32>) {
     let air_fresh = policy.status_for_age(state.air.age_ms);
     let air_fault = fault_status(integrity.air);
     let air = state.air.data.unwrap_or_default();
+    // Sensed air-data values fold source quality; the applied altimeter
+    // setting does not, because a setting is a dialed configuration
+    // value and an estimate's quality says nothing about it.
     let ias = match air.ias_mps {
+        Some(v) => Sig::with_status(v * MPS_TO_KT, air_fresh.worst(quality).worst(air_fault)),
+        None => Sig::missing(),
+    };
+    let tas = match air.tas_mps {
         Some(v) => Sig::with_status(v * MPS_TO_KT, air_fresh.worst(quality).worst(air_fault)),
         None => Sig::missing(),
     };
@@ -381,7 +393,7 @@ fn air_signals(
         Some(v) => Sig::with_status(v, air_fresh.worst(air_fault)),
         None => Sig::missing(),
     };
-    (ias, baro)
+    (ias, tas, baro)
 }
 
 fn nav_resolved(

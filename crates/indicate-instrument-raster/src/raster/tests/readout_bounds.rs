@@ -64,6 +64,7 @@ fn state_at(alt_ft: f32, ias_kt: f32) -> AircraftState {
         data: Some(AirData {
             ias_mps: Some(ias_kt * MPS_PER_KT),
             baro_setting_hpa: Some(1013.0),
+            tas_mps: None,
         }),
         age_ms: Some(20.0),
     };

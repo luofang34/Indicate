@@ -60,6 +60,7 @@ fn flying_state_air() -> Stamped<AirData> {
         data: Some(AirData {
             ias_mps: Some(40.0),
             baro_setting_hpa: Some(1013.0),
+            tas_mps: Some(45.0),
         }),
         age_ms: Some(20.0),
     }

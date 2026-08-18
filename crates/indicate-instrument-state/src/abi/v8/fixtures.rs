@@ -104,11 +104,12 @@ fn dynamics(rate_rps: f32, basis: TurnBasis, lateral_mps2: f32, age_ms: f32) -> 
     )
 }
 
-fn air(ias_mps: f32, baro_setting_hpa: f32, age_ms: f32) -> Stamped<AirData> {
+fn air(ias_mps: f32, baro_setting_hpa: f32, tas_mps: Option<f32>, age_ms: f32) -> Stamped<AirData> {
     stamped(
         AirData {
             ias_mps: Some(ias_mps),
             baro_setting_hpa: Some(baro_setting_hpa),
+            tas_mps,
         },
         age_ms,
     )
@@ -166,7 +167,7 @@ pub fn full() -> AircraftState {
             80.0,
         ),
         kinematics: kinematics([1200.0, 340.0, -305.0], [52.0, 9.0, -2.0], 80.0),
-        air: air(53.0, 1013.2, 80.0),
+        air: air(53.0, 1013.2, Some(58.0), 80.0),
         nav,
         wind: stamped(
             Wind {
@@ -238,7 +239,9 @@ pub fn flight_controller() -> AircraftState {
     AircraftState {
         attitude: attitude([1.0, 0.0, 0.0, 0.0], [0.01, 0.0, -0.02], 40.0),
         kinematics: kinematics([10.0, -20.0, -80.0], [21.0, 3.0, -0.5], 40.0),
-        air: air(39.0, 1020.5, 45.0),
+        // A flight controller without the density inputs supplies no
+        // true airspeed: the field stays absent, not derived.
+        air: air(39.0, 1020.5, None, 45.0),
         wind: stamped(
             Wind {
                 from_rad: 0.8,

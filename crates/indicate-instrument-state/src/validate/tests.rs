@@ -39,6 +39,7 @@ fn trusted_full_state() -> AircraftState {
         air: stamped(AirData {
             ias_mps: Some(40.0),
             baro_setting_hpa: Some(1013.25),
+            tas_mps: Some(45.0),
         }),
         nav: stamped(NavData {
             source: NavSource::Gps,
@@ -161,6 +162,12 @@ fn non_finite_values_fault_exactly_their_own_group() {
         assert_eq!(validate_state(&s).air, Some(GroupFault::NonFinite));
 
         let mut s = trusted_full_state();
+        if let Some(air) = s.air.data.as_mut() {
+            air.tas_mps = Some(bad);
+        }
+        assert_eq!(validate_state(&s).air, Some(GroupFault::NonFinite));
+
+        let mut s = trusted_full_state();
         if let Some(nav) = s.nav.data.as_mut() {
             nav.cdi_dots = bad;
         }
@@ -193,6 +200,7 @@ fn optional_absence_is_not_a_fault() {
     if let Some(air) = s.air.data.as_mut() {
         air.ias_mps = None;
         air.baro_setting_hpa = None;
+        air.tas_mps = None;
     }
     if let Some(nav) = s.nav.data.as_mut() {
         nav.vdev_dots = None;

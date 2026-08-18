@@ -50,18 +50,18 @@ allocation batch that issue #58 directs. Six issues need wire changes:
 #50, #51, #52, #53, #54 with the #55 follow-on, and #57. One coordinated
 revision carries all the agreed layouts. Each allocation lands as its
 own change onto this version before it is released, so the number names
-exactly one wire format.
+exactly one wire format. The registry table in `group_id.rs` records the
+agreed allocations and is the layout contract for the batch.
 
-This release carries the airspeed trend on the Dynamics group.
-The registry table in `group_id.rs` records the agreed allocations and
-is the layout contract for the batch.
+This release carries two of them: true airspeed on the Air group, and
+the airspeed trend on the Dynamics group.
 
 | Value | This release |
 |---|---|
 | State ABI | 8 |
 | Scene format | 1 |
 | Corpus | 4 |
-| Composition digest | `cdb6a8f950637d1ccf34cacc02483dc3b60b75925f5e1a6e705ba367a0200ae2` |
+| Composition digest | `5a982aac195255f909ca36ac0437b58ef66ea4de802adbb1a10dd74c0a0035b2` |
 | Panel set | `pfd`, `hsi`, `monitor` |
 
 Panel set changed since the previous release: no.
@@ -72,10 +72,13 @@ Panel set changed since the previous release: no.
   golden frames are now `state-abi-v8.*.hex`.
 - **The Dynamics group grows from 16 bytes to 20.** `ias_trend` follows
   the trailing `age_ms`, NaN-absent, and Trust valid bit 9 declares it.
-  The group's minimum length rises with it, so a producer that stamps
-  version 8 and keeps writing 16 bytes has the whole frame refused.
+  A producer that stamps version 8 and keeps writing 16 bytes has the
+  whole frame refused, not that group.
+- **The Air group grows from 12 bytes to 16.** `tas_mps` follows the
+  trailing `age_ms`, NaN-absent like the altimeter setting beside it.
+  Its minimum length rises with it.
 - **The batch allocates four group ids and three field appends. This
-  release implements the Dynamics append.** The ids are 0x12 BearingPointers (stamped,
+  release implements the Air append only.** The ids are 0x12 BearingPointers (stamped,
   [#53](https://github.com/luofang34/Indicate/issues/53)), 0x13
   AirframeConfig (stamped,
   [#57](https://github.com/luofang34/Indicate/issues/57)), 0x14 ApModes
@@ -99,27 +102,22 @@ Panel set changed since the previous release: no.
 
 ### Notes for anyone re-pinning
 
-- **Both digests moved and no paint did.** The composition digest hashes
-  the ABI version byte. The screen-composition digest hashes the
-  composition digest beneath it. So `f82d9056…` and `367ce939…` move to
-  `f814183b…` and `0913de5a…` on the version byte alone. The three
-  REN-03 raster baselines, the criticality bands, the glyph pack, and
-  the corpus are byte-identical.
-- **A state writer must stamp version byte 8 AND write the longer
-  Dynamics group.** Changing only the version byte emits a 16-byte
-  payload, which is below the group's new minimum, and the decoder
-  refuses the whole frame rather than that group — every panel blanks
-  at once. Write 20 bytes, with a NaN in the trend slot when the source
-  measures none.
-- **The PFD gains a trend bar** beside the airspeed tape. The
-  composition digest and the screen-composition digest move with it. The
-  raster baselines do not: each is pinned over the typical state, whose
-  attitude is unusual, so the bar is decluttered out of them.
-- **A new pinned state, level-accelerating, draws the trend bar and the
-  turn cue.** Every pinned state that resolved a flying attitude
-  resolved an unusual one, so neither cue had pinned coverage before.
-  The speed bands still have none: they need a configured `v_speeds`,
-  and every pinned path renders the empty configuration by design.
+- **Both digests moved, and so did the paint.** The composition digest
+  hashes the ABI version byte, and the screen-composition digest hashes
+  the composition digest beneath it, so both move on the version alone.
+  The PFD also gains a true-airspeed box at the head of its speed tape,
+  which moves its raster baseline and the three composed-frame hashes.
+- **A state writer must stamp version byte 8 AND write the longer Air
+  group.** A writer that changes only the version byte emits a 12-byte
+  Air payload, which is now below the group's minimum. The decoder
+  rejects the whole frame, not that group, so every panel blanks — the
+  failure looks like total signal loss rather than one short group. Emit
+  the 16-byte payload, with a NaN in the true-airspeed slot when the
+  source has none.
+- **The speed tape starts 25 units lower.** The true-airspeed box is
+  opaque and owns the strip above the tape, so the tape no longer paints
+  under it. The visible speed range above the pointer shrinks by about
+  3.5 kt.
 
 ## [0.4.0] — 2026-08-08
 

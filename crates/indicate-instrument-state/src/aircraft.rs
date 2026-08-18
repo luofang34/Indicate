@@ -32,6 +32,11 @@ pub struct AirData {
     pub ias_mps: Option<f32>,
     /// Altimeter setting in hectopascals.
     pub baro_setting_hpa: Option<f32>,
+    /// True airspeed in meters/second. The display cannot derive it —
+    /// that needs density the state does not carry — so a source that
+    /// does not supply it leaves it absent and the readout shows
+    /// `Missing`, never a number computed from indicated airspeed.
+    pub tas_mps: Option<f32>,
 }
 
 /// The selected lateral navigation source.

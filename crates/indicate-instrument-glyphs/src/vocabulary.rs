@@ -38,6 +38,7 @@ pub const PANEL_STRINGS: &[&str] = &[
     "ALT",
     "ATT",
     "GS 0kt",
+    "TAS 0kt",
     "WIND ---",
     "DIST NM",
     "CRS",

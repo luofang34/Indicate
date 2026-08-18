@@ -1,7 +1,7 @@
 //! The shared canonical states every panel is exercised against
 //! (ADR-0033): the corpus behind the scene digest and the admission
 //! harness. Panels contribute their own stress fixtures through
-//! [`crate::ExtremeState`]; these four are the floor every panel meets.
+//! [`crate::ExtremeState`]; these are the floor every panel meets.
 
 use indicate_instrument_state::{
     AirData, AircraftState, AltitudeDeclaration, Attitude, DynSample, EstimateQuality,
@@ -37,6 +37,10 @@ pub const CANONICAL_STATES: &[CanonicalState] = &[
     CanonicalState {
         id: "source-unusable",
         build: source_unusable,
+    },
+    CanonicalState {
+        id: "ias-without-tas",
+        build: ias_without_tas,
     },
 ];
 
@@ -79,6 +83,7 @@ pub fn typical() -> AircraftState {
             data: Some(AirData {
                 ias_mps: Some(53.0),
                 baro_setting_hpa: Some(1013.2),
+                tas_mps: Some(58.0),
             }),
             age_ms: Some(80.0),
         },
@@ -206,6 +211,17 @@ pub fn fully_fed() -> AircraftState {
 pub fn source_unusable() -> AircraftState {
     let mut state = typical();
     state.quality = EstimateQuality::Unusable;
+    state
+}
+
+/// A source that supplies indicated airspeed but no true airspeed: the
+/// display never derives one from the other (ADR-0017). The tape and
+/// IAS readout stay live; only the TAS box shows `Missing`.
+pub fn ias_without_tas() -> AircraftState {
+    let mut state = typical();
+    if let Some(air) = state.air.data.as_mut() {
+        air.tas_mps = None;
+    }
     state
 }
 

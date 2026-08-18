@@ -220,6 +220,7 @@ fn base_state() -> AircraftState {
             data: Some(AirData {
                 ias_mps: Some(50.0),
                 baro_setting_hpa: Some(1013.0),
+                tas_mps: Some(55.0),
             }),
             age_ms: Some(10.0),
         },
