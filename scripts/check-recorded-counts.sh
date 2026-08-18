@@ -110,8 +110,20 @@ check_artifact() {
 
 # The guard ships with the proof that it refuses: a record whose count
 # has drifted must fail, or a green result says nothing.
+# A refusal must name its own reason. Exit status alone cannot tell
+# "refused for this reason" from "refused for another" — or from "could
+# not run at all", which is how a selftest starts passing vacuously.
+expect_reason() {
+    case "$2" in
+    *"$1"*) return 0 ;;
+    esac
+    echo "recorded-counts-selftest: $3 was refused, but not as $1" >&2
+    echo "$2" | head -n 2 >&2
+    return 1
+}
+
 selftest() {
-    local dir count
+    local dir count refusal
     dir="$(mktemp -d)"
     trap 'rm -rf "$dir"' RETURN
     count=0
@@ -123,30 +135,31 @@ selftest() {
 
     # A record whose summary does not match its command.
     printf 'command: echo\nsummary:\ntest result: ok. 1 passed\n' >"$dir/scope/drift.run.txt"
-    if INDICATE_EVIDENCE_ARTIFACTS="$dir" "$self" >/dev/null 2>&1; then
+    if refusal="$(INDICATE_EVIDENCE_ARTIFACTS="$dir" bash "$self" 2>&1)"; then
         echo "recorded-counts-selftest: a drifted count was accepted" >&2
         return 1
     fi
+    expect_reason "DRIFT" "$refusal" "a drifted count" || return 1
     count=$((count + 1))
 
-    # A record with no command at all. The empty-command branch refuses
-    # it; so does the unrunnable branch if that check ever moves, which
-    # is why this case pins the refusal rather than the branch.
+    # A record with no command at all.
     rm -f "$dir/scope/drift.run.txt"
     printf 'summary:\ntest result: ok. 1 passed\n' >"$dir/scope/nocmd.run.txt"
-    if INDICATE_EVIDENCE_ARTIFACTS="$dir" "$self" >/dev/null 2>&1; then
+    if refusal="$(INDICATE_EVIDENCE_ARTIFACTS="$dir" bash "$self" 2>&1)"; then
         echo "recorded-counts-selftest: a record with no command was accepted" >&2
         return 1
     fi
+    expect_reason "MALFORMED" "$refusal" "a record with no command" || return 1
     count=$((count + 1))
 
     # A record with no summary at all.
     rm -f "$dir/scope/nocmd.run.txt"
     printf 'command: echo\n' >"$dir/scope/nosum.run.txt"
-    if INDICATE_EVIDENCE_ARTIFACTS="$dir" "$self" >/dev/null 2>&1; then
+    if refusal="$(INDICATE_EVIDENCE_ARTIFACTS="$dir" bash "$self" 2>&1)"; then
         echo "recorded-counts-selftest: a record with no summary was accepted" >&2
         return 1
     fi
+    expect_reason "MALFORMED" "$refusal" "a record with no summary" || return 1
     count=$((count + 1))
 
     # A record naming a command that cannot run must be reported as
@@ -154,10 +167,11 @@ selftest() {
     rm -f "$dir/scope/nosum.run.txt"
     printf 'command: cargo test -p no-such-crate-here\nsummary:\ntest result: ok. 1 passed\n' \
         >"$dir/scope/unrunnable.run.txt"
-    if INDICATE_EVIDENCE_ARTIFACTS="$dir" "$self" >/dev/null 2>&1; then
+    if refusal="$(INDICATE_EVIDENCE_ARTIFACTS="$dir" bash "$self" 2>&1)"; then
         echo "recorded-counts-selftest: an unrunnable command was accepted" >&2
         return 1
     fi
+    expect_reason "UNRUNNABLE" "$refusal" "an unrunnable command" || return 1
     count=$((count + 1))
 
     echo "recorded-counts-selftest: OK ($count cases)"

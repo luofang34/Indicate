@@ -149,7 +149,7 @@ does not prove that the record describes this tree. That limit is also what
 proves internal consistency, not external freshness.
 
 The pass count in an artifact's `summary:` is the one field that says what the
-recorded run did. Every other field is identity. A count is thus only as fresh
+recorded run did. Every other field is identity. A count is therefore only as fresh
 as the last time the artifact was written. A test added to a suite, without an
 edit to the bound source file, changes no digest.
 
