@@ -157,8 +157,8 @@ pub struct IngressSnapshot {
     /// narrowed authorization advances it too, so it is not a pure
     /// production sequence either, which is why the contract lists it
     /// among the counters it does not govern. The generation a shell
-    /// decodes is `SnapshotMeta::generation`, and a shell advances that
-    /// one per snapshot it admits rather than forwarding this.
+    /// decodes is `SnapshotMeta::generation`, which the gate advances
+    /// per snapshot it admits. This one is never forwarded into it.
     pub generation: u32,
     /// The pinned source id, once seen.
     pub source_id: Option<u64>,
