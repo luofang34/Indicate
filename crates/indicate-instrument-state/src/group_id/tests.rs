@@ -117,3 +117,43 @@ fn withholding_trust_returns_the_fail_closed_defaults() {
     assert_eq!(withheld.valid, Default::default());
     assert_eq!(withheld.snapshot, Default::default());
 }
+
+/// Withholding the dynamics group clears every validity bit the group
+/// covers, not only the two it started with. A bit left standing says
+/// a source is still vouching for a signal it stopped sending.
+#[test]
+fn withholding_dynamics_clears_every_bit_the_group_covers() {
+    let full = fixtures::full();
+    assert!(
+        full.valid.turn && full.valid.slip && full.valid.ias_trend,
+        "the fixture must declare all three, or this proves nothing"
+    );
+    let withheld = withhold_group(&full, GroupId::Dynamics);
+    assert!(!withheld.valid.turn, "turn");
+    assert!(!withheld.valid.slip, "slip");
+    assert!(!withheld.valid.ias_trend, "airspeed trend");
+}
+
+/// The group's status is no better than its worst declared member. The
+/// group-level surface exists so a consumer can ask one question
+/// instead of three, and a surface that reported better than the
+/// signals under it would be the one thing it documents it cannot do.
+#[test]
+fn a_cleared_dynamics_bit_takes_the_group_status_with_it() {
+    let full = fixtures::full();
+    let policy = FreshnessPolicy::default();
+    for clear in [
+        |v: &mut crate::aircraft::ValidFlags| v.turn = false,
+        |v: &mut crate::aircraft::ValidFlags| v.slip = false,
+        |v: &mut crate::aircraft::ValidFlags| v.ias_trend = false,
+    ] {
+        let mut state = full;
+        clear(&mut state.valid);
+        let data = crate::resolve(&state, &policy);
+        assert_ne!(
+            data.groups.status(GroupId::Dynamics),
+            SignalStatus::Valid,
+            "one cleared bit must take the group with it"
+        );
+    }
+}
