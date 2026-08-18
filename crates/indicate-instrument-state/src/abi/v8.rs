@@ -45,7 +45,7 @@
 //! comparing its pins against the manifest would see agreement while
 //! every frame it emits was rejected.
 //!
-//! The allocation table in [`crate::group_id`] names which groups and
+//! The allocation table on [`crate::GroupId`] names which groups and
 //! appends this revision carries; `min_len` below is what the decoder
 //! actually enforces, and the two are checked against each other by the
 //! golden frames rather than by prose here.
