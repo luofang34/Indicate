@@ -8,13 +8,8 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 use crate::descriptor::{DesignFrame, PanelDescriptor};
-use crate::frame::FrameRefusal;
-use crate::group_set::GroupSet;
-use indicate_alerts::AlertOutput;
 
 use super::tests::{MIN, RANGED, frame};
-use indicate_instrument_scene::SceneWriter;
-use indicate_instrument_state::PanelData;
 
 /// Every admissible frame that fits, by exhaustive walk of the grid.
 /// Slow and obviously correct, which is the point: it is the only thing
