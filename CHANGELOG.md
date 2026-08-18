@@ -43,6 +43,45 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.4.2] — 2026-08-18
+
+`PanelDescriptor::choose_frame` answers which frame a shell should ask
+a panel for. `accepts` can only refuse a frame a shell already holds,
+so a shell that had to produce one walked the step grid itself. That is
+the arithmetic the contract tells shells not to write, because two
+shells write it differently and each stays green against its own tests.
+
+| Value | This release |
+|---|---|
+| State ABI | 7 |
+| Scene format | 1 |
+| Corpus | 4 |
+| Composition digest | `f82d905643b48822de25665761ad3e29daa334d937f18b1e98a3e215353cb704` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no. The five values match
+the entry below: this release is a public API addition, cut so that
+consumers can reach the new predicate without pinning a bare revision.
+
+### Choosing a frame ([#32](https://github.com/luofang34/Indicate/issues/32))
+
+- **`choose_frame(space) -> Result<DesignFrame, FrameRefusal>`** gives
+  the largest frame by area that fits `space` on both axes and that
+  `accepts` admits. It computes the answer; it does not enumerate
+  candidates.
+- **`space` is in logical units**, the units a `DesignFrame` is in, not
+  device pixels. A shell with a surface in physical pixels divides by
+  its own scale factor before it asks.
+- **A space below `frame_min` is refused** with the bound that refused
+  it. The panel does not name a frame below its readability floor. To
+  scale, letterbox, or show a different panel stays the shell's choice.
+- **A shell under no constraint asks with `frame_max`** and gets it
+  back, so that case needs no separate rule.
+
+Every shipped panel declares one frame today, so `choose_frame` returns
+480x360 for every space that admits it. The value is in what happens
+when a panel declares a real range.
+
 ## [0.4.0] — 2026-08-08
 
 The state ABI moves to v7: velocity validity splits into a horizontal
