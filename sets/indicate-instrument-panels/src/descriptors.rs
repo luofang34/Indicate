@@ -375,7 +375,7 @@ pub const BUILTIN_SET: PanelSet = PanelSet {
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "b4b9030f31031b1971deb08b74386b3756b5e440112e52e82264c1949a3dfb54";
+    "7c9d50db25660db172618dd7949e3367c0215f749a4e789d5b676ca5ed91643d";
 
 /// The measured criticality bands of [`BUILTIN_PANELS`], pinned beside
 /// the raster baselines: the union `Annunciation`/`Failure` ink bound

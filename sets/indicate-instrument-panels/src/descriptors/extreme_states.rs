@@ -5,8 +5,8 @@
 use indicate_instrument_descriptor::states;
 use indicate_instrument_state::{
     AirData, AircraftState, Attitude, DynSample, FdEngagement, FdMode, FdSample, HeadingReference,
-    HeadingSample, Kinematics, MonitorText, NavData, NavFromTo, NavSource, Quat, Stamped, TextLine,
-    TurnBasis, TurnSample,
+    HeadingSample, Kinematics, MonitorText, NavData, NavFromTo, NavScale, NavSource, Quat, Stamped,
+    TextLine, TurnBasis, TurnSample,
 };
 
 /// Inverted, nose-low, rolling hard: the unusual-attitude tier, the
@@ -96,6 +96,10 @@ pub(super) fn hsi_reciprocal_course() -> AircraftState {
             vdev_dots: Some(2.5),
             dist_nm: Some(0.0),
             course_reference: HeadingReference::SimLocalTrue,
+            // Declared, not defaulted: the default scale is the
+            // fail-closed Unknown, which would fail the nav group and
+            // leave this fixture stressing nothing.
+            scale: NavScale::Approach,
             ..NavData::default()
         }),
         age_ms: Some(40.0),

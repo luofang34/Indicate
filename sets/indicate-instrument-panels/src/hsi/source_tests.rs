@@ -68,6 +68,20 @@ fn texts(data: &PanelData) -> Vec<String> {
         .collect()
 }
 
+/// Filled marks in the whole panel: the needle's own ink, counted
+/// without asserting on where it lands.
+fn filled_marks(data: &PanelData) -> usize {
+    let mut buf = std::vec![0u8; 32 * 1024];
+    let mut writer = SceneWriter::new(&mut buf).expect("buffer fits");
+    super::draw_hsi(data, None, crate::BUILTIN_FRAME, &mut writer).expect("panel fits buffer");
+    let len = writer.finish();
+    SceneCmds::new(&buf[..len])
+        .expect("valid scene")
+        .map(|c| c.expect("valid command"))
+        .filter(|c| matches!(c, Cmd::Polygon { .. } | Cmd::Rect { .. }))
+        .count()
+}
+
 #[test]
 fn heading_box_value_and_label_share_one_source_and_switch_together() {
     let policies = SourcePolicies::simulator();
@@ -196,6 +210,31 @@ fn an_unknown_scale_fails_the_group_rather_than_guessing() {
         !data.nav.status.shows_value(),
         "an unknown scale fails the group: {:?}",
         data.nav.status
+    );
+    let t = texts(&data);
+    for label in ["ENR", "TERM", "APR"] {
+        assert!(!t.contains(&s(label)), "no scale is invented: {t:?}");
+    }
+}
+
+/// The needle refuses to draw without a nameable scale even when the
+/// group's own status says otherwise. The resolver's fault path is the
+/// first line and this is the second: a `NavResolved` can be built with
+/// a valid status and an unknown scale, and the panel must still not
+/// paint a deflection nobody can convert into a distance.
+#[test]
+fn a_valid_group_with_an_unnameable_scale_still_draws_no_needle() {
+    use indicate_instrument_state::NavScale;
+    let named = nav_at_scale(NavScale::Approach);
+    let mut data = named;
+    data.nav.data.scale = NavScale::Unknown;
+    assert!(
+        data.nav.status.shows_value(),
+        "the point of this test is a group whose status still says show"
+    );
+    assert!(
+        filled_marks(&named) > filled_marks(&data),
+        "the needle's marks must disappear with the scale"
     );
     let t = texts(&data);
     for label in ["ENR", "TERM", "APR"] {

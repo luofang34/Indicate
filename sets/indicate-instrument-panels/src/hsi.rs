@@ -83,6 +83,11 @@ pub fn draw_hsi(
         && data.nav.data.source != NavSource::None
         && data.nav.status.shows_value()
         && data.nav.course_rose_rad.status.shows_value()
+        // Belt and suspenders, like the rose basis above: the group's
+        // fault path already fails an unknown scale, and the needle
+        // still refuses to draw without one. A deflection in dots is
+        // not a distance until the scale says what a dot is worth.
+        && !data.nav.data.scale.label().is_empty()
     {
         cdi::draw_cdi(scene, &data.nav, up_rad)?;
         // Under the needle's own gate: what a dot is worth is only

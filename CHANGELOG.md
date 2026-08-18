@@ -61,7 +61,7 @@ the deflection scale on the Nav group.
 | State ABI | 8 |
 | Scene format | 1 |
 | Corpus | 4 |
-| Composition digest | `b4b9030f31031b1971deb08b74386b3756b5e440112e52e82264c1949a3dfb54` |
+| Composition digest | `7c9d50db25660db172618dd7949e3367c0215f749a4e789d5b676ca5ed91643d` |
 | Panel set | `pfd`, `hsi`, `monitor` |
 
 Panel set changed since the previous release: no.
@@ -70,17 +70,25 @@ Panel set changed since the previous release: no.
 
 - **v8 replaces v7.** `abi::v7` is gone rather than kept alongside. The
   golden frames are now `state-abi-v8.*.hex`.
-- **The Nav group declares its deflection scale.** `scale` takes the
-  spare byte at offset 3, so the payload length does not move. Enroute,
-  terminal and approach are 0, 1 and 2; every other value is Unknown,
-  and an Unknown scale fails the whole nav group. A deflection in dots
-  means nothing until the scale says what a dot is worth, so guidance
-  at an undeclared scale is not drawn at a guessed one.
+- **The Nav group grows from 42 bytes to 43 and declares its deflection
+  scale.** `scale` appends after the group's existing tail, per the
+  stamped-lane growth policy. Enroute, terminal and approach are 0, 1
+  and 2; every other value is Unknown, and an Unknown scale fails the
+  whole nav group. A deflection in dots means nothing until the scale
+  says what a dot is worth, so guidance at an undeclared scale is not
+  drawn at a guessed one — and the needle carries its own gate on the
+  scale as well, so a group whose status says show still draws nothing
+  without one.
+
+  The append is what makes an undeclared scale fail closed. Taking the
+  spare byte at offset 3 would have kept the length still and made a
+  producer that never wrote the field decode as `Enroute` — the loosest
+  scale, worth the most distance per dot.
 - **The Air group grows from 12 bytes to 16.** `tas_mps` follows the
   trailing `age_ms`, NaN-absent like the altimeter setting beside it.
   Its minimum length rises with it.
-- **The batch allocates four group ids and three field appends. This
-  release implements the Air append only.** The ids are 0x12 BearingPointers (stamped,
+- **The batch allocates four group ids and three field appends.** The
+  ids are 0x12 BearingPointers (stamped,
   [#53](https://github.com/luofang34/Indicate/issues/53)), 0x13
   AirframeConfig (stamped,
   [#57](https://github.com/luofang34/Indicate/issues/57)), 0x14 ApModes
@@ -91,7 +99,7 @@ Panel set changed since the previous release: no.
   [#52](https://github.com/luofang34/Indicate/issues/52)), `ias_trend`
   and Trust valid bit 9 on Dynamics (0x0B,
   [#51](https://github.com/luofang34/Indicate/issues/51)), and
-  `scale_mode` and `facility_type` on Nav (0x04,
+  `scale_mode` on Nav (0x04, with `facility_type` to follow,
   [#54](https://github.com/luofang34/Indicate/issues/54) and
   [#55](https://github.com/luofang34/Indicate/issues/55)). Each append
   goes after the trailing `age_ms`. An older decoder accepts the longer
