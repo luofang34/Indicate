@@ -28,7 +28,9 @@ fn builtin_panels_pass_admission() {
     // touch: each overhangs on both sides of the alert axis.
     //
     // Thirty per PFD state that paints both boxes with wide values, and
-    // sixteen for the source-unusable state, whose dashes are narrow.
+    // sixteen for source-unusable, where only the groundspeed box
+    // dashes — its baro box still paints a wide value, because a dialed
+    // setting is not an estimate and does not fold source quality.
     // Declutter has nothing to do with it: neither box is on the
     // priority table, so a new pinned state costs the same thirty
     // whatever its attitude.

@@ -38,7 +38,7 @@ pub(super) fn pfd_unusual_inverted() -> AircraftState {
 /// Level flight, accelerating: the pinned case that paints the cues the
 /// unusual-attitude tier removes.
 ///
-/// Every pinned state that resolves a flying attitude resolves an
+/// Every pinned state that resolved a flying attitude resolved an
 /// unusual one, so the turn cue and the trend bar were decluttered out
 /// of all of them and no pinned case drew either. This one is level, and
 /// declares turn, slip and trend valid, so it draws both.
