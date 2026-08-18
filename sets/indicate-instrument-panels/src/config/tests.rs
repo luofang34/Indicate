@@ -108,3 +108,118 @@ fn a_selected_detent_does_not_move_the_sensed_pointer() {
         "the detent sits well away from the sensed position: {marks:?}"
     );
 }
+
+/// A group whose sample is too old draws no numerals. `Missing` and
+/// `Stale` are different situations and the existing dash tests cannot
+/// tell them apart, because withholding a group zeroes its data: only
+/// a state that carries a value AND a status that refuses it proves the
+/// gate is on the status rather than on the value.
+#[test]
+fn a_stale_group_draws_no_numerals_even_though_it_carries_values() {
+    let stale = panel(
+        Some(AirframeConfig {
+            flap_ratio: Some(0.5),
+            flap_selected_ratio: None,
+            elevator_trim_ratio: Some(-0.2),
+            aileron_trim_ratio: None,
+            rudder_trim_ratio: None,
+        }),
+        Some(5_000.0),
+    );
+    assert!(
+        !stale.airframe.status.shows_value(),
+        "the fixture must be refused by the policy, or this proves nothing"
+    );
+    let t = texts(&stale);
+    assert!(
+        !t.iter().any(|s| s == "50" || s == "-20"),
+        "no numeral survives a status that refuses the value: {t:?}"
+    );
+    assert_eq!(
+        t.iter().filter(|s| *s == "---").count(),
+        2,
+        "both scales dash: {t:?}"
+    );
+}
+
+/// A source that declares itself unusable takes the panel with it. The
+/// shared `source-unusable` state exists to say so: values present,
+/// quality unusable, and every panel must fail visibly rather than
+/// render the numbers.
+#[test]
+fn a_source_that_declares_itself_unusable_draws_no_numerals() {
+    let state = AircraftState {
+        airframe: Stamped {
+            data: Some(AirframeConfig {
+                flap_ratio: Some(0.25),
+                flap_selected_ratio: None,
+                elevator_trim_ratio: Some(-0.15),
+                aileron_trim_ratio: None,
+                rudder_trim_ratio: None,
+            }),
+            age_ms: Some(40.0),
+        },
+        quality: EstimateQuality::Unusable,
+        ..AircraftState::default()
+    };
+    let data = resolve(&state, &FreshnessPolicy::default());
+    let t = texts(&data);
+    assert!(
+        !t.iter().any(|s| s == "25" || s == "-15"),
+        "an untrusted source's readings are not drawn: {t:?}"
+    );
+}
+
+/// Every range the group's fault checks, per field and per bound. A
+/// check that only ever fired on the flap ratio would let a trim
+/// pointer off the end of its scale.
+#[test]
+fn out_of_range_configuration_faults_the_group_per_field() {
+    use indicate_instrument_state::validate_state;
+    let good = AirframeConfig {
+        flap_ratio: Some(0.5),
+        flap_selected_ratio: Some(0.5),
+        elevator_trim_ratio: Some(-0.2),
+        aileron_trim_ratio: Some(0.05),
+        rudder_trim_ratio: Some(0.0),
+    };
+    let base = |config: AirframeConfig| AircraftState {
+        airframe: Stamped {
+            data: Some(config),
+            age_ms: Some(40.0),
+        },
+        ..AircraftState::default()
+    };
+    assert!(validate_state(&base(good)).airframe.is_none());
+    for bad in [
+        AirframeConfig {
+            flap_ratio: Some(1.8),
+            ..good
+        },
+        AirframeConfig {
+            flap_ratio: Some(-0.1),
+            ..good
+        },
+        AirframeConfig {
+            flap_selected_ratio: Some(1.8),
+            ..good
+        },
+        AirframeConfig {
+            elevator_trim_ratio: Some(-1.5),
+            ..good
+        },
+        AirframeConfig {
+            aileron_trim_ratio: Some(1.5),
+            ..good
+        },
+        AirframeConfig {
+            rudder_trim_ratio: Some(f32::INFINITY),
+            ..good
+        },
+    ] {
+        assert!(
+            validate_state(&base(bad)).airframe.is_some(),
+            "must fault: {bad:?}"
+        );
+    }
+}
