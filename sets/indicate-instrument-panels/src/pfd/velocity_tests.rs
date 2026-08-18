@@ -248,11 +248,12 @@ fn the_trend_bar_stops_at_the_tape_ends() {
     }
 
     let mut data = super::tests::flying();
-    // Far past the top of the tape: the tip parks at the tape's own end.
+    // Far past the top of the tape: the tip parks at the tape's own end,
+    // which is below the true-airspeed box rather than at the frame edge.
     data.ias_trend_kt_s = Sig::with_status(500.0, SignalStatus::Valid);
     let (y, h) = bar(&data).expect("a saturated climbing bar");
     assert!(
-        (y - 0.0).abs() < 1e-3 && (h - 180.0).abs() < 1e-3,
+        (y - 25.0).abs() < 1e-3 && (h - 155.0).abs() < 1e-3,
         "{y} {h}"
     );
 
