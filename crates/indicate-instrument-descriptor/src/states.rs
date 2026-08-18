@@ -124,6 +124,16 @@ pub fn typical() -> AircraftState {
         dynamics: typical_dynamics(),
         director: Stamped::default(),
         monitor_text: Stamped::default(),
+        airframe: Stamped {
+            data: Some(indicate_instrument_state::AirframeConfig {
+                flap_ratio: Some(0.25),
+                flap_selected_ratio: Some(0.25),
+                elevator_trim_ratio: Some(-0.15),
+                aileron_trim_ratio: None,
+                rudder_trim_ratio: None,
+            }),
+            age_ms: Some(80.0),
+        },
         bearings: typical_bearings(),
     }
 }

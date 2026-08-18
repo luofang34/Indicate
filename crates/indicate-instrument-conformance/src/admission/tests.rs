@@ -81,3 +81,26 @@ fn opaque_panel(draw: indicate_instrument_registry::DrawFn) -> [PanelDescriptor;
         draw,
     }]
 }
+
+/// The configuration set is judged by the same harness as every other
+/// set, over the shared canonical corpus and its own withholding
+/// matrix. It ships outside `BUILTIN_PANELS`, so nothing else would
+/// exercise it.
+#[test]
+fn the_config_set_passes_admission() {
+    use indicate_instrument_panels::CONFIG_SET;
+    use indicate_instrument_registry::PanelSet;
+
+    static SETS: [&PanelSet; 1] = [&CONFIG_SET];
+    let registry = Registry::from_sets(&SETS).expect("the config set composes");
+    let report = admit(&registry).expect("the config panel must be admissible");
+    // Five canonical states x (one fed case + one per required group
+    // withheld) x (quiet, alerted); the panel declares no extreme state
+    // of its own. It requires two groups: the configuration it draws,
+    // and the trust its status folds.
+    assert_eq!(report.cases, 30);
+    // Nothing tolerated: every run's nominal ink sits inside the design
+    // frame, so a first warning here would be a decision rather than a
+    // drift.
+    assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+}

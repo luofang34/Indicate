@@ -129,6 +129,10 @@ pub struct PanelData {
     /// Machine-monitoring text channel (AIR-IN-014), advisory only; a
     /// hidden status leaves the default empty channel behind it.
     pub monitor_text: Sig<crate::monitor_text::MonitorText>,
+    /// Airframe configuration: flap position and trim, with the group's
+    /// own status. Each ratio stays optional inside it — a vehicle with
+    /// a flap sensor and no trim sensor shows one scale, not two.
+    pub airframe: Sig<crate::aircraft::AirframeConfig>,
     /// Group-level status keyed by [`crate::GroupId`] — the surface a
     /// registry or admission harness asks generically.
     pub groups: crate::group_id::GroupStatuses,
@@ -248,13 +252,7 @@ pub fn resolve_stateful(
     let track = presented_true(kin.track_rad, rose, state, policy);
     let wind = presented_wind(wind_signal(state, policy, &integrity), rose, state, policy);
     let groups = group_status::group_statuses(state, policy, &trust, &integrity);
-    let bug = presented_angle(
-        Sig::with_status(state.selections.heading_bug_rad, SignalStatus::Valid),
-        state.selections.heading_bug_reference,
-        rose,
-        state,
-        policy,
-    );
+    let bug = heading_bug_presented(state, policy, rose);
 
     let (bearings, bearings_rose_rad) = bearings_resolved(
         state,
@@ -298,6 +296,10 @@ pub fn resolve_stateful(
         monitor_text: Sig::with_status(
             state.monitor_text.data.unwrap_or_default(),
             groups.status(crate::group_id::GroupId::MonitorText),
+        ),
+        airframe: Sig::with_status(
+            state.airframe.data.unwrap_or_default(),
+            groups.status(crate::group_id::GroupId::AirframeConfig),
         ),
         groups,
     }
@@ -468,6 +470,7 @@ pub use heading_signal::{ResolvedHeading, RoseBasis};
 mod director_signal;
 pub use director_signal::ResolvedDirector;
 use director_signal::director_resolved;
+use heading_signal::heading_bug_presented;
 use heading_signal::rose_basis;
 use heading_signal::{heading_resolved, presented_angle, presented_true, presented_wind};
 

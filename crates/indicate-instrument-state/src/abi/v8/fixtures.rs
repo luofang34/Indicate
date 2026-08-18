@@ -154,6 +154,20 @@ pub fn full() -> AircraftState {
         data.dist_nm = Some(12.4);
     }
     AircraftState {
+        airframe: stamped(
+            crate::aircraft::AirframeConfig {
+                // Distinct on purpose: the group exists to keep sensed
+                // and selected apart, so a golden frame that gave both
+                // the same value would be byte-identical under a codec
+                // that swapped them.
+                flap_ratio: Some(0.25),
+                flap_selected_ratio: Some(1.0),
+                elevator_trim_ratio: Some(-0.2),
+                aileron_trim_ratio: Some(0.05),
+                rudder_trim_ratio: None,
+            },
+            80.0,
+        ),
         attitude: attitude([0.5, 0.5, 0.5, 0.5], [0.02, -0.01, 0.05], 80.0),
         director: stamped(
             crate::director::FdSample {
