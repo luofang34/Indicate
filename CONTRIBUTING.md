@@ -138,13 +138,15 @@ the tag is what a human owes it.
   recorded source file requires re-recording that evidence, and history
   rewrites that orphan the baseline commit are forbidden.
 - **Use a merge commit when a branch changes a `config-digest` in the
-  evidence graph. Do not use a squash merge.** The test is mechanical:
-  `git diff` shows whether the branch moved one. A squash replaces the
-  commit that the record names, and the gate then refuses the record as
-  unreachable, correctly, because a fresh clone cannot fetch it.
-  `scripts/check-baseline-survives-merge.sh` reports which baselines a
-  squash would orphan, and CI runs it as an advisory step on every pull
-  request.
+  evidence graph. Do not squash and do not rebase.** The test is
+  mechanical: `git diff` shows whether the branch moved one. Squash and
+  rebase both replace the commit that the record names, and the gate
+  then refuses the record as unreachable, correctly, because a fresh
+  clone cannot fetch it. `scripts/check-baseline-survives-merge.sh`
+  reports which baselines either would orphan, and CI runs it as an
+  advisory step on every pull request: the step exits non-zero when it
+  has something to say, so the requirement is on the page when someone
+  picks a merge button.
 - **Do not re-anchor the record at an older commit instead.** When the
   branch changed a bound source, the gate refuses loudly, because the
   older baseline never contained that source. When it changed only a
