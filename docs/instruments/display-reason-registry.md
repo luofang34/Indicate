@@ -41,31 +41,44 @@ not part of the registry.
 
 The registry is append-only, like the scene opcode vocabulary
 (ADR-0017). A new reason takes the next free code. Codes are never
-renumbered, reused, or removed. An older shell can then degrade
-gracefully on a reason it does not know.
+renumbered and never reused. A shell that does not know a reason can
+then still show that the display is not current.
+
+A code is a position in the list, counted from one, and `code()`
+computes it from that position. Two reasons therefore cannot be given
+the same code by hand.
+
+A reason is not deleted. To retire one, keep its row and its code, and
+write `retired` in its row. The code stays spent. This is the same rule
+the requirement registry uses: a retired identifier stays in the
+registry with its disposition.
 
 ## Unknown reasons on an older shell
 
-A shell that receives a reason code it does not know must map the code
-to a generic display-not-current presentation at warning level. The
-shell must never map an unknown reason to a healthy display. This rule
-is fail-closed, consistent with the Unknown-sentinel convention
-(VAL-01): an unrecognized wire value selects the safe outcome, never a
-benign one.
+A shell that receives a reason code it does not know must not show a
+healthy display. It must show that the display is not current, under a
+generic reason.
 
-The Rust side decodes fail-closed. `DisplayFault::from_code` returns
-`None` for a code outside the registry, and `class_of` returns `None`
-for the identity that code packs into. `None` is not a healthy state: a
-consumer that cannot name the reason must still treat the display as not
-current.
+The Rust side decodes fail-closed. `DisplayFault::from_code` gives
+`None` for a code outside the registry, and `class_of` gives `None` for
+the identity that code packs into. `None` names no reason. It does not
+name a healthy state, and the shell supplies the generic presentation.
+
+`None` is a decoding answer, not an alert. The Rust vocabulary carries
+no display condition for an unknown code, so a shell that needs one
+raises it from its own code. A variant that carries a raw display code,
+as the frame-mismatch condition does, would remove that step.
 
 ## Swift and JavaScript mirrors
 
 The Swift and JavaScript mirrors live in their downstream repositories.
 Each mirror must declare the same reasons with the same codes as the
 table above. A mirror must not declare a reason that this registry does
-not define. Each downstream repository must carry a drift check that
-compares its mirror against this table, under the same discipline as the
-scene-conformance corpus pins: a registry change here reddens the pinned
-consumer at its next pin advance, and that red is the sync mechanism
-working.
+not define.
+
+No mechanism in this repository makes a stale mirror fail. An append
+moves none of the five contract values, so a pinned consumer stays
+green across it. Each downstream repository must therefore carry its
+own drift check against this table, and must run it. Until a mirror
+carries one, agreement between the shells is a convention, not a
+guarantee.

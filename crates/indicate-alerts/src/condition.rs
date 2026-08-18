@@ -218,17 +218,32 @@ impl DisplayFault {
         Self::RetainedImage,
     ];
 
+    /// This reason's slot in [`Self::ALL`]. Exhaustive, so a new variant
+    /// does not compile until it is given one.
+    const fn slot(self) -> usize {
+        match self {
+            Self::RendererStalled => 0,
+            Self::FrameGenerationLost => 1,
+            Self::CommandBufferCorrupt => 2,
+            Self::BackendLost => 3,
+            Self::RetainedImage => 4,
+        }
+    }
+
     /// The stable wire code of this reason. Codes are append-only and are
     /// never renumbered or reused.
+    ///
+    /// Derived from the slot rather than written per variant, so two
+    /// reasons cannot be given the same code by hand: a duplicate would
+    /// have to be a duplicate slot, which
+    /// `every_reason_holds_its_own_slot_and_code` refuses. Slots are
+    /// positions in an append-only list, so an existing reason's code
+    /// cannot move without reordering the list, which is forbidden.
     #[must_use]
     pub const fn code(self) -> u8 {
-        match self {
-            Self::RendererStalled => 1,
-            Self::FrameGenerationLost => 2,
-            Self::CommandBufferCorrupt => 3,
-            Self::BackendLost => 4,
-            Self::RetainedImage => 5,
-        }
+        // Codes start at 1: zero is not a reason, so a zeroed byte
+        // decodes to nothing rather than to the first entry.
+        self.slot() as u8 + 1
     }
 
     /// Fail-closed decoding: a code outside the registry yields `None`,

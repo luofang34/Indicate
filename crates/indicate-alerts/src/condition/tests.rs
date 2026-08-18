@@ -220,3 +220,37 @@ fn the_documented_registry_matches_the_code() {
         );
     }
 }
+
+/// The registry's shape, derived from the enum rather than from a
+/// parallel list: every reason holds its own slot, `ALL` holds it at
+/// that slot, and its code round-trips.
+///
+/// This is what makes a reused code impossible by hand. A code is a
+/// slot, and a duplicate code is a duplicate slot, which fails here.
+/// The residual gap is a variant added with a fresh slot and left out
+/// of `ALL`: the exhaustive `slot` match forces the slot, and
+/// `the_documented_registry_matches_the_code` forces the row, but
+/// nothing can enumerate variants to prove `ALL` is complete.
+#[test]
+fn every_reason_holds_its_own_slot_and_code() {
+    let mut seen = [false; DisplayFault::ALL.len()];
+    for reason in DisplayFault::ALL {
+        let slot = DisplayFault::ALL
+            .iter()
+            .position(|candidate| *candidate == reason)
+            .expect("a reason of ALL is in ALL");
+        assert!(!seen[slot], "two reasons share slot {slot}");
+        seen[slot] = true;
+        assert_eq!(
+            reason.code(),
+            u8::try_from(slot + 1).expect("registry fits a u8"),
+            "a code is its slot, counted from one"
+        );
+        assert_eq!(
+            DisplayFault::from_code(reason.code()),
+            Some(reason),
+            "every code decodes back to its own reason"
+        );
+    }
+    assert!(seen.iter().all(|held| *held), "ALL has a gap");
+}
