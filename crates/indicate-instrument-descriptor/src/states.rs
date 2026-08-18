@@ -5,10 +5,10 @@
 
 use indicate_instrument_state::{
     AirData, AircraftState, AltitudeClass, AltitudeDeclaration, ApEngagement, ApModes, ApTargets,
-    Attitude, DynSample, EstimateQuality, GeoidModelId, HeadingReference, HeadingSample, IdentStr,
-    Kinematics, LateralMode, MonitorText, NavData, NavFromTo, NavSource, Quat, Selections,
-    SnapshotCoherence, SnapshotMeta, Stamped, TextLine, TurnBasis, TurnSample, ValidFlags,
-    VerticalMode, Wind,
+    Attitude, BearingPointer, BearingPointers, DynSample, EstimateQuality, GeoidModelId,
+    HeadingReference, HeadingSample, IdentStr, Kinematics, LateralMode, MonitorText, NavData,
+    NavFromTo, NavSource, Quat, Selections, SnapshotCoherence, SnapshotMeta, Stamped, TextLine,
+    TurnBasis, TurnSample, ValidFlags, VerticalMode, Wind,
 };
 
 /// One shared corpus entry.
@@ -103,15 +103,7 @@ pub fn typical() -> AircraftState {
             ..Selections::default()
         },
         quality: EstimateQuality::Good,
-        valid: ValidFlags {
-            attitude: true,
-            rates: true,
-            position: true,
-            velocity_horizontal: true,
-            velocity_vertical: true,
-            heading: true,
-            ..ValidFlags::default()
-        },
+        valid: typical_valid(),
         snapshot: SnapshotMeta::default(),
         altitude: AltitudeDeclaration::default(),
         heading: Stamped {
@@ -125,8 +117,54 @@ pub fn typical() -> AircraftState {
         dynamics: typical_dynamics(),
         director: Stamped::default(),
         monitor_text: Stamped::default(),
+        airframe: Stamped {
+            data: Some(indicate_instrument_state::AirframeConfig {
+                flap_ratio: Some(0.25),
+                flap_selected_ratio: Some(0.25),
+                elevator_trim_ratio: Some(-0.15),
+                aileron_trim_ratio: None,
+                rudder_trim_ratio: None,
+            }),
+            age_ms: Some(80.0),
+        },
+        bearings: typical_bearings(),
         ap_modes: Stamped::default(),
         ap_targets: ApTargets::default(),
+    }
+}
+
+/// What a typical source vouches for: the estimates it produces, and
+/// not the ones it does not. Variation, turn and slip stay undeclared
+/// because nothing in this posture measures them.
+fn typical_valid() -> ValidFlags {
+    ValidFlags {
+        attitude: true,
+        rates: true,
+        position: true,
+        velocity_horizontal: true,
+        velocity_vertical: true,
+        heading: true,
+        ..ValidFlags::default()
+    }
+}
+
+fn typical_bearings() -> Stamped<BearingPointers> {
+    Stamped {
+        data: Some(BearingPointers {
+            first: BearingPointer {
+                source: NavSource::Nav1,
+                bearing_rad: 1.9,
+                reference: HeadingReference::SimLocalTrue,
+                valid: true,
+            },
+            second: BearingPointer {
+                source: NavSource::Nav2,
+                bearing_rad: 4.4,
+                reference: HeadingReference::SimLocalTrue,
+                valid: true,
+            },
+        }),
+        age_ms: Some(80.0),
     }
 }
 
@@ -140,6 +178,7 @@ fn typical_nav() -> Stamped<NavData> {
             vdev_dots: Some(-0.4),
             dist_nm: Some(12.4),
             course_reference: HeadingReference::SimLocalTrue,
+            scale: indicate_instrument_state::NavScale::Terminal,
             ..NavData::default()
         }),
         age_ms: Some(80.0),
@@ -154,6 +193,7 @@ fn typical_dynamics() -> Stamped<DynSample> {
                 basis: TurnBasis::HeadingRate,
             }),
             lateral_mps2: Some(-0.6),
+            ias_trend_mps2: Some(0.4),
         }),
         age_ms: Some(80.0),
     }
@@ -173,6 +213,7 @@ pub fn fully_fed() -> AircraftState {
             vdev_dots: Some(0.9),
             dist_nm: Some(3.2),
             course_reference: HeadingReference::SimLocalTrue,
+            scale: indicate_instrument_state::NavScale::Approach,
             to_ident: ident("KMRY"),
             from_ident: ident("WPT-2"),
         }),
@@ -199,6 +240,7 @@ pub fn fully_fed() -> AircraftState {
         variation: true,
         turn: true,
         slip: true,
+        ias_trend: true,
     };
     state.monitor_text = Stamped {
         data: Some(monitor(7, &["ENG 1 OK", "FUEL 82.5"])),

@@ -4,7 +4,7 @@
 //! Each group's status is the group-level worst-of over the same inputs
 //! its rendered signals fold — freshness, source trust, per-group
 //! validation, declared validity. A group with several members (both
-//! kinematic vectors, both dynamics samples) reports the worst member,
+//! kinematic vectors, every dynamics sample) reports the worst member,
 //! so this surface can only be more conservative than any one signal.
 
 use crate::aircraft::AircraftState;
@@ -108,6 +108,18 @@ fn kinematics_status(
     )
 }
 
+/// Wind folds no source trust, mirroring its resolved signal: a wind
+/// estimate is advisory and independently stamped, so it can stay
+/// usable while the sources behind an attitude are not.
+fn wind_status(
+    state: &AircraftState,
+    policy: &FreshnessPolicy,
+    integrity: &StateIntegrity,
+) -> SignalStatus {
+    group_freshness(policy, state.wind.data.is_some(), state.wind.age_ms)
+        .worst(fault_status(integrity.wind))
+}
+
 fn group_status(
     state: &AircraftState,
     policy: &FreshnessPolicy,
@@ -120,10 +132,7 @@ fn group_status(
         GroupId::Kinematics => kinematics_status(state, policy, trust, integrity),
         GroupId::Air => fold(&Ctx::of(policy, trust, &state.air), integrity.air, true),
         GroupId::Nav => fold(&Ctx::of(policy, trust, &state.nav), integrity.nav, true),
-        // Wind folds no source trust, mirroring its resolved signal: a
-        // wind estimate is advisory and independently stamped.
-        GroupId::Wind => group_freshness(policy, state.wind.data.is_some(), state.wind.age_ms)
-            .worst(fault_status(integrity.wind)),
+        GroupId::Wind => wind_status(state, policy, integrity),
         GroupId::Selections => fault_status(integrity.selections),
         // Absent trust is fail-closed Failed, never Missing: trust must
         // be declared before any estimate group can show Valid.
@@ -142,7 +151,25 @@ fn group_status(
         GroupId::Dynamics => fold(
             &Ctx::of(policy, trust, &state.dynamics),
             integrity.dynamics,
-            state.valid.turn && state.valid.slip,
+            state.valid.turn && state.valid.slip && state.valid.ias_trend,
+        ),
+        // Bearings fold source trust like nav: a needle from a source
+        // the state does not trust must not point anywhere. Their own
+        // per-pointer validity is a second gate the panel applies.
+        GroupId::BearingPointers => fold(
+            &Ctx::of(policy, trust, &state.bearings),
+            integrity.bearings,
+            true,
+        ),
+        // Configuration folds source trust like the rest: a position
+        // reported by a source the state does not trust is not a
+        // position. It declares no validity bit of its own — the trust
+        // group's bits cover sensed estimates, and a flap setting is a
+        // reading rather than an estimate.
+        GroupId::AirframeConfig => fold(
+            &Ctx::of(policy, trust, &state.airframe),
+            integrity.airframe,
+            true,
         ),
         // Autoflight modes fold source trust like the director: an
         // annunciation sourced from a state nobody trusts must not say

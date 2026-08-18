@@ -9,6 +9,7 @@
 
 mod criticality_bands;
 mod extreme_states;
+mod supplementary;
 
 use indicate_alerts::AlertOutput;
 use indicate_instrument_descriptor::{
@@ -192,6 +193,10 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
             id: "director-engaged",
             build: extreme_states::pfd_director_engaged,
         },
+        ExtremeState {
+            id: "level-accelerating",
+            build: extreme_states::pfd_level_accelerating,
+        },
     ],
     // Reference-rasterizer frame hash over the shared typical state, one
     // per canonical frame — pinned per panel here so a panel travels
@@ -220,6 +225,7 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         GroupId::Trust,
         GroupId::Heading,
         GroupId::Variation,
+        GroupId::BearingPointers,
     ]),
     frame_min: BUILTIN_FRAME,
     frame_max: BUILTIN_FRAME,
@@ -291,140 +297,16 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
             id: "track-up",
             build: extreme_states::hsi_track_up,
         },
+        ExtremeState {
+            id: "bearing-split-references",
+            build: extreme_states::hsi_bearing_split_references,
+        },
     ],
     raster_baselines: &[(
         BUILTIN_FRAME,
-        "66653ce135e6f2163fa48d805a0ab1a8f3d0ac51d778f7b1eb2aa4ec05bfbb7c",
+        "a6b8808adb6d3181e45c55c1f8c5cf68eb248a0b4a71dedb744e3fbae8b0ab7e",
     )],
     draw: draw_hsi_panel,
-};
-
-fn draw_monitor_panel(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
-) -> Result<(), PanelDrawError> {
-    config.require_schema(MONITOR_DESCRIPTOR.config_schema)?;
-    crate::monitor::draw_monitor(data, alerts, frame, scene)?;
-    Ok(())
-}
-
-/// The machine-monitoring text panel (AIR-IN-014) — the registry's
-/// proof of modularity: it exists as this descriptor and a draw
-/// function, with no shell change beyond composition.
-pub const MONITOR_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
-    id: "monitor",
-    title: "Monitor",
-    required_layers: layer_bit(LayerId::Tapes) | layer_bit(LayerId::Annunciation),
-    required_groups: GroupSet::of(&[GroupId::MonitorText]),
-    frame_min: BUILTIN_FRAME,
-    frame_max: BUILTIN_FRAME,
-    frame_step: FRAME_STEP,
-    aspect_min: ASPECT_MIN,
-    aspect_max: ASPECT_MAX,
-    canonical_frames: CANONICAL_FRAMES,
-    // The panel owns its band with an opaque ground: text needs it, and
-    // declaring anything weaker would hand a compositor a black
-    // rectangle it was told is not painted.
-    background: BackgroundCapability::Opaque,
-    config_schema: &[],
-    // The whole text area is the channel's region: with MONITOR_TEXT
-    // withheld the panel shows dashes, never lines it was not given.
-    group_regions: &[(
-        GroupId::MonitorText,
-        Region {
-            x: 0.0,
-            y: 60.0,
-            width: 480.0,
-            height: 300.0,
-        },
-    )],
-    extreme_states: &[ExtremeState {
-        id: "full-channel",
-        build: extreme_states::monitor_full_channel,
-    }],
-    raster_baselines: &[(
-        BUILTIN_FRAME,
-        "40f44383f3ad46a0bbd65f04afc1d80fb9d94c11acff8dc66edbfcf7b8fa4c01",
-    )],
-    draw: draw_monitor_panel,
-};
-
-fn draw_autoflight_panel(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
-) -> Result<(), PanelDrawError> {
-    config.require_schema(AUTOFLIGHT_DESCRIPTOR.config_schema)?;
-    crate::autoflight::draw_autoflight(data, alerts, frame, scene)?;
-    Ok(())
-}
-
-/// The autoflight annunciator (AIR-IN-015): what the automation holds
-/// now, what it is armed to hold next, and the values it flies toward.
-///
-/// A surface of its own rather than a band inside the PFD: the PFD
-/// already annunciates the flight director's mode, and a second mode
-/// vocabulary competing for the same strip would leave a reader
-/// deciding which annunciation answers which question.
-pub const AUTOFLIGHT_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
-    id: "autoflight",
-    title: "Autoflight",
-    required_layers: layer_bit(LayerId::Tapes) | layer_bit(LayerId::Annunciation),
-    required_groups: GroupSet::of(&[GroupId::ApModes, GroupId::ApTargets]),
-    frame_min: BUILTIN_FRAME,
-    frame_max: BUILTIN_FRAME,
-    frame_step: FRAME_STEP,
-    aspect_min: ASPECT_MIN,
-    aspect_max: ASPECT_MAX,
-    canonical_frames: CANONICAL_FRAMES,
-    // The panel owns its band with an opaque ground: annunciation text
-    // needs one, and declaring anything weaker would hand a compositor
-    // a black rectangle it was told is not painted.
-    background: BackgroundCapability::Opaque,
-    config_schema: &[],
-    group_regions: &[
-        // The mode band: with the group withheld the band carries the
-        // column headings and no mode, never a mode nobody sent.
-        (
-            GroupId::ApModes,
-            Region {
-                x: 0.0,
-                y: 50.0,
-                width: 480.0,
-                height: 80.0,
-            },
-        ),
-        // The target rows: withheld, they dash.
-        (
-            GroupId::ApTargets,
-            Region {
-                x: 140.0,
-                y: 170.0,
-                width: 150.0,
-                height: 120.0,
-            },
-        ),
-    ],
-    extreme_states: &[
-        ExtremeState {
-            id: "modes-and-targets",
-            build: extreme_states::autoflight_engaged,
-        },
-        ExtremeState {
-            id: "target-against-another-datum",
-            build: extreme_states::autoflight_incomparable_target,
-        },
-    ],
-    raster_baselines: &[(
-        BUILTIN_FRAME,
-        "fbc6d9448f9e73fc736a82059afe796d0853c31610c4d8360111a1d150976ead",
-    )],
-    draw: draw_autoflight_panel,
 };
 
 /// The panels this crate ships, in shell display order.
@@ -455,9 +337,12 @@ pub const BUILTIN_SET: PanelSet = PanelSet {
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "605efe59ed47202b68c47c13f33b2bf662592be5228b2305442303ea705a64a2";
+    "3ed6079befa5e5f1cfc39276598a46d49ae9578dde29e46b3165e698b3123a35";
 
 pub use criticality_bands::BUILTIN_CRITICALITY_BANDS;
+pub use supplementary::{
+    AUTOFLIGHT_DESCRIPTOR, CONFIG_DESCRIPTOR, CONFIG_PANELS, CONFIG_SET, MONITOR_DESCRIPTOR,
+};
 
 #[cfg(test)]
 mod digest_tests;

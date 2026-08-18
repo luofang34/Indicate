@@ -54,6 +54,9 @@ exactly one wire format. The registry table in `group_id.rs` records the
 agreed allocations and is the layout contract for the batch.
 
 This release carries the allocations that have landed so far: true
+airspeed on the Air group, the airspeed trend on the Dynamics group,
+the deflection scale on the Nav group, the bearing-pointer group, and
+the airframe-configuration group.
 airspeed on the Air group, and the two autoflight groups.
 
 | Value | This release |
@@ -61,21 +64,50 @@ airspeed on the Air group, and the two autoflight groups.
 | State ABI | 8 |
 | Scene format | 1 |
 | Corpus | 4 |
-| Composition digest | `605efe59ed47202b68c47c13f33b2bf662592be5228b2305442303ea705a64a2` |
+| Composition digest | `3ed6079befa5e5f1cfc39276598a46d49ae9578dde29e46b3165e698b3123a35` |
 | Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
 
 Panel set changed since the previous release: yes — the autoflight
-annunciator joins the set.
+annunciator joins the set. The configuration panel ships in its own
+set, `config`, which a shell composes when the airframe has the
+sensors, so it does not move `BUILTIN_PANELS`.
 
 ### State ABI v8 ([#58](https://github.com/luofang34/Indicate/issues/58))
 
 - **v8 replaces v7.** `abi::v7` is gone rather than kept alongside. The
   golden frames are now `state-abi-v8.*.hex`.
+- **Group 0x13, `AirframeConfig`, is on the wire.** A stamped group of
+  24 bytes: sensed flap ratio, selected flap detent, and elevator,
+  aileron and rudder trim ratios, each optional and NaN-absent. A ratio
+  outside the range its axis is defined over faults the group rather
+  than being clamped — a clamped pointer would sit at a limit the
+  airframe never reached.
+- **Assigned group ids stop being contiguous.** 0x0E to 0x11 have no
+  variant, so `GroupId::index` and the wire tag now genuinely disagree,
+  and the test that could only describe that difference proves it.
+- **The Nav group grows from 42 bytes to 43 and declares its deflection
+  scale.** `scale` appends after the group's existing tail, per the
+  stamped-lane growth policy. Enroute, terminal and approach are 0, 1
+  and 2; every other value is Unknown, and an Unknown scale fails the
+  whole nav group. A deflection in dots means nothing until the scale
+  says what a dot is worth, so guidance at an undeclared scale is not
+  drawn at a guessed one — and the needle carries its own gate on the
+  scale as well, so a group whose status says show still draws nothing
+  without one.
+
+  The append is what makes an undeclared scale fail closed. Taking the
+  spare byte at offset 3 would have kept the length still and made a
+  producer that never wrote the field decode as `Enroute` — the loosest
+  scale, worth the most distance per dot.
+- **The Dynamics group grows from 16 bytes to 20.** `ias_trend` follows
+  the trailing `age_ms`, NaN-absent, and Trust valid bit 9 declares it.
+  A producer that stamps version 8 and keeps writing 16 bytes has the
+  whole frame refused, not that group.
 - **The Air group grows from 12 bytes to 16.** `tas_mps` follows the
   trailing `age_ms`, NaN-absent like the altimeter setting beside it.
   Its minimum length rises with it.
-- **The batch allocates four group ids and three field appends. This
-  release implements the Air append only.** The ids are 0x12 BearingPointers (stamped,
+- **The batch allocates four group ids and three field appends.** The
+  ids are 0x12 BearingPointers (stamped,
   [#53](https://github.com/luofang34/Indicate/issues/53)), 0x13
   AirframeConfig (stamped,
   [#57](https://github.com/luofang34/Indicate/issues/57)), 0x14 ApModes
@@ -86,11 +118,20 @@ annunciator joins the set.
   [#52](https://github.com/luofang34/Indicate/issues/52)), `ias_trend`
   and Trust valid bit 9 on Dynamics (0x0B,
   [#51](https://github.com/luofang34/Indicate/issues/51)), and
-  `scale_mode` and `facility_type` on Nav (0x04,
+  `scale_mode` on Nav (0x04, with `facility_type` to follow,
   [#54](https://github.com/luofang34/Indicate/issues/54) and
   [#55](https://github.com/luofang34/Indicate/issues/55)). Each append
   goes after the trailing `age_ms`. An older decoder accepts the longer
   payload and counts the tail.
+- **0x12 BearingPointers is a stamped group of 20 bytes.** Each of the
+  two pointers writes a source byte, a heading-reference byte, a
+  validity byte, one pad byte, and a `f32` bearing in radians. The
+  trailing `age_ms` follows the pair. A pointer names the north its own
+  receiver measured against, so the reference travels with the bearing
+  rather than being inherited from the heading group: a receiver that
+  reports magnetic bearings and an attitude source that reports true
+  heading are a normal pairing, and the display converts between them
+  or draws nothing.
 - **0x14 ApModes is a stamped group of 12 bytes.** Engagement, active
   and armed lateral mode, active and armed vertical mode, three
   reserved zero bytes, then the trailing `age_ms`. Each byte this build
@@ -126,6 +167,15 @@ annunciator joins the set.
   failure looks like total signal loss rather than one short group. Emit
   the 16-byte payload, with a NaN in the true-airspeed slot when the
   source has none.
+- **The HSI gains two bearing needles, so its raster baseline and the
+  composed-frame hashes move.** The shared `typical` state now feeds
+  both pointers, and the HSI contributes a `bearing-split-references`
+  extreme state, which raises the admission case count.
+- **A state writer must also write the longer Nav group.** A writer
+  that omits the scale emits a 42-byte payload, which is now below the
+  group's minimum, and the decoder rejects the whole frame exactly as
+  it does for a short Air group. Declare the scale the guidance is
+  actually flown to; there is no value that means "not stated".
 - **The panel set gains the autoflight annunciator, which moves the
   composition digest and the screen-composition digest.** A surface of
   its own rather than a band inside the PFD: the PFD already

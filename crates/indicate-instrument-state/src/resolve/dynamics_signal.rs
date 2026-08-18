@@ -60,3 +60,26 @@ pub(super) fn slip_resolved(
         None => Sig::missing(),
     }
 }
+
+/// Resolves the airspeed trend, in knots per second. Missing stays
+/// missing: a zero-length trend cue is a claim that the airspeed is
+/// steady, and an absent rate makes no such claim.
+pub(super) fn ias_trend_resolved(
+    state: &AircraftState,
+    policy: &FreshnessPolicy,
+    trust: &Trust,
+    integrity: &StateIntegrity,
+) -> Sig<f32> {
+    let value = state
+        .dynamics
+        .data
+        .and_then(|dynamics| dynamics.ias_trend_mps2);
+    let fresh = group_freshness(policy, state.dynamics.data.is_some(), state.dynamics.age_ms);
+    match value {
+        Some(mps2) => finite(Sig::with_status(
+            mps2 * crate::units::MPS_TO_KT,
+            trust.fold(true, fresh, integrity.dynamics, state.valid.ias_trend),
+        )),
+        None => Sig::missing(),
+    }
+}

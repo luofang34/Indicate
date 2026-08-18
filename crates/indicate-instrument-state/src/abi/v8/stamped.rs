@@ -15,12 +15,12 @@
 //! | attitude | quat w x y z f32×4; rates p q r f32×3; age f32 | 32 |
 //! | kinematics | pos NED f32×3; vel NED f32×3; age f32 | 28 |
 //! | air | ias f32; baro f32; age f32; tas f32 | 16 |
-//! | nav | source u8; fromto u8; course ref u8; 0; course f32; cdi f32; vdev f32; dist f32; age f32; to ident 9; from ident 9 | 42 |
+//! | nav | source u8; fromto u8; course ref u8; 0; course f32; cdi f32; vdev f32; dist f32; age f32; to ident 9; from ident 9; scale u8 | 43 |
 //! | wind | from f32; speed f32; age f32 | 12 |
 //! | heading | reference u8; 0×3; heading f32; age f32 | 12 |
 //! | variation | source u8; 0×3; east f32; age f32 | 12 |
+//! | dynamics | basis u8; 0×3; turn f32; lateral f32; age f32; ias trend f32 | 20 |
 //! | dynamics | basis u8; 0×3; turn f32; lateral f32; age f32 | 16 |
-//! | ap modes | engagement u8; lateral active u8; lateral armed u8; vertical active u8; vertical armed u8; 0×3; age f32 | 12 |
 
 use super::{AbiError, get_f32, get_u8, put_f32, put_u8};
 use crate::abi::{opt, or_nan};
@@ -31,11 +31,11 @@ use crate::heading::{HeadingReference, HeadingSample, MagneticVariation, Variati
 use crate::ident::IdentStr;
 use indicate_frames::Quat;
 
-fn absent<T>(stamped: &Stamped<T>) -> bool {
+pub(super) fn absent<T>(stamped: &Stamped<T>) -> bool {
     stamped.data.is_none() && stamped.age_ms.is_none()
 }
 
-fn sized(out: &mut [u8], len: usize) -> Result<&mut [u8], AbiError> {
+pub(super) fn sized(out: &mut [u8], len: usize) -> Result<&mut [u8], AbiError> {
     out.get_mut(..len).ok_or(AbiError::Truncated)
 }
 
@@ -164,6 +164,7 @@ pub(super) fn decode_nav(state: &mut AircraftState, p: &[u8]) {
     state.nav = Stamped {
         data: age.map(|_| NavData {
             source,
+            scale: crate::aircraft::NavScale::from_u8(get_u8(p, 42)),
             course_rad: get_f32(p, 4),
             cdi_dots: get_f32(p, 8),
             fromto,
@@ -181,7 +182,7 @@ pub(super) fn encode_nav(state: &AircraftState, out: &mut [u8]) -> Result<Option
     if absent(&state.nav) {
         return Ok(None);
     }
-    let p = sized(out, 42)?;
+    let p = sized(out, 43)?;
     let nav = state.nav.data.unwrap_or_default();
     put_u8(
         p,
@@ -217,7 +218,8 @@ pub(super) fn encode_nav(state: &AircraftState, out: &mut [u8]) -> Result<Option
     if let Some(dst) = p.get_mut(33..42) {
         dst.copy_from_slice(&nav.from_ident.to_wire());
     }
-    Ok(Some(42))
+    put_u8(p, 42, nav.scale.to_u8());
+    Ok(Some(43))
 }
 
 pub(super) fn decode_wind(state: &mut AircraftState, p: &[u8]) {
@@ -326,6 +328,7 @@ pub(super) fn decode_dynamics(state: &mut AircraftState, p: &[u8]) {
                 basis: TurnBasis::from_u8(get_u8(p, 0)),
             }),
             lateral_mps2: opt(get_f32(p, 8)),
+            ias_trend_mps2: opt(get_f32(p, 16)),
         }),
         age_ms: age,
     };
@@ -338,7 +341,7 @@ pub(super) fn encode_dynamics(
     if absent(&state.dynamics) {
         return Ok(None);
     }
-    let p = sized(out, 16)?;
+    let p = sized(out, 20)?;
     let dynamics = state.dynamics.data.unwrap_or_default();
     put_u8(
         p,
@@ -351,83 +354,6 @@ pub(super) fn encode_dynamics(
     put_f32(p, 4, or_nan(dynamics.turn.map(|sample| sample.rate_rps)));
     put_f32(p, 8, or_nan(dynamics.lateral_mps2));
     put_f32(p, 12, or_nan(state.dynamics.age_ms));
-    Ok(Some(16))
-}
-
-/// Flight-director payload (16 bytes): mode u8, engagement u8, two
-/// reserved zero bytes, commanded pitch f32, commanded roll f32,
-/// age f32 — unknown mode or engagement bytes decode to the
-/// fail-closed sentinels.
-pub(super) fn decode_director(state: &mut AircraftState, p: &[u8]) {
-    use crate::director::{FdEngagement, FdMode, FdSample};
-    let age = opt(get_f32(p, 12));
-    state.director = Stamped {
-        data: age.map(|_| FdSample {
-            mode: FdMode::from_u8(get_u8(p, 0)),
-            engagement: FdEngagement::from_u8(get_u8(p, 1)),
-            pitch_cmd_rad: get_f32(p, 4),
-            roll_cmd_rad: get_f32(p, 8),
-        }),
-        age_ms: age,
-    };
-}
-
-pub(super) fn encode_director(
-    state: &AircraftState,
-    out: &mut [u8],
-) -> Result<Option<usize>, AbiError> {
-    if absent(&state.director) {
-        return Ok(None);
-    }
-    let p = sized(out, 16)?;
-    let director = state.director.data.unwrap_or_default();
-    put_u8(p, 0, director.mode.to_u8());
-    put_u8(p, 1, director.engagement.to_u8());
-    put_u8(p, 2, 0);
-    put_u8(p, 3, 0);
-    put_f32(p, 4, director.pitch_cmd_rad);
-    put_f32(p, 8, director.roll_cmd_rad);
-    put_f32(p, 12, or_nan(state.director.age_ms));
-    Ok(Some(16))
-}
-
-/// Autoflight-mode payload (12 bytes): engagement u8, active and armed
-/// lateral mode u8, active and armed vertical mode u8, three reserved
-/// zero bytes, age f32. Any byte this build cannot name decodes to its
-/// fail-closed `Unknown`, which fails the group rather than
-/// annunciating a mode nobody can act on.
-pub(super) fn decode_ap_modes(state: &mut AircraftState, p: &[u8]) {
-    use crate::autopilot::{ApEngagement, ApModes, LateralMode, VerticalMode};
-    let age = opt(get_f32(p, 8));
-    state.ap_modes = Stamped {
-        data: age.map(|_| ApModes {
-            engagement: ApEngagement::from_u8(get_u8(p, 0)),
-            lateral_active: LateralMode::from_u8(get_u8(p, 1)),
-            lateral_armed: LateralMode::from_u8(get_u8(p, 2)),
-            vertical_active: VerticalMode::from_u8(get_u8(p, 3)),
-            vertical_armed: VerticalMode::from_u8(get_u8(p, 4)),
-        }),
-        age_ms: age,
-    };
-}
-
-pub(super) fn encode_ap_modes(
-    state: &AircraftState,
-    out: &mut [u8],
-) -> Result<Option<usize>, AbiError> {
-    if absent(&state.ap_modes) {
-        return Ok(None);
-    }
-    let p = sized(out, 12)?;
-    let modes = state.ap_modes.data.unwrap_or_default();
-    put_u8(p, 0, modes.engagement.to_u8());
-    put_u8(p, 1, modes.lateral_active.to_u8());
-    put_u8(p, 2, modes.lateral_armed.to_u8());
-    put_u8(p, 3, modes.vertical_active.to_u8());
-    put_u8(p, 4, modes.vertical_armed.to_u8());
-    put_u8(p, 5, 0);
-    put_u8(p, 6, 0);
-    put_u8(p, 7, 0);
-    put_f32(p, 8, or_nan(state.ap_modes.age_ms));
-    Ok(Some(12))
+    put_f32(p, 16, or_nan(dynamics.ias_trend_mps2));
+    Ok(Some(20))
 }

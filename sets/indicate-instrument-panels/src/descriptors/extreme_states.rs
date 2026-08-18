@@ -4,9 +4,10 @@
 
 use indicate_instrument_descriptor::states;
 use indicate_instrument_state::{
-    AirData, AircraftState, ApEngagement, ApModes, Attitude, DynSample, FdEngagement, FdMode,
-    FdSample, HeadingReference, HeadingSample, Kinematics, LateralMode, MonitorText, NavData,
-    NavFromTo, NavSource, OriginId, Quat, Stamped, TextLine, TurnBasis, TurnSample, VerticalMode,
+    AirData, AircraftState, ApEngagement, ApModes, Attitude, BearingPointer, BearingPointers,
+    DynSample, FdEngagement, FdMode, FdSample, HeadingReference, HeadingSample, Kinematics,
+    LateralMode, MonitorText, NavData, NavFromTo, NavScale, NavSource, OriginId, Quat, Stamped,
+    TextLine, TurnBasis, TurnSample, VerticalMode,
 };
 
 /// Inverted, nose-low, rolling hard: the unusual-attitude tier, the
@@ -28,8 +29,56 @@ pub(super) fn pfd_unusual_inverted() -> AircraftState {
                 basis: TurnBasis::HeadingRate,
             }),
             lateral_mps2: 3.5.into(),
+            ias_trend_mps2: Some(-4.0),
         }),
         age_ms: Some(40.0),
+    };
+    state
+}
+
+/// Level flight, accelerating: the pinned case that paints the cues the
+/// unusual-attitude tier removes.
+///
+/// Every other pinned state with a flying attitude resolves an unusual
+/// one, which declutters the turn cue and the trend bar away, so none of
+/// them draws either. This one is level and declares turn, slip, and
+/// trend valid, so it draws both.
+///
+/// It does not draw the speed bands. Those need `v_speeds`, and every
+/// pinned path renders the empty configuration by design, so the bands
+/// have no pinned coverage for a reason this state cannot fix.
+pub(super) fn pfd_level_accelerating() -> AircraftState {
+    let mut state = states::typical();
+    state.attitude = Stamped {
+        data: Some(Attitude {
+            quat: Quat::IDENTITY,
+            rates_rps: [0.0, 0.0, 0.05],
+        }),
+        age_ms: Some(40.0),
+    };
+    state.kinematics = Stamped {
+        data: Some(Kinematics {
+            pos_ned_m: [0.0, 0.0, -400.0],
+            vel_ned_mps: [55.0, 3.0, -1.5],
+        }),
+        age_ms: Some(40.0),
+    };
+    state.dynamics = Stamped {
+        data: Some(DynSample {
+            turn: Some(TurnSample {
+                rate_rps: 0.04,
+                basis: TurnBasis::HeadingRate,
+            }),
+            lateral_mps2: Some(-0.3),
+            ias_trend_mps2: Some(1.2),
+        }),
+        age_ms: Some(40.0),
+    };
+    state.valid = indicate_instrument_state::ValidFlags {
+        turn: true,
+        slip: true,
+        ias_trend: true,
+        ..state.valid
     };
     state
 }
@@ -96,6 +145,10 @@ pub(super) fn hsi_reciprocal_course() -> AircraftState {
             vdev_dots: Some(2.5),
             dist_nm: Some(0.0),
             course_reference: HeadingReference::SimLocalTrue,
+            // Declared, not defaulted: the default scale is the
+            // fail-closed Unknown, which would fail the nav group and
+            // leave this fixture stressing nothing.
+            scale: NavScale::Approach,
             ..NavData::default()
         }),
         age_ms: Some(40.0),
@@ -119,6 +172,32 @@ pub(super) fn hsi_track_up() -> AircraftState {
     state.heading = Stamped {
         data: None,
         age_ms: None,
+    };
+    state
+}
+
+/// One pointer the rose can carry and one it cannot: a true-referenced
+/// bearing beside a magnetic one, with no variation sample to convert
+/// the second. The panel must draw one needle and remove the other in
+/// the same frame, which no state written for the whole family reaches.
+pub(super) fn hsi_bearing_split_references() -> AircraftState {
+    let mut state = states::typical();
+    state.bearings = Stamped {
+        data: Some(BearingPointers {
+            first: BearingPointer {
+                source: NavSource::Gps,
+                bearing_rad: 0.6,
+                reference: HeadingReference::SimLocalTrue,
+                valid: true,
+            },
+            second: BearingPointer {
+                source: NavSource::Nav2,
+                bearing_rad: 4.4,
+                reference: HeadingReference::Magnetic,
+                valid: true,
+            },
+        }),
+        age_ms: Some(40.0),
     };
     state
 }

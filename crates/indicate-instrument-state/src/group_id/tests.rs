@@ -28,10 +28,10 @@ fn unassigned_tags_do_not_resolve() {
 
 #[test]
 fn reserved_and_allocated_tags_have_no_status_slot_yet() {
-    // 0x0E–0x11 are planned and 0x12–0x13 are allocated with their
-    // layouts fixed, but neither has a variant. Until one lands, no such
-    // tag resolves to a variant, so none can key a `GroupStatuses` slot.
-    for value in 0x0Eu8..=0x13 {
+    // 0x0E–0x11 are planned, with their layouts not yet fixed. Until
+    // one lands, no such tag resolves to a variant, so none can key a
+    // `GroupStatuses` slot.
+    for value in 0x0Eu8..=0x11 {
         assert_eq!(GroupId::from_u8(value), None, "tag {value:#04x}");
     }
 }
@@ -44,19 +44,28 @@ fn index_is_dense_over_all() {
 }
 
 #[test]
-fn the_highest_tag_maps_to_the_last_slot() {
+fn index_is_not_wire_tag_arithmetic() {
+    // The sparse allocation has arrived: 0x0E to 0x11 have no variant,
+    // so the highest tag is 0x15 and its slot is one below COUNT.
+    // Arithmetic on the tag would answer 20 and index past the table,
+    // which is what the match exists to prevent — and this proves it
+    // rather than describing it.
     assert_eq!(GroupId::ApTargets.to_u8(), 0x15);
     assert_eq!(GroupId::ApTargets.index(), GroupId::COUNT - 1);
+    assert_ne!(
+        GroupId::ApTargets.index(),
+        usize::from(GroupId::ApTargets.to_u8()) - 1,
+        "the match and the arithmetic now disagree"
+    );
 }
 
 #[test]
 fn wire_tag_arithmetic_would_index_past_the_table() {
-    // The assigned tags are not contiguous: a tag skipped over the
-    // planned range makes `tag - 1` index past a `[SignalStatus;
-    // COUNT]` table. `index()` is a match for this reason. This test
-    // fails if a later allocation fills the gaps and makes the
-    // arithmetic safe again, at which point the reason has to be
-    // restated rather than silently lost.
+    // Derived from the registry rather than from a pinned tag, so it
+    // keeps saying something after the next allocation. This test fails
+    // if a later allocation fills the gaps and makes the arithmetic
+    // safe again, at which point the reason has to be restated rather
+    // than silently lost.
     let highest = GroupId::ALL[GroupId::COUNT - 1];
     let arithmetic_slot = usize::from(highest.to_u8()) - 1;
     assert!(
@@ -71,18 +80,31 @@ fn wire_tag_arithmetic_would_index_past_the_table() {
 fn withholding_a_stamped_group_resolves_missing() {
     let full = fixtures::full();
     let policy = FreshnessPolicy::default();
-    for group in [
-        GroupId::Attitude,
-        GroupId::Kinematics,
-        GroupId::Air,
-        GroupId::Nav,
-        GroupId::Wind,
-        GroupId::Heading,
-        GroupId::Variation,
-        GroupId::Dynamics,
-        GroupId::MonitorText,
-        GroupId::ApModes,
-    ] {
+    for group in GroupId::ALL {
+        // Exhaustive on purpose: a group added to the registry cannot
+        // reach the wire without a decision here, so no `withhold_group`
+        // arm ships without a test that exercises it. The declared lane
+        // carries no sample to take away — the tests below say what
+        // withholding does to those groups instead.
+        let stamped = match group {
+            GroupId::Attitude
+            | GroupId::Kinematics
+            | GroupId::Air
+            | GroupId::Nav
+            | GroupId::Wind
+            | GroupId::Heading
+            | GroupId::Variation
+            | GroupId::Dynamics
+            | GroupId::BearingPointers
+            | GroupId::AirframeConfig
+            | GroupId::ApModes
+            | GroupId::FlightDirector
+            | GroupId::MonitorText => true,
+            GroupId::Selections | GroupId::Trust | GroupId::Altitude | GroupId::ApTargets => false,
+        };
+        if !stamped {
+            continue;
+        }
         let withheld = withhold_group(&full, group);
         let data = crate::resolve(&withheld, &policy);
         assert_eq!(
@@ -132,4 +154,44 @@ fn withholding_trust_returns_the_fail_closed_defaults() {
     assert_eq!(withheld.quality, Default::default());
     assert_eq!(withheld.valid, Default::default());
     assert_eq!(withheld.snapshot, Default::default());
+}
+
+/// Withholding the dynamics group clears every validity bit the group
+/// covers, not only the two it started with. A bit left standing says
+/// a source is still vouching for a signal it stopped sending.
+#[test]
+fn withholding_dynamics_clears_every_bit_the_group_covers() {
+    let full = fixtures::full();
+    assert!(
+        full.valid.turn && full.valid.slip && full.valid.ias_trend,
+        "the fixture must declare all three, or this proves nothing"
+    );
+    let withheld = withhold_group(&full, GroupId::Dynamics);
+    assert!(!withheld.valid.turn, "turn");
+    assert!(!withheld.valid.slip, "slip");
+    assert!(!withheld.valid.ias_trend, "airspeed trend");
+}
+
+/// The group's status is no better than its worst declared member. The
+/// group-level surface exists so a consumer can ask one question
+/// instead of three, and a surface that reported better than the
+/// signals under it would be the one thing it documents it cannot do.
+#[test]
+fn a_cleared_dynamics_bit_takes_the_group_status_with_it() {
+    let full = fixtures::full();
+    let policy = FreshnessPolicy::default();
+    for clear in [
+        |v: &mut crate::aircraft::ValidFlags| v.turn = false,
+        |v: &mut crate::aircraft::ValidFlags| v.slip = false,
+        |v: &mut crate::aircraft::ValidFlags| v.ias_trend = false,
+    ] {
+        let mut state = full;
+        clear(&mut state.valid);
+        let data = crate::resolve(&state, &policy);
+        assert_ne!(
+            data.groups.status(GroupId::Dynamics),
+            SignalStatus::Valid,
+            "one cleared bit must take the group with it"
+        );
+    }
 }
