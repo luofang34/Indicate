@@ -184,6 +184,25 @@ check_safety_constant_count() {
     fi
 }
 
+# A document that cites a rule nobody can read is not a rule: a reviewer
+# who holds a contributor to a standard the clone does not contain is
+# citing something the contributor cannot obey. The check is not over
+# prose — sentence quality is review's judgement. It is over the
+# pointer, which is mechanical.
+check_root_document_pointers() {
+    local doc target
+    for doc in ./CLAUDE.md ./CONTRIBUTING.md; do
+        [ -f "$doc" ] || continue
+        # Every backticked root-level markdown file the document names.
+        for target in $(grep -oE '`[A-Za-z0-9_-]*\.md`' "$doc" | tr -d '`' | sort -u); do
+            if [ ! -s "./$target" ]; then
+                echo "FORBIDDEN: $doc points at \`$target\`, which is missing or empty; a cited rule a clone does not contain is not a rule" >&2
+                status=1
+            fi
+        done
+    done
+}
+
 # The family is named after this repository, not after a consumer of it.
 # This checks NAMES ONLY — crate directories and package names. Values
 # that are hashed or pinned downstream keep whatever string they were
@@ -371,6 +390,7 @@ check_file_length
 check_function_length
 check_safety_palette_aliases
 check_safety_constant_count
+check_root_document_pointers
 check_crate_naming
 check_tier_law
 check_crate_map

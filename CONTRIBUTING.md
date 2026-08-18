@@ -126,6 +126,16 @@ entry is open, so a CI check for the tag would fail every release on the
 one run that matters. The changelog entry is what CI can hold honest;
 the tag is what a human owes it.
 
+## Documentation language
+
+Project-authored documentation follows the rule list in `AGENTS.md` at
+the repository root. The list is modelled on ASD-STE100 Simplified
+Technical English, and following it is not a conformance claim against
+that standard: this repository does not distribute the specification or
+its dictionary. The rules apply to new text and to text you change.
+They do not apply to legacy prose you happen to be near. No gate checks
+the prose itself. Review does, citing a rule from the list.
+
 ## Discipline that is easy to miss
 
 - REN-03 frame hashes and the scene digest are pinned invariants, not
