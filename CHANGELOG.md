@@ -43,6 +43,30 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.5.1] — 2026-08-18
+
+Every shell that draws a display failure now reads its reason from one
+registry. `DisplayFault` gains `ALL`, `code()` and `from_code()`, so a
+reason has one wire code and one identity wherever it is shown, and a
+shell no longer carries a private mapping that can drift from another
+shell's ([#46](https://github.com/luofang34/Indicate/issues/46)).
+
+A reason added outside `ALL` would take a code no Rust test can see —
+the type still compiles, the suite still passes, and the new variant
+silently shares an existing reason's code, identity and class. No
+compiler check can catch it, so `check-structure.sh` counts the
+variants against the list and refuses a disagreement.
+
+| Value | This release |
+|---|---|
+| State ABI | 7 |
+| Scene format | 1 |
+| Corpus | 5 |
+| Composition digest | `5cded14978b2e5ba3a17b61959ed0b35061334adf3fde4242f47e214f0f07aef` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no.
+
 ## [0.5.0] — 2026-08-18
 
 The altitude readout becomes a rolling-digit drum. The final digit pair

@@ -159,12 +159,20 @@ s = s.replace("    RetainedImage,\n}", "    RetainedImage,\n    /// Probe.\n    
 s = s.replace("            Self::RetainedImage => 4,", "            Self::RetainedImage => 4,\n            Self::ProbeReason => 2,", 1)
 open(p, "w").write(s)
 PROBE
-if INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh >/dev/null 2>&1; then
-    echo "REGRESSION: a reason outside ALL was accepted; it can take a code no test sees" >&2
-    failed=$((failed + 1))
-else
+# Matched on the message, not on the exit status: the gate refuses for
+# many reasons, so a case that accepted any refusal would pass on a file
+# that merely grew past its line limit — and then report that a check it
+# never ran is working.
+# Captured, not piped: this script runs under `pipefail`, so a pipeline
+# would carry the gate's own refusal status and say nothing about which
+# refusal it was.
+probe_output="$(INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh 2>&1 || true)"
+if printf '%s' "$probe_output" | grep -q "takes a code no test can see"; then
     echo "ok: a reason outside DisplayFault::ALL refused"
     passed=$((passed + 1))
+else
+    echo "REGRESSION: a reason outside ALL was accepted; it can take a code no test sees" >&2
+    failed=$((failed + 1))
 fi
 cp "$condition_backup" "$condition_file"
 rm -f "$condition_backup"
