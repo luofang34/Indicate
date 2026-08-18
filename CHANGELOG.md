@@ -43,6 +43,53 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.5.0] — 2026-08-18
+
+The altitude readout becomes a rolling-digit drum. The final digit pair
+steps in 20 ft faces. Each face scrolls through a window that clips it.
+Everything above the pair rolls with it across the 80-to-00 boundary.
+The readout therefore shows vertical rate by itself, which a value
+rounded to 10 ft cannot do. Each position is a function of the altitude
+value only, never of a clock. All backends thus put the digits in the
+same place.
+
+| Value | This release |
+|---|---|
+| State ABI | 7 |
+| Scene format | 1 |
+| Corpus | 5 |
+| Composition digest | `5cded14978b2e5ba3a17b61959ed0b35061334adf3fde4242f47e214f0f07aef` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no.
+
+### Rolling-digit altitude readout ([#56](https://github.com/luofang34/Indicate/issues/56))
+
+- **The PFD emits more text runs for one altitude value.** The readout
+  interior is a sign, the number above the final pair, and the pair
+  itself. Each rolling column paints through its own clip window. A
+  backend must apply `clip_rect`. If it does not, the faces above and
+  below the text line become visible.
+- **The number above the pair rolls as one.** Every digit that changes
+  at a boundary changes together. A carry that stopped at the hundreds
+  would make the last 20 ft below each thousand read a thousand low.
+- **The composition digest moves**, because the PFD emits different
+  bytes for the same state. The PFD raster baseline, the
+  screen-composition digest, and the three composed-frame hashes move
+  for the same reason.
+- **The corpus moves to version 5.** Two entries pin a mid-roll value
+  and a negative cascade. Each pinned consumer fails at its next pin
+  advance. That failure is the synchronization mechanism.
+
+### Notes for anyone re-pinning
+
+- The digits shrink to fit the box. The drum fits the full advance row,
+  not only the ink, because each column's clip window must stay inside
+  the box body. A wide value, such as -99,990 ft, therefore renders one
+  step smaller than before.
+- No state ABI, scene format, or panel-set value changes. A consumer
+  that does not compare frame bytes needs no change.
+
 ## [0.4.1] — 2026-08-18
 
 The HSI annunciates which receiver drives the CDI. The source was

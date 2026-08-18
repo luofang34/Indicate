@@ -22,11 +22,11 @@ use super::outcomes::{Outcome, outcome_of};
 use crate::{MAX_DIMENSION, MAX_POLYGON_VERTICES, WORST_CASE_FRAME_BYTES};
 
 const SCHEMA_VERSION: u32 = 2;
-const CORPUS_VERSION: u32 = 4;
-const REVIEW_REASON: &str = "Add frame-edge-overhang: ink crossing all four design-frame edges \
-is a valid scene, not a fault — the gate accepts it, no raw-argument guard fires, and both \
-backends replay the overhanging coordinates verbatim. The design-frame clip itself is \
-surface-side and outside what the corpus records.";
+const CORPUS_VERSION: u32 = 5;
+const REVIEW_REASON: &str = "Add pfd-altitude-drum-mid-roll and pfd-altitude-drum-negative-cascade: \
+the built-in PFD at mid-roll altitudes (1010 ft; -90 ft on the pair's 80-to-00 face), pinning \
+that the rolling-digit altitude readout replays byte-identically on both backends — \
+the drum's offsets derive from the value alone, never a clock.";
 const REVIEW_APPROVED_BY: &str =
     "REN-04 owner; regenerated goldens require human review and are never rewritten by CI.";
 

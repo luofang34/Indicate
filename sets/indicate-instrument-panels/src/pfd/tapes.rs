@@ -13,6 +13,7 @@ use indicate_instrument_state::{GroupId, PanelData, Sig};
 use indicate_instrument_symbology::{fmt_label, palette, safety, status_paint};
 
 use super::VSpeeds;
+use super::drum;
 
 const PX_PER_KT: f32 = 7.2;
 const PX_PER_FT: f32 = 1.2;
@@ -122,11 +123,11 @@ fn band_rect(
 /// Geometry of a pointed tape readout: the rectangular body spans
 /// `far_x`..`near_x`, the tip at `tip_x` points toward the tape, and
 /// the value is anchored at `text_x`, no larger than `preferred_size`.
-struct PointedBox {
+pub(super) struct PointedBox {
     far_x: f32,
     near_x: f32,
     tip_x: f32,
-    text_x: f32,
+    pub(super) text_x: f32,
     preferred_size: f32,
 }
 
@@ -162,6 +163,30 @@ fn pointed_readout(
     text: &str,
     geo: &PointedBox,
 ) -> Result<(), SceneError> {
+    pointed_box(scene, sig, geo)?;
+    // The dash path stays unclaimed on purpose: the claim rule covers
+    // every visible run, and dashes ARE the honest degraded display.
+    let shown = if sig.status.shows_value() {
+        text
+    } else {
+        "---"
+    };
+    let size = fitted_text_size(geo, shown.chars().count());
+    if sig.status.shows_value() {
+        scene.text_attributed(group, geo.text_x, 180.0, size, Anchor::CENTER, shown)?;
+    } else {
+        scene.text(geo.text_x, 180.0, size, Anchor::CENTER, shown)?;
+    }
+    Ok(())
+}
+
+/// The pointed box frame and the value ink color shared by the tape
+/// readouts: white for a shown value, red for the dashes.
+fn pointed_box(
+    scene: &mut SceneWriter<'_>,
+    sig: Sig<f32>,
+    geo: &PointedBox,
+) -> Result<(), SceneError> {
     scene.fill_color(palette::BOX_BG)?;
     let border = status_paint::status_accent(sig.status).unwrap_or(palette::WHITE);
     scene.stroke(border, 2.0)?;
@@ -182,19 +207,6 @@ fn pointed_readout(
     } else {
         safety::FAILURE_RED
     })?;
-    // The dash path stays unclaimed on purpose: the claim rule covers
-    // every visible run, and dashes ARE the honest degraded display.
-    let shown = if sig.status.shows_value() {
-        text
-    } else {
-        "---"
-    };
-    let size = fitted_text_size(geo, shown.chars().count());
-    if sig.status.shows_value() {
-        scene.text_attributed(group, geo.text_x, 180.0, size, Anchor::CENTER, shown)?;
-    } else {
-        scene.text(geo.text_x, 180.0, size, Anchor::CENTER, shown)?;
-    }
     Ok(())
 }
 
@@ -203,7 +215,7 @@ fn pointed_readout(
 /// center anchor overhangs half the anchor width leftward and the ink
 /// width minus that half rightward, and both extents scale linearly
 /// with size, so the cap is a pure ratio.
-fn fitted_text_size(geo: &PointedBox, chars: usize) -> f32 {
+pub(super) fn fitted_text_size(geo: &PointedBox, chars: usize) -> f32 {
     let body_left = geo.far_x.min(geo.near_x);
     let body_right = geo.far_x.max(geo.near_x);
     let width = nominal_text_width(geo.preferred_size, chars);
@@ -216,6 +228,25 @@ fn fitted_text_size(geo: &PointedBox, chars: usize) -> f32 {
     }
     if right_need > body_right - geo.text_x {
         scale = scale.min((body_right - geo.text_x) / right_need);
+    }
+    geo.preferred_size * scale.max(0.0)
+}
+
+/// Largest size, capped at the box's preferred size, whose whole
+/// advance row stays inside the box body. The drum clips each column to
+/// its own advance cell, so the row's advance extent is what must fit,
+/// not just its ink: a window overhanging the body would stop being the
+/// containment proof the digits behind it rely on.
+pub(super) fn fitted_row_size(geo: &PointedBox, chars: usize) -> f32 {
+    let body_left = geo.far_x.min(geo.near_x);
+    let body_right = geo.far_x.max(geo.near_x);
+    let half = nominal_text_width(geo.preferred_size, chars) / 2.0;
+    let mut scale = 1.0f32;
+    if half > geo.text_x - body_left {
+        scale = scale.min((geo.text_x - body_left) / half);
+    }
+    if half > body_right - geo.text_x {
+        scale = scale.min((body_right - geo.text_x) / half);
     }
     geo.preferred_size * scale.max(0.0)
 }
@@ -277,17 +308,30 @@ pub fn altitude_tape(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<()
         scene.text(435.0, 130.0, 16.0, Anchor::CENTER, "ALT")?;
     }
 
-    let text = fmt_label!(12, "{}", libm::roundf(alt.value / 10.0) as i64 * 10);
-    pointed_readout(
-        scene,
-        altitude_claim(data),
-        alt,
-        text.as_str(),
-        &ALT_READOUT,
-    )?;
+    altitude_readout(scene, data, alt)?;
     reference_label(scene, data)?;
     baro_and_sel_boxes(scene, data)?;
     Ok(())
+}
+
+/// The altitude readout: the pointed box every tape value gets, with a
+/// rolling-digit drum for its interior. Missing/Failed/Stale paint the
+/// same unclaimed dashes as the airspeed readout — the honesty paths do
+/// not move with the interior.
+fn altitude_readout(
+    scene: &mut SceneWriter<'_>,
+    data: &PanelData,
+    alt: Sig<f32>,
+) -> Result<(), SceneError> {
+    pointed_box(scene, alt, &ALT_READOUT)?;
+    if alt.status.shows_value() {
+        drum::draw(scene, altitude_claim(data), alt.value, &ALT_READOUT)
+    } else {
+        // Unclaimed, like every dash path: dashes are the honest
+        // degraded display, not a value derived from a withheld group.
+        let size = fitted_text_size(&ALT_READOUT, 3);
+        scene.text(ALT_READOUT.text_x, 180.0, size, Anchor::CENTER, "---")
+    }
 }
 
 /// The group an altitude value derives from under the declared class:

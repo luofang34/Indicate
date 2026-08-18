@@ -194,6 +194,7 @@ pub(super) fn corpus() -> Vec<CorpusEntry> {
     builders::valid_entries(&mut out);
     builders::symbology_entries(&mut out);
     builders::text_entries(&mut out);
+    builders::drum_entries(&mut out);
     builders::paint_fault_entries(&mut out);
     builders::malformed_entries(&mut out);
     layer_builders::layer_entries(&mut out);

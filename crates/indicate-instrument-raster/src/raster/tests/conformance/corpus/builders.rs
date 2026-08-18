@@ -248,6 +248,60 @@ pub(super) fn text_entries(out: &mut Vec<CorpusEntry>) {
     ));
 }
 
+pub(super) fn drum_entries(out: &mut Vec<CorpusEntry>) {
+    out.push(raw(
+        "pfd-altitude-drum-mid-roll",
+        "valid",
+        Some(
+            "The built-in PFD at 1010 ft: the altitude readout's digit pair sits \
+             mid-scroll between its 00 and 20 faces inside a clipped window, so \
+             both backends place the strip's fractional offset from the same \
+             bytes.",
+        ),
+        pfd_at_altitude_ft(1010.0),
+        false,
+    ));
+    out.push(raw(
+        "pfd-altitude-drum-negative-cascade",
+        "valid",
+        Some(
+            "The built-in PFD at -90 ft: a claimed minus ahead of the drum, and \
+             the hundreds column rolling in lockstep with the pair's 80-to-00 \
+             face. The negative-altitude path replays byte-identically on both \
+             backends.",
+        ),
+        pfd_at_altitude_ft(-90.0),
+        false,
+    ));
+}
+
+/// The full PFD scene at a geometrically exact altitude: the drum's
+/// value→position map is a pure function of the value, so these bytes
+/// are the same paint any backend is handed for this snapshot.
+fn pfd_at_altitude_ft(ft: f32) -> Vec<u8> {
+    let mut state = indicate_instrument_registry::states::typical();
+    let mut kin = state
+        .kinematics
+        .data
+        .expect("the typical state feeds kinematics");
+    kin.pos_ned_m[2] = -ft / indicate_instrument_state::units::M_TO_FT;
+    state.kinematics.data = Some(kin);
+    let data = indicate_instrument_state::resolve(
+        &state,
+        &indicate_instrument_state::FreshnessPolicy::default(),
+    );
+    super::build_scene(|w| {
+        indicate_instrument_panels::draw_pfd(
+            &data,
+            &indicate_instrument_panels::PfdConfig::default(),
+            None,
+            indicate_instrument_panels::BUILTIN_FRAME,
+            w,
+        )
+        .expect("the PFD fits the scene budget");
+    })
+}
+
 pub(super) fn paint_fault_entries(out: &mut Vec<CorpusEntry>) {
     out.push(raw(
         "paint-non-finite",
