@@ -38,6 +38,10 @@ pub const CANONICAL_STATES: &[CanonicalState] = &[
         id: "source-unusable",
         build: source_unusable,
     },
+    CanonicalState {
+        id: "nav2-source",
+        build: nav2_source,
+    },
 ];
 
 /// Cold start: no group has ever been fed. Every signal must resolve
@@ -204,6 +208,18 @@ pub fn fully_fed() -> AircraftState {
 pub fn source_unusable() -> AircraftState {
     let mut state = typical();
     state.quality = EstimateQuality::Unusable;
+    state
+}
+
+/// The second nav receiver selected. `typical` names GPS and
+/// `fully-fed` names Nav1; Nav2 wore Nav1's green with nothing telling
+/// the two apart until the HSI source label (#55), which this state
+/// exercises on every panel that draws nav guidance.
+pub fn nav2_source() -> AircraftState {
+    let mut state = typical();
+    if let Some(nav) = state.nav.data.as_mut() {
+        nav.source = NavSource::Nav2;
+    }
     state
 }
 

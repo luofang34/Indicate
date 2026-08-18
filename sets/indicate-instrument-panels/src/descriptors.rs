@@ -249,6 +249,18 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
                 height: 36.0,
             },
         ),
+        // Nav-source label (GPS/NAV1/NAV2) beside the rose, above the
+        // course box: the receiver identity is a nav-group value, so its
+        // surface is declared like the readouts.
+        (
+            GroupId::Nav,
+            Region {
+                x: 36.0,
+                y: 288.0,
+                width: 48.0,
+                height: 24.0,
+            },
+        ),
         // Heading-select box.
         (
             GroupId::Selections,
@@ -283,7 +295,7 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     ],
     raster_baselines: &[(
         BUILTIN_FRAME,
-        "66653ce135e6f2163fa48d805a0ab1a8f3d0ac51d778f7b1eb2aa4ec05bfbb7c",
+        "efb15b50cb011c499c075b3eb54948d77a89b74b9e2321add75d8922f4b25b7b",
     )],
     draw: draw_hsi_panel,
 };
@@ -365,7 +377,7 @@ pub const BUILTIN_SET: PanelSet = PanelSet {
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "f82d905643b48822de25665761ad3e29daa334d937f18b1e98a3e215353cb704";
+    "91767280cad68734f5859ad17edee1540bce47ec32866a0d784e1f30f34e4757";
 
 /// The measured criticality bands of [`BUILTIN_PANELS`], pinned beside
 /// the raster baselines: the union `Annunciation`/`Failure` ink bound

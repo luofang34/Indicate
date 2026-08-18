@@ -1,8 +1,8 @@
 //! The course deviation indicator: course arrow, deviation bar, scale
 //! dots, and TO/FROM triangle.
 
-use indicate_instrument_scene::{PaintMode, Rgba8, SceneError, SceneWriter};
-use indicate_instrument_state::{NavFromTo, NavResolved, NavSource};
+use indicate_instrument_scene::{Anchor, PaintMode, Rgba8, SceneError, SceneWriter};
+use indicate_instrument_state::{GroupId, NavFromTo, NavResolved, NavSource};
 
 use indicate_instrument_symbology::palette;
 
@@ -14,6 +14,49 @@ pub(crate) fn source_color(source: NavSource) -> Rgba8 {
         NavSource::Gps => palette::MAGENTA,
         _ => palette::GREEN,
     }
+}
+
+/// The receiver identity the CDI's hue alone used to carry (#55):
+/// `GPS` / `NAV1` / `NAV2`. Nav1 and Nav2 wear the same green, so the
+/// text is the distinction. The numerals make the run a claimed run —
+/// it derives from the nav group, so it claims `GroupId::Nav`, and the
+/// claim is honest exactly where the CDI gate is: a withheld or failed
+/// nav group never reaches this draw.
+pub(crate) fn source_text(source: NavSource) -> Option<&'static str> {
+    match source {
+        NavSource::Gps => Some("GPS"),
+        NavSource::Nav1 => Some("NAV1"),
+        NavSource::Nav2 => Some("NAV2"),
+        // No source is gated out by the caller; an unknown one fails the
+        // nav group in resolve. Neither may invent a label here.
+        NavSource::None | NavSource::Unknown => None,
+    }
+}
+
+/// The label position, lower left beside the rose: clear of the rose
+/// rim (the rim's nearest ink at this height is the 225° reference mark
+/// at x ≈ 121) and directly above the course box, whose value wears the
+/// same source color. The caller draws it under the CDI's exact gate,
+/// so the label and the needle appear and disappear together.
+const SOURCE_LABEL_POS: (f32, f32) = (60.0, super::CY + 110.0);
+
+/// Draws the nav-source label in the source color, claimed from the nav
+/// group. Draws nothing for `None`/`Unknown` — the caller's gate already
+/// excludes both, and this arm keeps that property local.
+pub fn draw_source_label(scene: &mut SceneWriter<'_>, source: NavSource) -> Result<(), SceneError> {
+    let Some(text) = source_text(source) else {
+        return Ok(());
+    };
+    scene.fill_color(source_color(source))?;
+    scene.text_attributed(
+        GroupId::Nav.to_u8(),
+        SOURCE_LABEL_POS.0,
+        SOURCE_LABEL_POS.1,
+        14.0,
+        Anchor::CENTER,
+        text,
+    )?;
+    Ok(())
 }
 
 /// Draws the CDI in the rose frame, rotated to the selected course.
