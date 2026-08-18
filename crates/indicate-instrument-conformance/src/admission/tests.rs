@@ -15,25 +15,25 @@ fn builtin_panels_pass_admission() {
     // HSI: (5 + 2) × 8; monitor: 6 × 2 — each drawn twice, quiet and
     // with the saturated alert stack.
     assert_eq!(report.cases, 280);
-    // Every warning is one of the PFD's three `readout_box` values —
-    // true airspeed, groundspeed, baro: each box is 90 units wide but a
-    // wide value at size 16 has ~107 units of nominal ink, so the run
-    // overhangs its box and the frame edge (status_paint::readout_box
-    // draws at the requested size with no fit shrink, unlike the
-    // pointed readouts, which fit). Real display debt, honestly counted
-    // across every corpus and extreme state; fixing the paint moves
-    // frame hashes and is its own change, for all three at once. The
-    // ratchet makes any NEW unclipped off-frame text a deliberate
-    // decision, and this count grows for two such decisions: a third
-    // box of that shape, and a fifth canonical state that exercises all
-    // three.
+    // Every warning is the PFD's groundspeed or baro readout: each box
+    // is 90 units wide but a wide value at size 16 has ~107 units of
+    // nominal ink, so the run overhangs its box and the frame edge —
+    // `status_paint::readout_box` paints at the size it is given. Real
+    // display debt, honestly counted across every corpus and extreme
+    // state; fixing it moves frame hashes and is its own change, for
+    // both boxes at once.
+    //
+    // The count grows by the fifth canonical state exercising the two
+    // boxes, and by nothing else: the true-airspeed box sizes its label
+    // to its own width, so it adds a third readout without adding a
+    // third overflow.
     // Twice the quiet-frame count, because the alert stack does not
     // touch these boxes: each overhangs on both sides of the alert axis.
-    assert_eq!(report.warnings.len(), 266);
+    assert_eq!(report.warnings.len(), 196);
     assert!(report.warnings.iter().all(|w| matches!(
         w,
         super::AdmissionWarning::FrameOverflow { panel: "pfd", text, .. }
-            if text.starts_with("TAS ") || text.starts_with("GS ") || text.starts_with("SET ")
+            if text.starts_with("GS ") || text.starts_with("SET ")
     )));
 }
 

@@ -15,6 +15,11 @@ use indicate_instrument_symbology::{fmt_label, palette, safety, status_paint};
 use super::VSpeeds;
 
 const PX_PER_KT: f32 = 7.2;
+/// Top of the airspeed tape. The true-airspeed box owns the strip above
+/// it: the box is opaque, so a tape that started at the frame edge
+/// would have its topmost gradation painted over rather than covered by
+/// a box beside it.
+const SPEED_TAPE_TOP: f32 = 25.0;
 const PX_PER_FT: f32 = 1.2;
 const CENTER_Y: f32 = 180.0;
 
@@ -27,14 +32,20 @@ pub fn speed_tape(
 ) -> Result<(), SceneError> {
     let ias = data.ias_kt;
     scene.fill_color(palette::TAPE_BG)?;
-    scene.rect(PaintMode::Fill, 0.0, 0.0, 90.0, 335.0)?;
+    scene.rect(
+        PaintMode::Fill,
+        0.0,
+        SPEED_TAPE_TOP,
+        90.0,
+        335.0 - SPEED_TAPE_TOP,
+    )?;
 
     if ias.status.shows_value() {
         if let Some(v) = v {
             speed_bands(scene, ias.value, v)?;
         }
         scene.save()?;
-        scene.clip_rect(0.0, 0.0, 90.0, 335.0)?;
+        scene.clip_rect(0.0, SPEED_TAPE_TOP, 90.0, 335.0 - SPEED_TAPE_TOP)?;
         scene.stroke(palette::WHITE, 2.0)?;
         scene.fill_color(palette::WHITE)?;
         let lo = (((ias.value - 26.0) / 5.0) as i32).max(0);
@@ -105,12 +116,28 @@ fn tas_box(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneErr
         0.0,
         0.0,
         90.0,
-        25.0,
+        SPEED_TAPE_TOP,
         tas_text.as_str(),
         palette::WHITE,
-        16.0,
+        fitted_label_size(90.0, tas_text.as_str().chars().count(), 16.0),
         tas.status,
     )
+}
+
+/// Largest size, capped at `preferred`, whose nominal ink fits `width`.
+///
+/// A centered label in a box of fixed width overflows on both sides once
+/// its ink outstrips the box, and the frame edge is one of those sides:
+/// `TAS 113kt` at 16 units carries 121 units of ink into a 90-unit box,
+/// so the leading glyph paints off the panel entirely. The size follows
+/// the value's width instead, which is what the pointed readouts already
+/// do (DISP-02).
+fn fitted_label_size(width: f32, chars: usize, preferred: f32) -> f32 {
+    let ink = nominal_text_ink_width(preferred, chars);
+    if ink <= width {
+        return preferred;
+    }
+    preferred * width / ink
 }
 
 fn speed_bands(scene: &mut SceneWriter<'_>, ias: f32, v: &VSpeeds) -> Result<(), SceneError> {
@@ -135,7 +162,7 @@ fn band_rect(
     w: f32,
     color: Rgba8,
 ) -> Result<(), SceneError> {
-    let y_top = (CENTER_Y - (hi_kt - ias) * PX_PER_KT).max(0.0);
+    let y_top = (CENTER_Y - (hi_kt - ias) * PX_PER_KT).max(SPEED_TAPE_TOP);
     let y_bot = (CENTER_Y - (lo_kt - ias) * PX_PER_KT).min(335.0);
     if y_bot > y_top {
         scene.fill_color(color)?;

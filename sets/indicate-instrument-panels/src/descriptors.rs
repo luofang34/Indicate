@@ -198,7 +198,7 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     // (REN-03).
     raster_baselines: &[(
         BUILTIN_FRAME,
-        "7b867adb2ce1c94e26f3c83dc2ba59c4fe8c9ed12b43cd5ecdc72057ec1391d3",
+        "411ef00fcbd4bb1c53f4e17effa67b9eb69f4fb19d1b80d2576336d12094834c",
     )],
     draw: draw_pfd_panel,
 };
@@ -375,7 +375,7 @@ pub const BUILTIN_SET: PanelSet = PanelSet {
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "bd680a5f2f936b641ee0342abb0a6fb4b6d88cf0034b72d1eba1acce935e5de8";
+    "add8e694ff3e9ee2321f63f40e3f590d26dac5f6ddb9eec00ec876c7cac7573c";
 
 /// The measured criticality bands of [`BUILTIN_PANELS`], pinned beside
 /// the raster baselines: the union `Annunciation`/`Failure` ink bound

@@ -112,8 +112,9 @@ fn duplicate_and_descending_tags_are_non_canonical() {
 
 #[test]
 fn a_known_group_below_its_minimum_length_fails_that_group() {
-    // Twelve bytes was the Air minimum before the #52 `tas_mps` append;
-    // the pre-append shape is now below the minimum and fails closed.
+    // Twelve bytes is one f32 short of the Air minimum, so a producer
+    // that stamps the new version without writing the longer payload
+    // fails closed rather than decoding a short group.
     let mut frame = std::vec![VERSION, 1, 0x03, 12, 0];
     frame.extend_from_slice(&[0u8; 12]);
     assert_eq!(
@@ -146,7 +147,7 @@ fn unknown_tags_are_counted_skips_between_known_groups() {
 
 #[test]
 fn air_decodes_tas_appended_after_the_trailing_age() {
-    // The #52 layout: `age_ms` keeps offset 8 and `tas_mps` is the new
+    // The Air layout: `age_ms` keeps offset 8 and `tas_mps` is the
     // tail at offset 12; the 16-byte payload is the minimum, not a tail.
     let mut air = [0u8; 16];
     air[0..4].copy_from_slice(&48.0f32.to_le_bytes());
@@ -164,7 +165,7 @@ fn air_decodes_tas_appended_after_the_trailing_age() {
 
 #[test]
 fn an_appended_payload_tail_is_accepted_and_counted() {
-    // A decoder from before the next append sees a longer Air payload:
+    // A decoder that predates a further append sees a longer payload:
     // the tail past `tas_mps` is ignored and counted.
     let mut air = [0u8; 20];
     air[0..4].copy_from_slice(&48.0f32.to_le_bytes());

@@ -48,18 +48,19 @@ values so `git show <tag>` answers the question without a checkout.
 The state ABI moves to v8. The bump is the coordination point for the
 allocation batch that issue #58 directs. Six issues need wire changes:
 #50, #51, #52, #53, #54 with the #55 follow-on, and #57. One coordinated
-revision carries all the agreed layouts. v8 itself changes no wire
-layout. Every payload is byte-identical to v7. Only the version byte
-moves. Each allocation lands as its own change stacked on this release.
-The registry table in `group_id.rs` records the agreed allocations and
-is the layout contract for the batch.
+revision carries all the agreed layouts. Each allocation lands as its
+own change onto this version before it is released, so the number names
+exactly one wire format. The registry table in `group_id.rs` records the
+agreed allocations and is the layout contract for the batch.
+
+This release carries the first of them: true airspeed on the Air group.
 
 | Value | This release |
 |---|---|
 | State ABI | 8 |
 | Scene format | 1 |
 | Corpus | 4 |
-| Composition digest | `bd680a5f2f936b641ee0342abb0a6fb4b6d88cf0034b72d1eba1acce935e5de8` |
+| Composition digest | `add8e694ff3e9ee2321f63f40e3f590d26dac5f6ddb9eec00ec876c7cac7573c` |
 | Panel set | `pfd`, `hsi`, `monitor` |
 
 Panel set changed since the previous release: no.
@@ -67,10 +68,12 @@ Panel set changed since the previous release: no.
 ### State ABI v8 ([#58](https://github.com/luofang34/Indicate/issues/58))
 
 - **v8 replaces v7.** `abi::v7` is gone rather than kept alongside. The
-  golden frames are now `state-abi-v8.*.hex`. Each frame is
-  byte-identical to its v7 frame except for the version byte.
-- **The batch allocates four group ids and three field appends. v8
-  implements none of them.** The ids are 0x12 BearingPointers (stamped,
+  golden frames are now `state-abi-v8.*.hex`.
+- **The Air group grows from 12 bytes to 16.** `tas_mps` follows the
+  trailing `age_ms`, NaN-absent like the altimeter setting beside it.
+  Its minimum length rises with it.
+- **The batch allocates four group ids and three field appends. This
+  release implements the Air append only.** The ids are 0x12 BearingPointers (stamped,
   [#53](https://github.com/luofang34/Indicate/issues/53)), 0x13
   AirframeConfig (stamped,
   [#57](https://github.com/luofang34/Indicate/issues/57)), 0x14 ApModes
@@ -94,14 +97,22 @@ Panel set changed since the previous release: no.
 
 ### Notes for anyone re-pinning
 
-- **Both digests moved and no paint did.** The composition digest hashes
-  the ABI version byte. The screen-composition digest hashes the
-  composition digest beneath it. So `f82d9056…` and `367ce939…` move to
-  `f814183b…` and `0913de5a…` on the version byte alone. The three
-  REN-03 raster baselines, the criticality bands, the glyph pack, and
-  the corpus are byte-identical.
-- A state writer that emits v7 frames must stamp version byte 8. No
-  other byte changes.
+- **Both digests moved, and so did the paint.** The composition digest
+  hashes the ABI version byte, and the screen-composition digest hashes
+  the composition digest beneath it, so both move on the version alone.
+  The PFD also gains a true-airspeed box at the head of its speed tape,
+  which moves its raster baseline and the three composed-frame hashes.
+- **A state writer must stamp version byte 8 AND write the longer Air
+  group.** A writer that changes only the version byte emits a 12-byte
+  Air payload, which is now below the group's minimum. The decoder
+  rejects the whole frame, not that group, so every panel blanks — the
+  failure looks like total signal loss rather than one short group. Emit
+  the 16-byte payload, with a NaN in the true-airspeed slot when the
+  source has none.
+- **The speed tape starts 25 units lower.** The true-airspeed box is
+  opaque and owns the strip above the tape, so the tape no longer paints
+  under it. The visible speed range above the pointer shrinks by about
+  3.5 kt.
 
 ## [0.4.0] — 2026-08-08
 

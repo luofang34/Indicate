@@ -1,7 +1,7 @@
 //! The shared canonical states every panel is exercised against
 //! (ADR-0033): the corpus behind the scene digest and the admission
 //! harness. Panels contribute their own stress fixtures through
-//! [`crate::ExtremeState`]; these four are the floor every panel meets.
+//! [`crate::ExtremeState`]; these are the floor every panel meets.
 
 use indicate_instrument_state::{
     AirData, AircraftState, AltitudeDeclaration, Attitude, DynSample, EstimateQuality,
