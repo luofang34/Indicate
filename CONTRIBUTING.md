@@ -137,6 +137,16 @@ the tag is what a human owes it.
   sources by content digest and its baseline by commit: editing a
   recorded source file requires re-recording that evidence, and history
   rewrites that orphan the baseline commit are forbidden.
+- **Merge a pull request that touches recorded evidence with a merge
+  commit, not a squash.** A squash replaces the commit the run was
+  produced against, and the gate then refuses the record as unreachable
+  — correctly, because a fresh clone cannot fetch it. Re-anchoring
+  afterwards works but leaves `main` red until someone notices, and this
+  repository has paid that eleven times. Anchoring the record at an
+  older commit that survives the squash is not the way out: the bound
+  sources still resolve there, so the gate passes while the record
+  claims a run against a tree that produces different counts. Green and
+  false is worse than red and true.
 - Panels are authored against the frame range their descriptor declares
   and receive the chosen frame as a draw argument; unclipped ink past
   that frame's edge is counted and ratcheted per frame by the admission
