@@ -111,12 +111,15 @@ Panel set changed since the previous release: no.
   refuses the whole frame rather than that group — every panel blanks
   at once. Write 20 bytes, with a NaN in the trend slot when the source
   measures none.
-- **The PFD gains a trend bar** beside the airspeed tape, so its raster
-  baseline and the composed-frame hashes move. A new pinned state,
-  level-accelerating, is the first case that is not decluttered: every
-  shared canonical state sits at an unusual attitude, so the speed
-  bands, the turn cue and the trend bar had no pinned coverage at all
-  until now.
+- **The PFD gains a trend bar** beside the airspeed tape. The
+  composition digest and the screen-composition digest move with it. The
+  raster baselines do not: each is pinned over the typical state, whose
+  attitude is unusual, so the bar is decluttered out of them.
+- **A new pinned state, level-accelerating, draws the trend bar and the
+  turn cue.** Every pinned state that resolved a flying attitude
+  resolved an unusual one, so neither cue had pinned coverage before.
+  The speed bands still have none: they need a configured `v_speeds`,
+  and every pinned path renders the empty configuration by design.
 
 ## [0.4.0] — 2026-08-08
 

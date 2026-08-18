@@ -27,9 +27,11 @@ fn builtin_panels_pass_admission() {
     // groundspeed and baro readouts, which the alert stack does not
     // touch: each overhangs on both sides of the alert axis.
     //
-    // The level-accelerating state adds its own pair: it is the one
-    // pinned case that is not decluttered, so it draws the same two
-    // boxes with the same wide values.
+    // Thirty per PFD state that paints both boxes with wide values, and
+    // sixteen for the source-unusable state, whose dashes are narrow.
+    // Declutter has nothing to do with it: neither box is on the
+    // priority table, so a new pinned state costs the same thirty
+    // whatever its attitude.
     assert_eq!(report.warnings.len(), 196);
     assert!(report.warnings.iter().all(|w| matches!(
         w,

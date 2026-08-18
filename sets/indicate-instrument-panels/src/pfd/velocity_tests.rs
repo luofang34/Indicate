@@ -222,3 +222,45 @@ fn an_absent_trend_draws_no_bar() {
     data.ias_kt = Sig::missing();
     assert!(!has_bar(&data), "no trend beside an unreadable airspeed");
 }
+
+/// The bar stops at the tape's ends. Past them its tip would point at a
+/// speed the tape is not showing, which is a reading nobody can check.
+#[test]
+fn the_trend_bar_stops_at_the_tape_ends() {
+    use indicate_instrument_scene::{Cmd, PaintMode, SceneCmds};
+    use indicate_instrument_state::{Sig, SignalStatus};
+
+    fn bar(data: &PanelData) -> Option<(f32, f32)> {
+        let scene = super::tests::render(data, &PfdConfig::default());
+        SceneCmds::new(&scene)
+            .expect("valid scene")
+            .map(|c| c.expect("valid command"))
+            .find_map(|c| match c {
+                Cmd::Rect {
+                    mode: PaintMode::Fill,
+                    x,
+                    y,
+                    w,
+                    h,
+                } if (x - 90.0).abs() < 1e-3 && (w - 4.0).abs() < 1e-3 => Some((y, h)),
+                _ => None,
+            })
+    }
+
+    let mut data = super::tests::flying();
+    // Far past the top of the tape: the tip parks at the tape's own end.
+    data.ias_trend_kt_s = Sig::with_status(500.0, SignalStatus::Valid);
+    let (y, h) = bar(&data).expect("a saturated climbing bar");
+    assert!(
+        (y - 0.0).abs() < 1e-3 && (h - 180.0).abs() < 1e-3,
+        "{y} {h}"
+    );
+
+    // And the same downward.
+    data.ias_trend_kt_s = Sig::with_status(-500.0, SignalStatus::Valid);
+    let (y, h) = bar(&data).expect("a saturated falling bar");
+    assert!(
+        (y - 180.0).abs() < 1e-3 && (h - 155.0).abs() < 1e-3,
+        "{y} {h}"
+    );
+}

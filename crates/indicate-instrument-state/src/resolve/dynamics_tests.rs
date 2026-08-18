@@ -142,3 +142,31 @@ fn non_finite_dynamics_fail_with_typed_reason() {
         Some(crate::validate::GroupFault::NonFinite)
     );
 }
+
+/// Trust bit 9 gates the trend in both directions: a source that
+/// supplies a rate without declaring it valid gets no trend, and one
+/// that declares it gets the rate it supplied.
+#[test]
+fn the_trust_bit_gates_the_airspeed_trend_both_ways() {
+    let mut state = with_dynamics(heading_turn(0.05), Some(-0.2));
+    if let Some(dynamics) = state.dynamics.data.as_mut() {
+        dynamics.ias_trend_mps2 = Some(1.0);
+    }
+
+    state.valid.ias_trend = false;
+    let data = resolve(&state, &FreshnessPolicy::default());
+    assert!(
+        !data.ias_trend_kt_s.status.shows_value(),
+        "an undeclared rate shows no trend: {:?}",
+        data.ias_trend_kt_s.status
+    );
+
+    state.valid.ias_trend = true;
+    let data = resolve(&state, &FreshnessPolicy::default());
+    assert_eq!(data.ias_trend_kt_s.status, SignalStatus::Valid);
+    assert!(
+        (data.ias_trend_kt_s.value - 1.0 * crate::units::MPS_TO_KT).abs() < 1e-3,
+        "the declared rate reaches the panel: {:?}",
+        data.ias_trend_kt_s.value
+    );
+}

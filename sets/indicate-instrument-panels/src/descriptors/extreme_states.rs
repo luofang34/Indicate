@@ -28,8 +28,6 @@ pub(super) fn pfd_unusual_inverted() -> AircraftState {
                 basis: TurnBasis::HeadingRate,
             }),
             lateral_mps2: 3.5.into(),
-            // A hard deceleration, so the trend cue is at its stop in
-            // the same frame the turn and slip cues are at theirs.
             ias_trend_mps2: Some(-4.0),
         }),
         age_ms: Some(40.0),
@@ -37,15 +35,17 @@ pub(super) fn pfd_unusual_inverted() -> AircraftState {
     state
 }
 
-/// Wide and negative readout values — the DISP-02 fit cases ("10300",
-/// "-1030"-class) — plus the heading on the 360/0 wrap.
-/// Level flight, accelerating: the one state that paints the cues the
+/// Level flight, accelerating: the pinned case that paints the cues the
 /// unusual-attitude tier removes.
 ///
-/// Every shared canonical state sits at an unusual attitude, so the
-/// speed bands, the turn cue and the trend bar are decluttered out of
-/// all of them — no pinned case covered that half of the priority table
-/// until this one.
+/// Every pinned state that resolves a flying attitude resolves an
+/// unusual one, so the turn cue and the trend bar were decluttered out
+/// of all of them and no pinned case drew either. This one is level, and
+/// declares turn, slip and trend valid, so it draws both.
+///
+/// It does not draw the speed bands. Those need `v_speeds`, and every
+/// pinned path renders the empty configuration by design, so the bands
+/// have no pinned coverage for a reason this state cannot fix.
 pub(super) fn pfd_level_accelerating() -> AircraftState {
     let mut state = states::typical();
     state.attitude = Stamped {
@@ -82,6 +82,8 @@ pub(super) fn pfd_level_accelerating() -> AircraftState {
     state
 }
 
+/// Wide and negative readout values — the DISP-02 fit cases ("10300",
+/// "-1030"-class) — plus the heading on the 360/0 wrap.
 pub(super) fn pfd_readout_extremes() -> AircraftState {
     let mut state = states::typical();
     state.air = Stamped {
