@@ -214,7 +214,7 @@ pub enum SnapshotCoherence {
     Unknown,
 }
 
-/// Metadata assigned by the ingress gate to one immutable state generation.
+/// Metadata a source assigns to one immutable state snapshot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SnapshotMeta {
     /// Wrapping generation: one step per snapshot a source produces,
