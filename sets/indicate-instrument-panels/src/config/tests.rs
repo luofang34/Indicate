@@ -109,13 +109,13 @@ fn a_selected_detent_does_not_move_the_sensed_pointer() {
     );
 }
 
-/// A group whose sample is too old draws no numerals. `Missing` and
-/// `Stale` are different situations and the existing dash tests cannot
+/// A group old enough to have failed draws no numerals. `Missing` and
+/// `Failed` are different situations and the dash tests above cannot
 /// tell them apart, because withholding a group zeroes its data: only
 /// a state that carries a value AND a status that refuses it proves the
 /// gate is on the status rather than on the value.
 #[test]
-fn a_stale_group_draws_no_numerals_even_though_it_carries_values() {
+fn a_failed_group_draws_no_numerals_even_though_it_carries_values() {
     let stale = panel(
         Some(AirframeConfig {
             flap_ratio: Some(0.5),
@@ -139,6 +139,36 @@ fn a_stale_group_draws_no_numerals_even_though_it_carries_values() {
         t.iter().filter(|s| *s == "---").count(),
         2,
         "both scales dash: {t:?}"
+    );
+}
+
+/// A stale group is the other half, and it reads differently on
+/// purpose: the readings stay visible under a flag, because a
+/// configuration that stopped updating is still the last configuration
+/// the airframe was in. Removing the readings would be a bigger claim
+/// than the staleness supports.
+#[test]
+fn a_stale_group_keeps_its_readings_under_a_flag() {
+    let stale = panel(
+        Some(AirframeConfig {
+            flap_ratio: Some(0.5),
+            flap_selected_ratio: None,
+            elevator_trim_ratio: Some(-0.2),
+            aileron_trim_ratio: None,
+            rudder_trim_ratio: None,
+        }),
+        Some(1_000.0),
+    );
+    assert_eq!(
+        stale.airframe.status,
+        indicate_instrument_state::SignalStatus::Stale,
+        "the fixture must actually be stale, not failed"
+    );
+    let t = texts(&stale);
+    assert!(t.iter().any(|s| s == "50"), "the reading stays: {t:?}");
+    assert!(
+        t.iter().any(|s| s == "CFG"),
+        "and it wears the flag that says how old it is: {t:?}"
     );
 }
 
