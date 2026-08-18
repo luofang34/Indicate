@@ -45,7 +45,7 @@
 //!
 //! | id | group | lane | reason |
 //! |----|-------|------|--------|
-//! | 0x12 | BearingPointers | stamped | Two pointers. Per pointer: a source enum (None/Nav1/Nav2/Gps, 255 fail-closed Unknown), bearing rad f32, a heading reference, and a per-pointer validity. |
+//! | 0x12 | BearingPointers | stamped | Two pointers. Per pointer: a source enum in the shipped `NavSource` coding (0 None, 1 Gps, 2 Nav1, 3 Nav2, 255 fail-closed Unknown), bearing rad f32, a heading reference, and a per-pointer validity. |
 //! | 0x13 | AirframeConfig | stamped | Flap position ratio plus an optional selected detent (sensed and selected are never conflated), and per-axis trim ratios (elevator first). Every field is optional and NaN-absent. Configuration takes its own id: flap and trim are airframe configuration, not engine, so 0x0E keeps its engine charter. |
 //! | 0x14 | ApModes | stamped | Engagement (Off/FD/AP, Unknown fail-closed), active and armed lateral mode, active and armed vertical mode. Each mode enum has a None value distinct from Unknown. Stamped because a stale "AP engaged" annunciation is the failure the freshness discipline exists to prevent (the `fc_state.rs` precedent). |
 //! | 0x15 | ApTargets | declared | Selected airspeed m/s, selected vertical speed m/s, and an altitude target with the same reference-identity trio as `altitude_sel` (class, origin, geoid model). Declared per the issue's stamped-versus-declared analysis: the targets are defensibly UI-like state, while modes and engagement are telemetry. |

@@ -45,8 +45,10 @@
 //! comparing its pins against the manifest would see agreement while
 //! every frame it emits was rejected.
 //!
-//! Landed so far: the Air group carries `tas_mps` after its trailing
-//! `age_ms`, so its minimum payload is 16 bytes.
+//! The allocation table in [`crate::group_id`] names which groups and
+//! appends this revision carries; `min_len` below is what the decoder
+//! actually enforces, and the two are checked against each other by the
+//! golden frames rather than by prose here.
 
 use crate::aircraft::AircraftState;
 use crate::group_id::GroupId;
@@ -292,6 +294,8 @@ pub(super) fn put_u32(payload: &mut [u8], off: usize, value: u32) {
     }
 }
 
+#[cfg(test)]
+mod bearing_tests;
 #[cfg(test)]
 mod fixture_tests;
 #[cfg(test)]
