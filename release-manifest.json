@@ -18,7 +18,7 @@
       { "panel": "hsi", "x": 480, "y": 0, "width": 480, "height": 360 },
       { "panel": "monitor", "x": 0, "y": 360, "width": 480, "height": 360 }
     ],
-    "digest": "59d8086a22270660bfe841ec96a5f127eef2f1e9cfe4e9d7f89aa552eafefd8c"
+    "digest": "7a7a3331f1bb7f4fa4a5e64f76a9cc59ed8593b3baabfc7a3e259cb1f70a13cd"
   },
   "rasterBaselines": [
     { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "sha256": "411ef00fcbd4bb1c53f4e17effa67b9eb69f4fb19d1b80d2576336d12094834c" },
