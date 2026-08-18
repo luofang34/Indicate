@@ -48,9 +48,11 @@ values so `git show <tag>` answers the question without a checkout.
 The state ABI moves to v8. The bump is the coordination point for the
 allocation batch that issue #58 directs. Six issues need wire changes:
 #50, #51, #52, #53, #54 with the #55 follow-on, and #57. One coordinated
-revision carries all the agreed layouts. v8 itself changes no wire
-layout. Every payload is byte-identical to v7. Only the version byte
-moves. Each allocation lands as its own change stacked on this release.
+revision carries all the agreed layouts. Each allocation lands as its
+own change onto this version before it is released, so the number names
+exactly one wire format.
+
+This release carries the airspeed trend on the Dynamics group.
 The registry table in `group_id.rs` records the agreed allocations and
 is the layout contract for the batch.
 
@@ -59,7 +61,7 @@ is the layout contract for the batch.
 | State ABI | 8 |
 | Scene format | 1 |
 | Corpus | 4 |
-| Composition digest | `f814183b31aef360455cb91c627fd59597a5e0463747b5f83aa613e6b500f79f` |
+| Composition digest | `cdb6a8f950637d1ccf34cacc02483dc3b60b75925f5e1a6e705ba367a0200ae2` |
 | Panel set | `pfd`, `hsi`, `monitor` |
 
 Panel set changed since the previous release: no.
@@ -67,10 +69,13 @@ Panel set changed since the previous release: no.
 ### State ABI v8 ([#58](https://github.com/luofang34/Indicate/issues/58))
 
 - **v8 replaces v7.** `abi::v7` is gone rather than kept alongside. The
-  golden frames are now `state-abi-v8.*.hex`. Each frame is
-  byte-identical to its v7 frame except for the version byte.
-- **The batch allocates four group ids and three field appends. v8
-  implements none of them.** The ids are 0x12 BearingPointers (stamped,
+  golden frames are now `state-abi-v8.*.hex`.
+- **The Dynamics group grows from 16 bytes to 20.** `ias_trend` follows
+  the trailing `age_ms`, NaN-absent, and Trust valid bit 9 declares it.
+  The group's minimum length rises with it, so a producer that stamps
+  version 8 and keeps writing 16 bytes has the whole frame refused.
+- **The batch allocates four group ids and three field appends. This
+  release implements the Dynamics append.** The ids are 0x12 BearingPointers (stamped,
   [#53](https://github.com/luofang34/Indicate/issues/53)), 0x13
   AirframeConfig (stamped,
   [#57](https://github.com/luofang34/Indicate/issues/57)), 0x14 ApModes
@@ -100,8 +105,18 @@ Panel set changed since the previous release: no.
   `f814183b…` and `0913de5a…` on the version byte alone. The three
   REN-03 raster baselines, the criticality bands, the glyph pack, and
   the corpus are byte-identical.
-- A state writer that emits v7 frames must stamp version byte 8. No
-  other byte changes.
+- **A state writer must stamp version byte 8 AND write the longer
+  Dynamics group.** Changing only the version byte emits a 16-byte
+  payload, which is below the group's new minimum, and the decoder
+  refuses the whole frame rather than that group — every panel blanks
+  at once. Write 20 bytes, with a NaN in the trend slot when the source
+  measures none.
+- **The PFD gains a trend bar** beside the airspeed tape, so its raster
+  baseline and the composed-frame hashes move. A new pinned state,
+  level-accelerating, is the first case that is not decluttered: every
+  shared canonical state sits at an unusual attitude, so the speed
+  bands, the turn cue and the trend bar had no pinned coverage at all
+  until now.
 
 ## [0.4.0] — 2026-08-08
 

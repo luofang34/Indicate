@@ -83,6 +83,10 @@ pub struct PanelData {
     /// Lateral specific force (m/s², body +Y right) for the slip/skid
     /// ball; missing stays missing, never synthesized centered.
     pub slip_lat_mps2: Sig<f32>,
+    /// Rate of change of indicated airspeed, knots per second. The
+    /// trend cue reads it directly; the display never differences its
+    /// own frames for it.
+    pub ias_trend_kt_s: Sig<f32>,
     /// Indicated airspeed, knots.
     pub ias_kt: Sig<f32>,
     /// Groundspeed, knots.
@@ -255,6 +259,7 @@ pub fn resolve_stateful(
         heading_bug_rose_rad: finite(bug),
         turn: turn_resolved(state, policy, &trust, &integrity),
         slip_lat_mps2: slip_resolved(state, policy, &trust, &integrity),
+        ias_trend_kt_s: ias_trend_resolved(state, policy, &trust, &integrity),
         ias_kt: finite(ias),
         gs_kt: finite(kin.gs_kt),
         altitude: altitude_resolved(
@@ -454,7 +459,7 @@ mod dynamics_signal;
 mod group_status;
 mod kinematics_signal;
 use altitude_signal::altitude_resolved;
-use dynamics_signal::{slip_resolved, turn_resolved};
+use dynamics_signal::{ias_trend_resolved, slip_resolved, turn_resolved};
 use kinematics_signal::kinematic_signals;
 mod heading_signal;
 pub use heading_signal::{ResolvedHeading, RoseBasis};

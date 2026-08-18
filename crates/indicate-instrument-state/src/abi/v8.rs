@@ -113,7 +113,7 @@ const fn min_len(id: GroupId) -> usize {
         GroupId::Altitude => 12,
         GroupId::Heading => 12,
         GroupId::Variation => 12,
-        GroupId::Dynamics => 16,
+        GroupId::Dynamics => 20,
         GroupId::MonitorText => monitor::MONITOR_LEN,
         GroupId::FlightDirector => 16,
     }

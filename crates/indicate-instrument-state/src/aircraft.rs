@@ -179,6 +179,8 @@ pub struct ValidFlags {
     pub turn: bool,
     /// The lateral-force (slip/skid) sample is declared valid.
     pub slip: bool,
+    /// The airspeed-trend sample is declared valid.
+    pub ias_trend: bool,
 }
 
 /// One estimate group with the age a feeder stamped it with.

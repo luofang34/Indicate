@@ -15,6 +15,7 @@ fn with_dynamics(turn: Option<TurnSample>, lateral: Option<f32>) -> AircraftStat
     state.dynamics = Stamped {
         data: Some(DynSample {
             turn,
+            ias_trend_mps2: None,
             lateral_mps2: lateral,
         }),
         age_ms: Some(20.0),

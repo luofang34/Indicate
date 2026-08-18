@@ -23,6 +23,7 @@ pub fn speed_tape(
     scene: &mut SceneWriter<'_>,
     data: &PanelData,
     v: Option<&VSpeeds>,
+    declutter: bool,
 ) -> Result<(), SceneError> {
     let ias = data.ias_kt;
     scene.fill_color(palette::TAPE_BG)?;
@@ -70,6 +71,10 @@ pub fn speed_tape(
         &IAS_READOUT,
     )?;
 
+    if !declutter {
+        trend_bar(scene, data)?;
+    }
+
     // Groundspeed box under the tape.
     let gs = data.gs_kt;
     let gs_text = fmt_label!(12, "GS {:.0}kt", gs.value);
@@ -85,6 +90,41 @@ pub fn speed_tape(
         16.0,
         gs.status,
     )?;
+    Ok(())
+}
+
+/// How far ahead the trend cue reads, in seconds. The bar marks where
+/// the airspeed will be if the current rate holds, so the look-ahead is
+/// the whole meaning of its length and belongs beside it.
+const TREND_LOOK_AHEAD_S: f32 = 6.0;
+
+/// The airspeed trend bar, just outside the tape's inner edge: from the
+/// pointer line to where the airspeed will be after
+/// [`TREND_LOOK_AHEAD_S`] at the current rate.
+///
+/// Drawn only when the tape itself is showing a value — a trend beside
+/// dashes marks a change in a number the pilot cannot read. An absent
+/// rate draws nothing at all, because a zero-length bar would claim the
+/// airspeed is steady, which is a different statement from not knowing.
+fn trend_bar(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneError> {
+    let trend = data.ias_trend_kt_s;
+    if !trend.status.shows_value() || !data.ias_kt.status.shows_value() {
+        return Ok(());
+    }
+    let reach = trend.value * TREND_LOOK_AHEAD_S * PX_PER_KT;
+    // The tip stops at the tape's ends: past them the bar would point at
+    // a speed the tape is not showing.
+    let tip = (CENTER_Y - reach).clamp(0.0, 335.0);
+    let (top, height) = if tip < CENTER_Y {
+        (tip, CENTER_Y - tip)
+    } else {
+        (CENTER_Y, tip - CENTER_Y)
+    };
+    if height <= 0.0 {
+        return Ok(());
+    }
+    scene.fill_color(palette::MAGENTA)?;
+    scene.rect(PaintMode::Fill, 90.0, top, 4.0, height)?;
     Ok(())
 }
 

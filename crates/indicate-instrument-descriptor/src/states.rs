@@ -146,6 +146,7 @@ fn typical_dynamics() -> Stamped<DynSample> {
                 basis: TurnBasis::HeadingRate,
             }),
             lateral_mps2: Some(-0.6),
+            ias_trend_mps2: Some(0.4),
         }),
         age_ms: Some(80.0),
     }
@@ -191,6 +192,7 @@ pub fn fully_fed() -> AircraftState {
         variation: true,
         turn: true,
         slip: true,
+        ias_trend: true,
     };
     state.monitor_text = Stamped {
         data: Some(monitor(7, &["ENG 1 OK", "FUEL 82.5"])),
