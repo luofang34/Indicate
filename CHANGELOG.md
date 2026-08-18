@@ -46,19 +46,19 @@ values so `git show <tag>` answers the question without a checkout.
 ## [0.5.0] — 2026-08-18
 
 The altitude readout becomes a rolling-digit drum. The final digit pair
-steps in 20 ft faces and scrolls through a clipped window. The hundreds
-column rolls with the pair across its 80-to-00 boundary. The readout
-thus shows vertical rate by itself, which a value rounded to 10 ft
-cannot do. Each column position is a function of the altitude value
-only, never of a clock, so all backends put the digits in the same
-place.
+steps in 20 ft faces. Each face scrolls through a window that clips it.
+Everything above the pair rolls with it across the 80-to-00 boundary.
+The readout therefore shows vertical rate by itself, which a value
+rounded to 10 ft cannot do. Each position is a function of the altitude
+value only, never of a clock. All backends thus put the digits in the
+same place.
 
 | Value | This release |
 |---|---|
 | State ABI | 7 |
 | Scene format | 1 |
 | Corpus | 5 |
-| Composition digest | `f479a03eecfc51fa73122cc75e50d1245511eb04d81f807a6df425c45ad3990f` |
+| Composition digest | `34d1d7fe1a8118411a0dd5fbe8deced7ed0814c8ce778afc38c97602bc7ec43b` |
 | Panel set | `pfd`, `hsi`, `monitor` |
 
 Panel set changed since the previous release: no.
@@ -66,24 +66,27 @@ Panel set changed since the previous release: no.
 ### Rolling-digit altitude readout ([#56](https://github.com/luofang34/Indicate/issues/56))
 
 - **The PFD emits more text runs for one altitude value.** The readout
-  interior is a fixed prefix run, an optional hundreds column, and the
-  digit pair. Each rolling column paints through its own clip window.
-  A backend must apply `clip_rect`, or the faces above and below the
-  text line become visible.
+  interior is a sign, the number above the final pair, and the pair
+  itself. Each rolling column paints through its own clip window. A
+  backend must apply `clip_rect`. If it does not, the faces above and
+  below the text line become visible.
+- **The number above the pair rolls as one.** Every digit that changes
+  at a boundary changes together. A carry that stopped at the hundreds
+  would make the last 20 ft below each thousand read a thousand low.
 - **The composition digest moves**, because the PFD emits different
   bytes for the same state. The PFD raster baseline, the
   screen-composition digest, and the three composed-frame hashes move
   for the same reason.
 - **The corpus moves to version 5.** Two entries pin a mid-roll value
-  and a negative cascade. Each pinned consumer goes red at its next pin
-  advance, which is the synchronization working.
+  and a negative cascade. Each pinned consumer fails at its next pin
+  advance. That failure is the synchronization mechanism.
 
 ### Notes for anyone re-pinning
 
 - The digits shrink to fit the box. The drum fits the full advance row,
   not only the ink, because each column's clip window must stay inside
-  the box body. A wide value, such as -99,990 ft, thus renders one step
-  smaller than before.
+  the box body. A wide value, such as -99,990 ft, therefore renders one
+  step smaller than before.
 - No state ABI, scene format, or panel-set value changes. A consumer
   that does not compare frame bytes needs no change.
 

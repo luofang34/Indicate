@@ -64,13 +64,16 @@ fn runs(scene: &[u8]) -> Vec<Run> {
     out
 }
 
-/// Runs anchored inside the altitude readout's column row: right of
-/// the scale ladder's x, within one pitch of the text line either way
-/// so mid-roll runs are caught.
+/// Runs anchored inside the altitude readout's column row: right of the
+/// scale ladder, within one pitch of the text line either way so
+/// mid-roll runs are caught. The bound is the box body's left edge, not
+/// the row's — a wide value starts its row at the body edge, and a
+/// tighter bound would silently drop the leading column from every
+/// value that needs one.
 fn readout_runs(scene: &[u8]) -> Vec<Run> {
     runs(scene)
         .into_iter()
-        .filter(|r| r.x > 412.0 && (TEXT_Y - 40.0..=TEXT_Y + 40.0).contains(&r.y))
+        .filter(|r| r.x >= 405.0 && (TEXT_Y - 40.0..=TEXT_Y + 40.0).contains(&r.y))
         .collect()
 }
 
@@ -90,8 +93,8 @@ fn the_drum_is_a_pure_function_of_the_value() {
             "pair fraction of {v}: {d:?}"
         );
         assert!(
-            (0.0..1.0).contains(&d.hundreds_roll),
-            "hundreds roll of {v}: {d:?}"
+            (0.0..=1.0).contains(&d.upper_roll),
+            "upper roll of {v}: {d:?}"
         );
         let m = drum_of(-v);
         let magnitude_only = Drum {
@@ -111,24 +114,22 @@ fn mid_roll_values_decompose_to_half_scrolled_faces() {
     // scrolled toward 20, hundreds parked. (f32 division lands a
     // hair under the exact half; the paint is the same either way.)
     let d = drum_of(1010.0);
-    assert_eq!(d.leading, 1);
-    assert_eq!((d.hundreds, d.hundreds_roll), (0, 0.0));
+    assert_eq!((d.upper, d.upper_roll), (10, 0.0));
     assert_eq!(d.pair, 0);
     assert!((d.pair_frac - 0.5).abs() < 1e-4, "{d:?}");
     // Midway through the 80→00 face: the hundreds column rolls in
     // lockstep, and the parked leading zero column appears to do it.
     let d = drum_of(90.0);
-    assert_eq!(d.leading, 0);
-    assert_eq!(d.hundreds, 0);
-    assert!((d.hundreds_roll - 0.5).abs() < 1e-4, "{d:?}");
-    assert!(d.hundreds_drawn);
+    assert_eq!(d.upper, 0);
+    assert!((d.upper_roll - 0.5).abs() < 1e-4, "{d:?}");
+    assert!(d.upper_drawn);
     assert_eq!(d.pair, 4);
     assert!((d.pair_frac - 0.5).abs() < 1e-4, "{d:?}");
     // The same mid-cascade below zero: identical columns behind a sign.
     let d = drum_of(-90.0);
     assert!(d.negative);
-    assert_eq!(d.hundreds, 0);
-    assert!((d.hundreds_roll - 0.5).abs() < 1e-4, "{d:?}");
+    assert_eq!(d.upper, 0);
+    assert!((d.upper_roll - 0.5).abs() < 1e-4, "{d:?}");
     assert_eq!(d.pair, 4);
     assert!((d.pair_frac - 0.5).abs() < 1e-4, "{d:?}");
 }
@@ -137,22 +138,20 @@ fn mid_roll_values_decompose_to_half_scrolled_faces() {
 fn face_boundaries_land_exactly() {
     // The 9→0 carry completes at the hundred: no roll, fresh faces.
     let d = drum_of(100.0);
-    assert_eq!((d.hundreds, d.hundreds_roll), (1, 0.0));
+    assert_eq!((d.upper, d.upper_roll), (1, 0.0));
     assert_eq!((d.pair, d.pair_frac), (0, 0.0));
     // Just under it, both columns are deep in the roll.
     let d = drum_of(999.0);
-    assert_eq!(d.leading, 0);
-    assert_eq!(d.hundreds, 9);
-    assert!((d.hundreds_roll - 0.95).abs() < 1e-4, "{d:?}");
+    assert_eq!(d.upper, 9);
+    assert!((d.upper_roll - 0.95).abs() < 1e-4, "{d:?}");
     assert_eq!(d.pair, 4);
     assert!((d.pair_frac - 0.95).abs() < 1e-4, "{d:?}");
     // … and the carry lands a leading digit at the thousand.
     let d = drum_of(1000.0);
-    assert_eq!(d.leading, 1);
-    assert_eq!((d.hundreds, d.hundreds_roll), (0, 0.0));
+    assert_eq!((d.upper, d.upper_roll), (10, 0.0));
     assert_eq!((d.pair, d.pair_frac), (0, 0.0));
     // A parked leading zero stays suppressed rather than reading "080".
-    assert!(!drum_of(80.0).hundreds_drawn);
+    assert!(!drum_of(80.0).upper_drawn);
 }
 
 #[test]
@@ -250,4 +249,43 @@ fn a_missing_altitude_still_paints_unclaimed_dashes() {
     assert_eq!(dashes.len(), 1, "dashes, not a drum: {readout:?}");
     assert_eq!(dashes[0].claim, None, "dashes stay unclaimed");
     assert_eq!(dashes[0].y, TEXT_Y);
+}
+
+/// The parked faces read the altitude, floored to a pair step, at every
+/// value. This is the invariant a static upper number breaks: it snaps
+/// at its own boundary while the pair rolls past it.
+#[test]
+fn the_parked_faces_read_the_value_floored_to_a_step() {
+    let mut ft = 0.0f32;
+    while ft <= 20_000.0 {
+        let d = drum_of(ft);
+        let parked = d.upper * 100 + (d.pair as i64) * 20;
+        let floored = (libm::floorf(ft / 20.0) as i64) * 20;
+        assert_eq!(parked, floored, "at {ft} ft: {d:?}");
+        ft += 3.5;
+    }
+}
+
+/// Completing a carry adds exactly one pair step to the reading. The
+/// upper column and the pair roll from the same fraction, so every
+/// digit that changes at a boundary changes together: 999 ft rolls
+/// toward 1000, never toward 0, which is what a per-column carry that
+/// stopped at the hundreds produced for the last twenty feet below
+/// every thousand.
+#[test]
+fn completing_a_carry_advances_the_reading_by_one_step() {
+    for ft in [99.0f32, 999.5, 1995.0, 9999.0, 99_999.0, 1999.9] {
+        let d = drum_of(ft);
+        assert_eq!(d.pair, 4, "{ft} ft is on the pair's last face: {d:?}");
+        assert!(d.upper_roll > 0.0, "{ft} ft is carrying: {d:?}");
+        assert!(
+            (d.upper_roll - d.pair_frac).abs() < 1e-3,
+            "the upper column and the pair roll together: {d:?}"
+        );
+        let parked = d.upper * 100 + (d.pair as i64) * 20;
+        // The incoming faces: the upper number's successor over a pair
+        // wrapped to 00.
+        let incoming = (d.upper + 1) * 100;
+        assert_eq!(incoming, parked + 20, "at {ft} ft: {d:?}");
+    }
 }

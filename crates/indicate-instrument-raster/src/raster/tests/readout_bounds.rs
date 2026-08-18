@@ -11,10 +11,10 @@
 //! text-metrics contract to those manifest metrics, so the panel-side
 //! fitting and the backend-side painting cannot diverge silently.
 //!
-//! The altitude readout's interior is a rolling-digit drum: its fixed
-//! prefix run is extent-checked like any other run, and every rolling
-//! column paints through a clip window that must itself sit inside the
-//! box body — the window is the containment proof for the digits behind
+//! The altitude readout's interior is a rolling-digit drum: its sign
+//! run is extent-checked like any other run, and every rolling column
+//! paints through a clip window that must itself sit inside the box
+//! body — the window is the containment proof for the digits behind
 //! it.
 
 use indicate_instrument_glyphs::{ADVANCE, CELL_H, CELL_W};
@@ -197,7 +197,11 @@ fn ink_extents(run: &Run) -> (f32, f32) {
     let ink_slack = (f32::from(ADVANCE) - CELL_W as f32) * scale;
     match run.anchor.h {
         HAlign::Left => (run.x, run.x + width - ink_slack),
-        _ => (run.x - width / 2.0, run.x + width / 2.0 - ink_slack),
+        HAlign::Center => (run.x - width / 2.0, run.x + width / 2.0 - ink_slack),
+        // A right-anchored readout run would measure as centered here
+        // and the containment proof would stop proving anything, so the
+        // arm is explicit rather than a catch-all.
+        HAlign::Right => (run.x - width, run.x - ink_slack),
     }
 }
 
@@ -280,16 +284,16 @@ fn readout_runs_stay_inside_their_boxes_across_the_value_range() {
 
 #[test]
 fn the_defect_value_renders_all_its_digits() {
-    // 1,030 ft: the drum must carry every digit — prefix "1", hundreds
-    // "0", pair mid-roll on "20" — shrinking is legal, truncating or
-    // clipping away a digit is not.
+    // 1,030 ft: the drum must carry every digit — upper "10", pair
+    // mid-roll on "20" — shrinking is legal, truncating or clipping
+    // away a digit is not.
     let scene = pfd_scene(1_030.0, 78.0);
     let found = readouts(&scene);
     let alt = found
         .iter()
         .find(|r| r.body_left > 300.0)
         .expect("altitude readout");
-    for digit in ["1", "0", "20"] {
+    for digit in ["10", "20"] {
         assert!(
             alt.runs.iter().any(|run| run.text == digit),
             "the drum lost '{digit}': {:?}",
