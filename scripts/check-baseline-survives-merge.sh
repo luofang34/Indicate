@@ -41,19 +41,29 @@ if ! git rev-parse --verify --quiet "$base" >/dev/null; then
     exit 1
 fi
 
-digests="$(sed -n 's/^attr config-digest \([0-9a-f]\{40\}\)$/\1/p' "$graph" | sort -u)" || {
+# Every form the gate accepts must be parsed here, or the guardrail is
+# narrower than the thing it guards and skips the difference in silence.
+# The gate hands the attribute to git after a trim, and git resolves
+# abbreviated and upper-case object ids, so this does too.
+digests="$(sed -n 's/^attr config-digest *\([0-9a-fA-F]\{7,40\}\) *$/\1/p' "$graph" | sort -u)" || {
     echo "UNCHECKED: could not read baselines from $graph" >&2
     exit 1
 }
 
+# Distinct declared values, so this compares like with like: a gap
+# between the two counts means the graph declares a baseline in a form
+# this script did not parse, which is the shape that fails open.
+declared="$(sed -n 's/^attr config-digest *//p' "$graph" | sed 's/ *$//' | sort -u | grep -c .)"
 if [ -z "$digests" ]; then
-    echo "UNCHECKED: $graph declares no baseline; a graph with none is not a clean graph" >&2
+    echo "UNCHECKED: $graph declares no baseline this script can parse" >&2
     exit 1
 fi
 
 branch_local=0
 unknown=0
+checked=0
 for digest in $digests; do
+    checked=$((checked + 1))
     if ! git cat-file -e "$digest^{commit}" 2>/dev/null; then
         echo "UNKNOWN: baseline $digest is not an object in this clone" >&2
         unknown=$((unknown + 1))
@@ -73,10 +83,29 @@ if [ "$unknown" -ne 0 ]; then
 fi
 
 if [ "$branch_local" -ne 0 ]; then
+    # A workflow annotation rather than only a log line: the stated
+    # purpose is to put the requirement on the pull request page at the
+    # moment someone picks a merge button, and a message inside a
+    # collapsed job log does not reach that page.
+    echo "::warning file=$graph::$branch_local baseline(s) would be orphaned by a squash or" \
+        "rebase merge; merge this pull request with a merge commit (see CONTRIBUTING.md)"
+    if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+        echo "**$branch_local baseline(s) would be orphaned by a squash or rebase merge.**" \
+            "Merge this pull request with a merge commit. See CONTRIBUTING.md." \
+            >> "$GITHUB_STEP_SUMMARY"
+    fi
     echo "check-baseline-survives-merge: $branch_local baseline(s) would be orphaned by a" >&2
     echo "squash or rebase merge. Merge this pull request with a merge commit." >&2
     echo "See CONTRIBUTING.md." >&2
     exit 1
 fi
 
-echo "check-baseline-survives-merge: every baseline is already on $base"
+# Says how many it placed, not that a clean result was reached: a count
+# a reader can compare against the graph is what distinguishes a check
+# that ran from a check that matched nothing.
+if [ "$checked" -ne "$declared" ]; then
+    echo "UNCHECKED: $graph declares $declared distinct baseline(s) but only $checked parsed" >&2
+    exit 1
+fi
+
+echo "check-baseline-survives-merge: all $checked declared baseline(s) are on $base"

@@ -74,6 +74,35 @@ INDICATE_EVIDENCE_GRAPH="$work/short.evg" expect 1 "a graph with no parsable bas
 # A graph that cannot be read at all.
 INDICATE_EVIDENCE_GRAPH="$work/absent.evg" expect 1 "an unreadable graph is refused"
 
+# Every form the gate accepts must be parsed here. The gate hands the
+# attribute to git after a trim, and git resolves abbreviated and
+# upper-case object ids, so a parser that took only 40 lowercase
+# characters would skip those in silence — and a graph mixing one form
+# it parses with one it does not would check the first and print the
+# all-clear.
+short_on_base="$(git rev-parse --short=12 "${INDICATE_MERGE_BASE:-origin/main}")"
+graph_with "$work/short-form.evg" "$short_on_base"
+INDICATE_EVIDENCE_GRAPH="$work/short-form.evg" expect 0 "an abbreviated baseline is placed, not skipped"
+
+upper_on_base="$(git rev-parse "${INDICATE_MERGE_BASE:-origin/main}" | tr 'a-f' 'A-F')"
+graph_with "$work/upper-form.evg" "$upper_on_base"
+INDICATE_EVIDENCE_GRAPH="$work/upper-form.evg" expect 0 "an upper-case baseline is placed, not skipped"
+
+# The mixed case is the one that fails open rather than closed: one form
+# parses and passes, so a narrower parser reports the all-clear while
+# never having looked at the other.
+{
+    echo "node RESULT-PROBE verification-result"
+    echo "attr config-digest $on_base"
+    echo "attr config-digest 0123456789ab"
+} > "$work/mixed.evg"
+INDICATE_EVIDENCE_GRAPH="$work/mixed.evg" expect 1 "a graph mixing a placeable and an unplaceable baseline is refused"
+
+# A trailing space is a form the gate accepts, because it trims.
+printf 'node RESULT-PROBE verification-result\nattr config-digest %s \n' "$on_base" \
+    > "$work/trailing.evg"
+INDICATE_EVIDENCE_GRAPH="$work/trailing.evg" expect 0 "a trailing space does not hide a baseline"
+
 # A base ref that is not fetched: nothing can be placed against it.
 INDICATE_EVIDENCE_GRAPH="$work/on-base.evg" INDICATE_MERGE_BASE="refs/heads/no-such-base" \
     expect 1 "an unfetched base is refused"

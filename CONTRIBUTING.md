@@ -39,6 +39,8 @@ cargo run --locked -q -p indicate-evidence --bin evidence-gate -- \
   --graph docs/instruments/evidence-graph.evg --repo-root . --require-resolvable
 bash scripts/check-recorded-counts.sh --selftest
 bash scripts/check-recorded-counts.sh
+bash scripts/test-baseline-survives-merge.sh
+bash scripts/check-baseline-survives-merge.sh
 ```
 
 The evidence gate binds recorded test sources by content digest: editing
@@ -147,14 +149,18 @@ the tag is what a human owes it.
   advisory step on every pull request: the step exits non-zero when it
   has something to say, so the requirement is on the page when someone
   picks a merge button.
-- **Do not re-anchor the record at an older commit instead.** When the
+- **Do not move the record back to an older commit instead.** When the
   branch changed a bound source, the gate refuses loudly, because the
   older baseline never contained that source. When it changed only a
-  count, both gates pass while the record claims a run against a tree
-  that produces a different count. The first is noisy and the second is
-  silent, and neither is a way to keep the record true.
-- Re-anchoring after the merge does work, and this repository has done
-  it repeatedly. It leaves `main` red until the re-anchor lands.
+  count, the reachability check and the artifact check both pass while
+  the record claims a run against a tree that produces a different
+  count. The first is noisy and the second is silent, and neither keeps
+  the record true.
+- Re-anchoring the record after the merge does work, and this
+  repository has done it repeatedly. It leaves `main` red until the
+  re-anchor lands. Merge style is what preserves the commit a record
+  names; changing what a baseline *is* would be a change to the gate,
+  not to merge policy.
 - Panels are authored against the frame range their descriptor declares
   and receive the chosen frame as a draw argument; unclipped ink past
   that frame's edge is counted and ratcheted per frame by the admission
