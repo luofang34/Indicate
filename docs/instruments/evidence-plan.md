@@ -123,6 +123,46 @@ certified lifecycle data. Nothing here is marked satisfied.
 | EVP-20 | Synthetic-vision performance (DO-407 / ED-326 and earlier DO-315 / ED-179; active FAA vision ACs AC 20-167B / AC 20-185A) | SVS is supplemental only ([`AIR-OUT-005`](requirements.md#air-out-005)); no operational-credit artifact | engineering input; DO-407 / ED-326 released MASPS with authority acceptance unresolved — see [standards matrix](standards-applicability.md) STD-066 and [`standards-registry.toml`](standards-registry.toml) |
 | EVP-21 | Source equipment — attitude/heading (AC 20-181, AHRS / TSO-C201) | attitude and heading inputs ([`AIR-IN-001`](requirements.md#air-in-001), [`AIR-IN-005`](requirements.md#air-in-005)) | not applicable yet (no airborne AHRS source selected) — see [standards matrix](standards-applicability.md) STD-065 |
 
+## Recorded run evidence — identity, not currency
+
+The evidence graph binds each recorded verification run to its command, its
+sources, its output artifact, and its baseline commit. The `evidence-gate`
+binary verifies the identity of such a record:
+
+- the artifact hashes to its declared `output-digest`;
+- the artifact's parsed fields agree with the result node's attrs;
+- the declared baseline commit is reachable from HEAD;
+- every case selector resolves against the tree;
+- the bound source's blob matches its declared `source-digest`.
+
+The gate never re-runs the suite. It proves the identity of a record, not its
+currency. This is the same limit that `scripts/check-standards-registry.sh`
+states for itself: an automatic check proves internal consistency, not
+external freshness.
+
+The pass count in an artifact's `summary:` is the one field that says what
+the recorded run did. Everything else is identity. A recorded count is only
+as fresh as its last re-record: a test added to a suite without an edit to
+the bound source file moves no digest, and no gate notices (issue #44).
+
+The accepted rule is:
+
+- Re-record an artifact when its bound suite changes.
+- Treat the recorded count as a statement about the recorded execution, not
+  about the current tree.
+- An edit to a bound source file forces a re-record through the
+  `source-digest` mismatch. An added test that does not touch the bound file
+  forces nothing; the change that adds the test must include the re-record.
+
+Declined alternatives, one sentence each:
+
+- Re-run the suite in the gate: the gate would depend on a toolchain and a
+  build; today it reads files and asks git.
+- Pin the suite's test count as an attr and check it against
+  `cargo test -- --list`: cheaper than a full run, but still needs a build.
+- Bind the whole suite's sources instead of one locator per case: the
+  graph's case-to-locator model is per-case by design.
+
 ## Reuse as engineering input versus evidence established anew
 
 This section is the anti-back-claim boundary. It is deliberately explicit.
