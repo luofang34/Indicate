@@ -25,7 +25,7 @@ The dependency closure contains no wire protocol, no host, no client:
 consumers (the Pilotage cockpit, avionics-link, native shells) pin this
 repository by git rev and integrate through three published surfaces:
 
-- the state ABI (`indicate-instrument-state::abi::v7`) — a
+- the state ABI (`indicate-instrument-state::abi::v8`) — a
   self-delimiting tagged-group frame; presence is meaning, sources with
   different group sets drive the same panels;
 - the scene IR (`indicate-instrument-scene`) — the opcode vocabulary a
@@ -48,7 +48,7 @@ a rev meant to be pinned is given an annotated tag and an entry in
 [`CHANGELOG.md`](CHANGELOG.md), both naming the five values that decide
 whether it is the rev you want: state ABI, scene format, corpus,
 composition digest, and the panel set. `git show <tag>` then answers
-"which rev has ABI v7 and corpus v4?" without a checkout. CI fails when
+"which rev has ABI v8 and corpus v4?" without a checkout. CI fails when
 the newest entry disagrees with the tree it describes; cutting the tag
 itself is a release step in [`CONTRIBUTING.md`](CONTRIBUTING.md),
 because a release tags its own merge commit and so cannot be verified

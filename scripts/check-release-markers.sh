@@ -83,7 +83,7 @@ declared() {
 read_or_empty() { "$@" 2>/dev/null || true; }
 
 # The ABI in force is the highest version module the crate declares, so
-# adding `v7` moves what this validates instead of leaving it pinned to
+# adding `v9` moves what this validates instead of leaving it pinned to
 # the file that no longer answers.
 abi_module="$(read_or_empty grep -oE '^pub mod v[0-9]+;' crates/indicate-instrument-state/src/abi.rs \
     | grep -oE 'v[0-9]+' | sort -V | tail -1)"

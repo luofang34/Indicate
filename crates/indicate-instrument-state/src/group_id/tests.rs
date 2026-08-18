@@ -4,7 +4,7 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 use super::{GroupId, withhold_group};
-use crate::abi::v7::fixtures;
+use crate::abi::v8::fixtures;
 use crate::signal::{FreshnessPolicy, SignalStatus};
 
 #[test]
@@ -21,7 +21,18 @@ fn all_is_ascending_and_bijective_with_from_u8() {
 #[test]
 fn unassigned_tags_do_not_resolve() {
     assert_eq!(GroupId::from_u8(0x00), None);
-    for value in 0x0Eu8..=0xFF {
+    for value in 0x16u8..=0xFF {
+        assert_eq!(GroupId::from_u8(value), None, "tag {value:#04x}");
+    }
+}
+
+#[test]
+fn reserved_and_batch_allocated_tags_have_no_status_slot_yet() {
+    // 0x0E–0x11 stay planned, and 0x12–0x15 are allocated to the v8
+    // batch (the registry table in the module doc) but their variants
+    // land with the per-issue PRs. Until then none of these tags
+    // resolves to a variant, so none can key a `GroupStatuses` slot.
+    for value in 0x0Eu8..=0x15 {
         assert_eq!(GroupId::from_u8(value), None, "tag {value:#04x}");
     }
 }
@@ -31,6 +42,17 @@ fn index_is_dense_over_all() {
     for (position, id) in GroupId::ALL.iter().enumerate() {
         assert_eq!(id.index(), position);
     }
+}
+
+#[test]
+fn index_is_not_wire_tag_arithmetic() {
+    // `index()` must survive the first non-contiguous allocation: with
+    // 0x0E–0x11 variantless, a `tag - 1` mapping would hand tag 0x12
+    // slot 0x11, past the end of a 13-slot table. Pin the sparse
+    // mapping's contract directly: the highest defined tag still maps
+    // to the last slot.
+    assert_eq!(GroupId::FlightDirector.to_u8(), 0x0D);
+    assert_eq!(GroupId::FlightDirector.index(), GroupId::COUNT - 1);
 }
 
 #[test]

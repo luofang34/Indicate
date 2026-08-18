@@ -1,9 +1,9 @@
-//! Tagged-group state ABI, version 7 (ADR-0029 extensible state groups).
+//! Tagged-group state ABI, version 8 (ADR-0029 extensible state groups).
 //!
 //! The frame is self-delimiting:
 //!
 //! ```text
-//! [0] u8 version (= 7)
+//! [0] u8 version (= 8)
 //! [1] u8 group count (N)
 //! then N groups, each:
 //!     u8  group id        (strictly ascending across the frame)
@@ -27,6 +27,18 @@
 //! enum bytes count from zero in declaration order with 255 as the
 //! fail-closed unknown, and a wire value outside the known set decodes
 //! to each type's `Unknown`, never to a benign variant (VAL-01).
+//!
+//! # The v8 batch (issue #58)
+//!
+//! Version 8 changes no wire layout: every payload is byte-identical to
+//! version 7 and only the version byte moves. Version 8 is the
+//! coordination point for one batch of allocations that issues #50 to
+//! #55 and #57 agreed. The registry table in [`crate::group_id`] is the
+//! layout contract for that batch: it fixes each new group id, its lane
+//! (stamped or declared), and each field append to an existing group.
+//! Each allocation lands as its own change stacked on this version, as a
+//! full vertical slice of codec, resolve, feeder, drawing, and
+//! guardrails.
 
 use crate::aircraft::AircraftState;
 use crate::group_id::GroupId;
@@ -38,14 +50,14 @@ mod monitor;
 mod stamped;
 
 /// Version stamped in the frame's first byte.
-pub const VERSION: u8 = 7;
+pub const VERSION: u8 = 8;
 
 /// Buffer capacity a feeder allocates. This is an allocation bound, not
 /// wire shape: the frame is self-delimiting, and growing the capacity is
 /// not a wire break because consumers read it at runtime.
 pub const CAPACITY: usize = 1024;
 
-/// Why a v7 frame failed to encode or decode.
+/// Why a v8 frame failed to encode or decode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum AbiError {
     /// The buffer ends before the announced content does.
@@ -147,7 +159,7 @@ fn encode_group(
     }
 }
 
-/// Decodes a v7 frame.
+/// Decodes a v8 frame.
 pub fn decode_state(buf: &[u8]) -> Result<DecodeReport, AbiError> {
     let version = *buf.first().ok_or(AbiError::Truncated)?;
     if version != VERSION {
@@ -192,7 +204,7 @@ pub fn decode_state(buf: &[u8]) -> Result<DecodeReport, AbiError> {
     Ok(report)
 }
 
-/// Encodes `state` as a canonical v7 frame — present groups only, in
+/// Encodes `state` as a canonical v8 frame — present groups only, in
 /// ascending tag order — returning the used length.
 pub fn encode_state(state: &AircraftState, buf: &mut [u8]) -> Result<usize, AbiError> {
     if buf.len() < 2 {

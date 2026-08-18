@@ -1,4 +1,4 @@
-//! v7 frame codec behavior: canonical round-trips, the fail-closed
+//! v8 frame codec behavior: canonical round-trips, the fail-closed
 //! decode table, and the two forward-compatibility axes (unknown tags,
 //! appended payload tails).
 

@@ -18,7 +18,7 @@ use indicate_instrument_descriptor::{
     PanelDrawError,
 };
 use indicate_instrument_scene::{SCENE_FORMAT_VERSION, SceneWriter};
-use indicate_instrument_state::{FreshnessPolicy, abi::v7, resolve};
+use indicate_instrument_state::{FreshnessPolicy, abi::v8, resolve};
 use indicate_sha256::Sha256Ctx;
 
 use crate::registry::Registry;
@@ -67,7 +67,7 @@ const ROLE_FRAME: u8 = 4;
 pub fn scene_digest(registry: &Registry, scratch: &mut [u8]) -> Result<[u8; 32], DigestError> {
     let mut ctx = Sha256Ctx::new();
     ctx.update(SCENE_DIGEST_DOMAIN);
-    ctx.update(&[SCENE_FORMAT_VERSION, v7::VERSION]);
+    ctx.update(&[SCENE_FORMAT_VERSION, v8::VERSION]);
     for panel in registry.panels() {
         digest_panel_contract(&mut ctx, panel);
         for state in CANONICAL_STATES {
