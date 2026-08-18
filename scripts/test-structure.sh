@@ -19,12 +19,21 @@ probe_dir="sets/indicate-tier-probe"
 probe_doc="docs/instruments/zz-structure-probe.md"
 lock_backup="$(mktemp)"
 cp Cargo.lock "$lock_backup"
+# Every tracked file this script edits is restored by the trap, not by
+# the case that edited it. A case that cleans up after itself leaves the
+# repository dirty the moment it aborts, and `CONTRIBUTING.md` carrying
+# an invented citation makes `check-structure.sh` fail against a
+# document the contributor never wrote.
+citation_backup="$(mktemp)"
+cp CONTRIBUTING.md "$citation_backup"
 
 cleanup() {
     rm -rf "$probe_dir"
     rm -f "$probe_doc"
     cp "$lock_backup" Cargo.lock
     rm -f "$lock_backup"
+    cp "$citation_backup" CONTRIBUTING.md
+    rm -f "$citation_backup"
 }
 trap cleanup EXIT
 
@@ -148,8 +157,6 @@ expect_term_refusal "Swift SceneKit backend" "Swift SceneKit backend"
 # citation per line, so a document that named a missing file before a
 # present one passed — which is the spelling a contributor would most
 # easily write by accident.
-citation_backup="$(mktemp)"
-cp CONTRIBUTING.md "$citation_backup"
 for line in 'It cites `GHOST.md` and then `AGENTS.md`.' \
     'It cites `AGENTS.md` and then `GHOST.md`.'; do
     printf '%s\n' "$line" >> CONTRIBUTING.md
@@ -162,7 +169,6 @@ for line in 'It cites `GHOST.md` and then `AGENTS.md`.' \
     fi
     cp "$citation_backup" CONTRIBUTING.md
 done
-rm -f "$citation_backup"
 
 if [ "$failed" -ne 0 ]; then
     echo "structure-selftest: FAILED ($failed of $((passed + failed)) cases)" >&2

@@ -11,11 +11,13 @@ against ASD-STE100.
 
 - Write in English.
 - Use one word for one meaning.
-- Use short, direct sentences.
+- Keep a sentence under 20 words in a procedure and under 25 words in a
+  description. The standard this list is modelled on carries those
+  counts, and a rule with a number is one a reviewer can adjudicate.
 - Use active voice when you can identify the actor.
 - Give one instruction or one main statement in each sentence.
 - Define a necessary technical name before you use it.
-- Use the same technical name in all related documents and diagrams.
+- Use the same technical name across the documents a change touches.
 - Keep code identifiers, protocol fields, quotations, and product names exact.
 - Apply these rules to all new text and to all text that you change.
 
