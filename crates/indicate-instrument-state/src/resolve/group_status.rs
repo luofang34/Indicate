@@ -63,6 +63,51 @@ fn fold(ctx: &Ctx<'_>, fault: Option<crate::validate::GroupFault>, valid: bool) 
     ctx.trust.fold(ctx.has, fresh, fault, valid)
 }
 
+/// Attitude carries the rates alongside the quaternion, so one fault or
+/// one cleared validity bit in either takes the whole group down: a
+/// horizon drawn from a trusted quaternion and untrusted rates is still
+/// a horizon nobody vouched for.
+fn attitude_status(
+    state: &AircraftState,
+    policy: &FreshnessPolicy,
+    trust: &Trust,
+    integrity: &StateIntegrity,
+) -> SignalStatus {
+    fold(
+        &Ctx {
+            policy,
+            trust,
+            has: state.attitude.data.is_some(),
+            age_ms: state.attitude.age_ms,
+        },
+        integrity.attitude.or(integrity.rates),
+        state.valid.attitude && state.valid.rates,
+    )
+}
+
+/// Position and both velocity axes share one group, so the group is no
+/// better than its worst member.
+fn kinematics_status(
+    state: &AircraftState,
+    policy: &FreshnessPolicy,
+    trust: &Trust,
+    integrity: &StateIntegrity,
+) -> SignalStatus {
+    fold(
+        &Ctx {
+            policy,
+            trust,
+            has: state.kinematics.data.is_some(),
+            age_ms: state.kinematics.age_ms,
+        },
+        integrity
+            .position
+            .or(integrity.velocity_horizontal)
+            .or(integrity.velocity_vertical),
+        state.valid.position && state.valid.velocity_horizontal && state.valid.velocity_vertical,
+    )
+}
+
 fn group_status(
     state: &AircraftState,
     policy: &FreshnessPolicy,
@@ -71,31 +116,8 @@ fn group_status(
     id: GroupId,
 ) -> SignalStatus {
     match id {
-        GroupId::Attitude => fold(
-            &Ctx {
-                policy,
-                trust,
-                has: state.attitude.data.is_some(),
-                age_ms: state.attitude.age_ms,
-            },
-            integrity.attitude.or(integrity.rates),
-            state.valid.attitude && state.valid.rates,
-        ),
-        GroupId::Kinematics => fold(
-            &Ctx {
-                policy,
-                trust,
-                has: state.kinematics.data.is_some(),
-                age_ms: state.kinematics.age_ms,
-            },
-            integrity
-                .position
-                .or(integrity.velocity_horizontal)
-                .or(integrity.velocity_vertical),
-            state.valid.position
-                && state.valid.velocity_horizontal
-                && state.valid.velocity_vertical,
-        ),
+        GroupId::Attitude => attitude_status(state, policy, trust, integrity),
+        GroupId::Kinematics => kinematics_status(state, policy, trust, integrity),
         GroupId::Air => fold(&Ctx::of(policy, trust, &state.air), integrity.air, true),
         GroupId::Nav => fold(&Ctx::of(policy, trust, &state.nav), integrity.nav, true),
         // Wind folds no source trust, mirroring its resolved signal: a
@@ -121,6 +143,24 @@ fn group_status(
             &Ctx::of(policy, trust, &state.dynamics),
             integrity.dynamics,
             state.valid.turn && state.valid.slip && state.valid.ias_trend,
+        ),
+        // Bearings fold source trust like nav: a needle from a source
+        // the state does not trust must not point anywhere. Their own
+        // per-pointer validity is a second gate the panel applies.
+        GroupId::BearingPointers => fold(
+            &Ctx::of(policy, trust, &state.bearings),
+            integrity.bearings,
+            true,
+        ),
+        // Configuration folds source trust like the rest: a position
+        // reported by a source the state does not trust is not a
+        // position. It declares no validity bit of its own — the trust
+        // group's bits cover sensed estimates, and a flap setting is a
+        // reading rather than an estimate.
+        GroupId::AirframeConfig => fold(
+            &Ctx::of(policy, trust, &state.airframe),
+            integrity.airframe,
+            true,
         ),
         // The director folds source trust like nav: a command from an
         // untrusted source must not draw bars.

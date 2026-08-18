@@ -42,6 +42,7 @@ fn trusted_full_state() -> AircraftState {
             tas_mps: Some(45.0),
         }),
         nav: stamped(NavData {
+            scale: crate::aircraft::NavScale::Terminal,
             source: NavSource::Gps,
             course_rad: 0.3,
             cdi_dots: -1.0,

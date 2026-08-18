@@ -21,8 +21,8 @@
 //! | 0x0F | traffic (planned) |
 //! | 0x10 | projection view (synthetic vision; planned) |
 //! | 0x11 | terrain bands (planned) |
-//! | 0x12 | bearing pointers (stamped; allocated) |
-//! | 0x13 | airframe configuration (stamped; allocated) |
+//! | 0x12 | bearing pointers (stamped) |
+//! | 0x13 | airframe configuration (stamped) |
 //! | 0x14 | autopilot/flight-director modes (stamped; allocated) |
 //! | 0x15 | autopilot targets (declared; allocated) |
 //! | 0x16–0xDF | future standard groups |
@@ -45,7 +45,7 @@
 //!
 //! | id | group | lane | reason |
 //! |----|-------|------|--------|
-//! | 0x12 | BearingPointers | stamped | Two pointers. Per pointer: a source enum (None/Nav1/Nav2/Gps, 255 fail-closed Unknown), bearing rad f32, a heading reference, and a per-pointer validity. |
+//! | 0x12 | BearingPointers | stamped | Two pointers. Per pointer: a source enum in the shipped `NavSource` coding (0 None, 1 Gps, 2 Nav1, 3 Nav2, 255 fail-closed Unknown), bearing rad f32, a heading reference, and a per-pointer validity. |
 //! | 0x13 | AirframeConfig | stamped | Flap position ratio plus an optional selected detent (sensed and selected are never conflated), and per-axis trim ratios (elevator first). Every field is optional and NaN-absent. Configuration takes its own id: flap and trim are airframe configuration, not engine, so 0x0E keeps its engine charter. |
 //! | 0x14 | ApModes | stamped | Engagement (Off/FD/AP, Unknown fail-closed), active and armed lateral mode, active and armed vertical mode. Each mode enum has a None value distinct from Unknown. Stamped because a stale "AP engaged" annunciation is the failure the freshness discipline exists to prevent (the `fc_state.rs` precedent). |
 //! | 0x15 | ApTargets | declared | Selected airspeed m/s, selected vertical speed m/s, and an altitude target with the same reference-identity trio as `altitude_sel` (class, origin, geoid model). Declared per the issue's stamped-versus-declared analysis: the targets are defensibly UI-like state, while modes and engagement are telemetry. |
@@ -58,7 +58,7 @@
 //! |-------|--------|
 //! | Air (0x03) | `tas_mps f32`, NaN-absent (12 to 16 bytes) |
 //! | Dynamics (0x0B) | `ias_trend f32` (d(IAS)/dt), NaN-absent, plus Trust valid bit 9 (16 to 20 bytes) |
-//! | Nav (0x04) | `scale_mode u8` (Enroute/Terminal/Approach, 255 fail-closed Unknown) and `facility_type u8`, both after `age_ms` |
+//! | Nav (0x04) | `scale_mode u8` (Enroute/Terminal/Approach, 255 fail-closed Unknown) and `facility_type u8`, both after the group's existing tail (42 to 43 to 44 bytes) |
 
 use crate::aircraft::AircraftState;
 use crate::signal::SignalStatus;
@@ -95,11 +95,15 @@ pub enum GroupId {
     MonitorText = 0x0C,
     /// Flight-director commanded attitude, mode, and engagement.
     FlightDirector = 0x0D,
+    /// Bearing pointers, independent of the selected nav source.
+    BearingPointers = 0x12,
+    /// Airframe configuration: flap position and trim.
+    AirframeConfig = 0x13,
 }
 
 impl GroupId {
     /// Number of defined groups.
-    pub const COUNT: usize = 13;
+    pub const COUNT: usize = 15;
 
     /// Every defined group in ascending id order — the canonical wire
     /// order and the index order of [`GroupStatuses`].
@@ -117,6 +121,8 @@ impl GroupId {
         GroupId::Dynamics,
         GroupId::MonitorText,
         GroupId::FlightDirector,
+        GroupId::BearingPointers,
+        GroupId::AirframeConfig,
     ];
 
     /// The wire tag.
@@ -141,6 +147,8 @@ impl GroupId {
             0x0B => Some(GroupId::Dynamics),
             0x0C => Some(GroupId::MonitorText),
             0x0D => Some(GroupId::FlightDirector),
+            0x12 => Some(GroupId::BearingPointers),
+            0x13 => Some(GroupId::AirframeConfig),
             _ => None,
         }
     }
@@ -168,6 +176,8 @@ impl GroupId {
             GroupId::Dynamics => 10,
             GroupId::MonitorText => 11,
             GroupId::FlightDirector => 12,
+            GroupId::BearingPointers => 13,
+            GroupId::AirframeConfig => 14,
         }
     }
 }
@@ -217,6 +227,8 @@ pub fn withhold_group(state: &AircraftState, group: GroupId) -> AircraftState {
             out.valid = Default::default();
             out.snapshot = Default::default();
         }
+        GroupId::BearingPointers => out.bearings = Default::default(),
+        GroupId::AirframeConfig => out.airframe = Default::default(),
         GroupId::Altitude => out.altitude = Default::default(),
         GroupId::Heading => {
             out.heading = Default::default();

@@ -1,8 +1,8 @@
 //! The course deviation indicator: course arrow, deviation bar, scale
 //! dots, and TO/FROM triangle.
 
-use indicate_instrument_scene::{PaintMode, Rgba8, SceneError, SceneWriter};
-use indicate_instrument_state::{NavFromTo, NavResolved, NavSource};
+use indicate_instrument_scene::{Anchor, PaintMode, Rgba8, SceneError, SceneWriter};
+use indicate_instrument_state::{GroupId, NavFromTo, NavResolved, NavSource};
 
 use indicate_instrument_symbology::palette;
 
@@ -14,6 +14,37 @@ pub(crate) fn source_color(source: NavSource) -> Rgba8 {
         NavSource::Gps => palette::MAGENTA,
         _ => palette::GREEN,
     }
+}
+
+/// Where the scale label sits: under the receiver label, so the two
+/// facts about the needle — which receiver drives it, and what a dot is
+/// worth — read together.
+const SCALE_LABEL_POS: (f32, f32) = (60.0, super::CY + 128.0);
+/// The run size the scale label paints at.
+const SCALE_LABEL_SIZE: f32 = 14.0;
+
+/// Draws the scale the deflection is on, in the source color, under the
+/// same gate as the needle.
+///
+/// Two dots is two dots on the glass whatever the scale, so the label is
+/// what stops one needle position from meaning different distances in
+/// different phases. An unknown scale never reaches here: the nav group
+/// fails first, and the needle goes with it.
+pub fn draw_scale_label(scene: &mut SceneWriter<'_>, nav: &NavResolved) -> Result<(), SceneError> {
+    let label = nav.data.scale.label();
+    if label.is_empty() {
+        return Ok(());
+    }
+    scene.fill_color(source_color(nav.data.source))?;
+    scene.text_attributed(
+        GroupId::Nav.to_u8(),
+        SCALE_LABEL_POS.0,
+        SCALE_LABEL_POS.1,
+        SCALE_LABEL_SIZE,
+        Anchor::CENTER,
+        label,
+    )?;
+    Ok(())
 }
 
 /// Draws the CDI in the rose frame, rotated to the selected course.

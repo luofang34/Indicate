@@ -95,6 +95,67 @@ pub struct NavData {
     pub to_ident: IdentStr,
     /// Previous (FROM) waypoint ident; same rules as `to_ident`.
     pub from_ident: IdentStr,
+    /// What full-scale deflection means for this guidance.
+    pub scale: NavScale,
+}
+
+/// The deflection scale the guidance source is flying to.
+///
+/// Two dots is two dots on the glass whatever the phase, so the same
+/// needle position means a different distance in each. A source that
+/// changes scale without saying so changes the meaning of the picture
+/// and nothing on the panel could tell. The scale is therefore
+/// declared, never inferred from a distance the display was handed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum NavScale {
+    /// Enroute.
+    Enroute,
+    /// Terminal.
+    Terminal,
+    /// Approach.
+    Approach,
+    /// The wire carried a scale this build does not know, or none was
+    /// declared. Guidance whose scale is unknown means nothing, so the
+    /// nav group fails rather than drawing at a guessed scale.
+    #[default]
+    Unknown,
+}
+
+impl NavScale {
+    /// Fail-closed wire decoding.
+    #[must_use]
+    pub const fn from_u8(value: u8) -> Self {
+        match value {
+            0 => Self::Enroute,
+            1 => Self::Terminal,
+            2 => Self::Approach,
+            _ => Self::Unknown,
+        }
+    }
+
+    /// Wire encoding; `Unknown` round-trips as unknown.
+    #[must_use]
+    pub const fn to_u8(self) -> u8 {
+        match self {
+            Self::Enroute => 0,
+            Self::Terminal => 1,
+            Self::Approach => 2,
+            Self::Unknown => 255,
+        }
+    }
+
+    /// The label that names this scale to the pilot. Every character is
+    /// in the panel glyph vocabulary, which has no `+` and no `/`, so
+    /// the richer per-approach names cannot be spelled here yet.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Enroute => "ENR",
+            Self::Terminal => "TERM",
+            Self::Approach => "APR",
+            Self::Unknown => "",
+        }
+    }
 }
 
 /// Pilot selections and bugs. These are local UI state, not sensed data,
@@ -124,6 +185,64 @@ pub struct Selections {
     /// UI state; the sensed/applied setting lives in [`AirData`], and a
     /// disagreement between the two is flagged, never averaged.
     pub baro_sel_hpa: Option<f32>,
+}
+
+/// One bearing pointer: which receiver it follows and where that
+/// receiver says the station is.
+///
+/// A pointer is independent of the CDI: it can follow a receiver the
+/// course selector is not on, which is the whole reason to have one.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct BearingPointer {
+    /// Which receiver drives this pointer.
+    pub source: NavSource,
+    /// Bearing to the station in radians from ITS OWN declared north.
+    pub bearing_rad: f32,
+    /// The north the bearing is expressed against. A pointer renders
+    /// only after conversion into the rose reference; unknown fails.
+    pub reference: HeadingReference,
+    /// The source declares this bearing usable. A pointer whose source
+    /// says otherwise is removed, never parked.
+    pub valid: bool,
+}
+
+/// The bearing pointers, in draw order.
+///
+/// Two, because the panel draws two distinct needle forms and a pilot
+/// tells them apart by shape. A pointer whose source is `None` is not
+/// drawn; one whose source this build cannot name fails the group,
+/// because a needle pointing somewhere on behalf of nobody is worse
+/// than no needle.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct BearingPointers {
+    /// The single-line needle.
+    pub first: BearingPointer,
+    /// The double-line needle.
+    pub second: BearingPointer,
+}
+
+/// Airframe configuration: what the airframe is set to, as distinct
+/// from what it is doing.
+///
+/// Every field is optional because a vehicle without the sensor must
+/// display `Missing`, not a substitute (ADR-0017). Sensed and selected
+/// are never conflated: a detent the pilot chose is not a position the
+/// airframe reached, and a disagreement between them is a fact worth
+/// showing rather than averaging away.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct AirframeConfig {
+    /// Sensed flap position, 0.0 retracted to 1.0 fully extended.
+    pub flap_ratio: Option<f32>,
+    /// The detent the pilot selected, in the same units. Absent when the
+    /// airframe has no detented selector or the source does not report
+    /// one.
+    pub flap_selected_ratio: Option<f32>,
+    /// Elevator trim, -1.0 fully nose-down to 1.0 fully nose-up.
+    pub elevator_trim_ratio: Option<f32>,
+    /// Aileron trim, -1.0 fully left-wing-down to 1.0 right.
+    pub aileron_trim_ratio: Option<f32>,
+    /// Rudder trim, -1.0 fully nose-left to 1.0 nose-right.
+    pub rudder_trim_ratio: Option<f32>,
 }
 
 /// Wind estimate.
@@ -267,6 +386,10 @@ pub struct AircraftState {
     /// Machine-monitoring text channel (AIR-IN-014); advisory content
     /// with its own slow freshness policy, never flight data.
     pub monitor_text: Stamped<crate::monitor_text::MonitorText>,
+    /// Bearing pointers, independent of the selected nav source.
+    pub bearings: Stamped<BearingPointers>,
+    /// Airframe configuration: flap position and trim.
+    pub airframe: Stamped<AirframeConfig>,
 }
 
 impl Default for Selections {

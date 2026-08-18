@@ -45,8 +45,10 @@
 //! comparing its pins against the manifest would see agreement while
 //! every frame it emits was rejected.
 //!
-//! Landed so far: the Air group carries `tas_mps` after its trailing
-//! `age_ms`, so its minimum payload is 16 bytes.
+//! The allocation table on [`crate::GroupId`] names which groups and
+//! appends this revision carries; `min_len` below is what the decoder
+//! actually enforces, and the two are checked against each other by the
+//! golden frames rather than by prose here.
 
 use crate::aircraft::AircraftState;
 use crate::group_id::GroupId;
@@ -109,7 +111,7 @@ const fn min_len(id: GroupId) -> usize {
         GroupId::Attitude => 32,
         GroupId::Kinematics => 28,
         GroupId::Air => 16,
-        GroupId::Nav => 42,
+        GroupId::Nav => 43,
         GroupId::Wind => 12,
         GroupId::Selections => 20,
         GroupId::Trust => 8,
@@ -117,6 +119,8 @@ const fn min_len(id: GroupId) -> usize {
         GroupId::Heading => 12,
         GroupId::Variation => 12,
         GroupId::Dynamics => 20,
+        GroupId::BearingPointers => 20,
+        GroupId::AirframeConfig => 24,
         GroupId::MonitorText => monitor::MONITOR_LEN,
         GroupId::FlightDirector => 16,
     }
@@ -137,6 +141,8 @@ fn decode_group(state: &mut AircraftState, id: GroupId, payload: &[u8]) {
         GroupId::Heading => stamped::decode_heading(state, payload),
         GroupId::Variation => stamped::decode_variation(state, payload),
         GroupId::Dynamics => stamped::decode_dynamics(state, payload),
+        GroupId::BearingPointers => stamped::decode_bearings(state, payload),
+        GroupId::AirframeConfig => stamped::decode_airframe(state, payload),
         GroupId::MonitorText => monitor::decode_monitor_text(state, payload),
         GroupId::FlightDirector => stamped::decode_director(state, payload),
     }
@@ -162,6 +168,8 @@ fn encode_group(
         GroupId::Heading => stamped::encode_heading(state, out),
         GroupId::Variation => stamped::encode_variation(state, out),
         GroupId::Dynamics => stamped::encode_dynamics(state, out),
+        GroupId::BearingPointers => stamped::encode_bearings(state, out),
+        GroupId::AirframeConfig => stamped::encode_airframe(state, out),
         GroupId::MonitorText => monitor::encode_monitor_text(state, out),
         GroupId::FlightDirector => stamped::encode_director(state, out),
     }
@@ -289,6 +297,8 @@ pub(super) fn put_u32(payload: &mut [u8], off: usize, value: u32) {
     }
 }
 
+#[cfg(test)]
+mod bearing_tests;
 #[cfg(test)]
 mod fixture_tests;
 #[cfg(test)]

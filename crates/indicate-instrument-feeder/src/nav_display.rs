@@ -8,14 +8,40 @@
 //! rather than on the wire where it would bind every display to one
 //! policy.
 
-use indicate_instrument_state::{HeadingReference, NavData, NavFromTo, NavSource, Stamped};
+use indicate_instrument_state::{
+    HeadingReference, NavData, NavFromTo, NavScale, NavSource, Stamped,
+};
 
 use crate::nav_guidance::NavSnapshot;
 
-/// Full-scale lateral deflection is ±2 dots, so ±2 dots = ±50 m of
-/// cross-track error — the terminal-area scale a small unmanned
-/// airframe is flown to.
-pub const LATERAL_M_PER_DOT: f32 = 25.0;
+/// Meters of cross-track error per dot, by declared scale.
+///
+/// Two dots is two dots on the glass whatever the phase, so the scale
+/// is what makes a needle position mean a distance. The table is the
+/// one place that mapping lives, and the scale the guidance declares is
+/// what selects a row — never the distance, and never a default, or the
+/// same picture would silently mean different things.
+///
+/// The values are the terminal-area scale a small unmanned airframe is
+/// flown to, and one step either side of it.
+pub const LATERAL_M_PER_DOT_ENROUTE: f32 = 100.0;
+/// Meters of cross-track error per dot, terminal.
+pub const LATERAL_M_PER_DOT_TERMINAL: f32 = 25.0;
+/// Meters of cross-track error per dot, approach.
+pub const LATERAL_M_PER_DOT_APPROACH: f32 = 10.0;
+
+/// The lateral scale a declared mode selects. An undeclared or unknown
+/// mode selects none: guidance whose scale is not known cannot be drawn
+/// at any scale.
+#[must_use]
+pub const fn lateral_m_per_dot(scale: NavScale) -> Option<f32> {
+    match scale {
+        NavScale::Enroute => Some(LATERAL_M_PER_DOT_ENROUTE),
+        NavScale::Terminal => Some(LATERAL_M_PER_DOT_TERMINAL),
+        NavScale::Approach => Some(LATERAL_M_PER_DOT_APPROACH),
+        NavScale::Unknown => None,
+    }
+}
 /// Full-scale vertical deflection is ±2.5 dots, so ±2.5 dots = ±20 m
 /// off the vertical profile.
 pub const VDEV_M_PER_DOT: f32 = 8.0;
@@ -46,10 +72,16 @@ pub fn nav_display_state(snapshot: Option<&NavSnapshot>) -> Option<Stamped<NavDa
     // paints — the instrument model requires a finite CDI value, and
     // NaN would fail the whole group including the course and distance
     // that are still valid.
+    // The scale this feeder flies to. It is declared here rather than
+    // read from the wire because this lane carries no scale of its own
+    // yet; the panel is told which one the dots are on either way.
+    const SCALE: NavScale = NavScale::Terminal;
+    let m_per_dot = lateral_m_per_dot(SCALE)?;
     let tracking = guidance.lateral_deviation_m.is_finite();
     Some(Stamped {
         data: Some(NavData {
             source: NavSource::Gps,
+            scale: SCALE,
             fromto: if tracking {
                 NavFromTo::To
             } else {
@@ -61,7 +93,7 @@ pub fn nav_display_state(snapshot: Option<&NavSnapshot>) -> Option<Stamped<NavDa
             // conversion needs no variation sample.
             course_reference: HeadingReference::True,
             cdi_dots: if tracking {
-                lateral_dots(guidance.lateral_deviation_m)
+                lateral_dots(guidance.lateral_deviation_m, m_per_dot)
             } else {
                 0.0
             },
@@ -80,8 +112,8 @@ pub fn nav_display_state(snapshot: Option<&NavSnapshot>) -> Option<Stamped<NavDa
 /// ownship. The wire's cross-track deviation is positive when ownship
 /// is RIGHT of course, which puts the course to ownship's LEFT — so the
 /// deflection is negative, and flying toward the bar closes the error.
-fn lateral_dots(lateral_deviation_m: f32) -> f32 {
-    -lateral_deviation_m / LATERAL_M_PER_DOT
+fn lateral_dots(lateral_deviation_m: f32, m_per_dot: f32) -> f32 {
+    -lateral_deviation_m / m_per_dot
 }
 
 /// Fly-to convention, with the screen's downward y accounted for. The

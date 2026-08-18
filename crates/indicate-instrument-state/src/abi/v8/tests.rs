@@ -11,7 +11,7 @@ use crate::group_id::GroupId;
 use crate::validate::{GroupFault, validate_state};
 use std::vec::Vec;
 
-fn encode(state: &AircraftState) -> Vec<u8> {
+pub(super) fn encode(state: &AircraftState) -> Vec<u8> {
     let mut buf = [0u8; CAPACITY];
     let len = encode_state(state, &mut buf).expect("fixture fits");
     buf[..len].to_vec()
@@ -218,7 +218,7 @@ fn encode_refuses_a_buffer_too_small() {
 }
 
 /// Byte offset of the payload of `tag` inside a canonical frame.
-fn locate_payload(frame: &[u8], tag: u8) -> Option<usize> {
+pub(super) fn locate_payload(frame: &[u8], tag: u8) -> Option<usize> {
     let count = *frame.get(1)?;
     let mut offset = 2usize;
     for _ in 0..count {
@@ -242,18 +242,21 @@ fn one_group_frame(tag: u8, payload: &[u8]) -> Vec<u8> {
 
 #[test]
 fn unknown_wire_enum_values_decode_fail_safe_not_benign() {
-    use crate::aircraft::{EstimateQuality, NavFromTo, NavSource, SnapshotCoherence};
-    // Nav source and from/to bytes outside the known set must decode to
-    // Unknown — guidance from an unidentifiable source fails, it never
-    // masquerades as no-source.
-    let mut nav = [0u8; 42];
+    use crate::aircraft::{EstimateQuality, NavFromTo, NavScale, NavSource, SnapshotCoherence};
+    // Nav source, from/to, and scale bytes outside the known set must
+    // decode to Unknown — guidance from an unidentifiable source fails,
+    // it never masquerades as no-source, and a deflection at a scale
+    // nobody named never masquerades as the widest scale.
+    let mut nav = [0u8; 43];
     nav[0] = 7;
     nav[1] = 9;
     nav[20..24].copy_from_slice(&10.0f32.to_le_bytes());
+    nav[42] = 7;
     let report = decode_state(&one_group_frame(0x04, &nav)).expect("decodes");
     let data = report.state.nav.data.expect("nav present");
     assert_eq!(data.source, NavSource::Unknown);
     assert_eq!(data.fromto, NavFromTo::Unknown);
+    assert_eq!(data.scale, NavScale::Unknown);
 
     // Quality and coherence bytes outside the known set decode Unknown,
     // which resolution treats as fail-closed distrust.
@@ -433,4 +436,31 @@ fn director_faults_fail_the_group_per_branch() {
             "must fault: {bad:?}"
         );
     }
+}
+
+/// The nav scale appends after the group's existing tail, so a producer
+/// that stamps this version without writing it emits a payload below
+/// the group's minimum and the frame is refused. Reusing the reserved
+/// padding byte instead would have made an undeclared scale decode as
+/// `Enroute` — the loosest one, worth the most distance per dot.
+#[test]
+fn a_nav_payload_without_the_scale_byte_is_refused() {
+    use crate::aircraft::NavScale;
+    let state = fixtures::full();
+    let frame = encode(&state);
+    let payload = locate_payload(&frame, 0x04).expect("nav present");
+    assert_eq!(
+        frame[payload + 42],
+        NavScale::Terminal.to_u8(),
+        "the scale is the group's new tail byte"
+    );
+    let length_at = payload - 2;
+    let mut short = frame.clone();
+    short.remove(payload + 42);
+    short[length_at] = 42;
+    assert!(
+        decode_state(&short).is_err(),
+        "a payload one byte short of the scale must be refused, not \
+         decoded at a guessed scale"
+    );
 }

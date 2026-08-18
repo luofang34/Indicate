@@ -9,7 +9,7 @@
     "version": 4,
     "sha256": "1fb8e6de2734ff7506843b05869f39d501f0926599636c6110a7e3b0c6e1625e"
   },
-  "compositionDigest": "5a982aac195255f909ca36ac0437b58ef66ea4de802adbb1a10dd74c0a0035b2",
+  "compositionDigest": "b9494f3042aa7b6483d16555f4e14a0b48887772caeaeba0a2b35e52467bd9d3",
   "screenComposition": {
     "fixture": "tools/instrument-bench",
     "screen": { "width": 960, "height": 720 },
@@ -18,11 +18,11 @@
       { "panel": "hsi", "x": 480, "y": 0, "width": 480, "height": 360 },
       { "panel": "monitor", "x": 0, "y": 360, "width": 480, "height": 360 }
     ],
-    "digest": "74bb892bf6d43f098a866ddbc8e3aa89c7285bfb57cd303237666f562307f1b4"
+    "digest": "2a787ce5671488d5e187b366d68a60f8ef4b3a7e380e11a315d73b86cbf2cc76"
   },
   "rasterBaselines": [
     { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "sha256": "411ef00fcbd4bb1c53f4e17effa67b9eb69f4fb19d1b80d2576336d12094834c" },
-    { "panel": "hsi", "frame": { "width": 480, "height": 360 }, "sha256": "66653ce135e6f2163fa48d805a0ab1a8f3d0ac51d778f7b1eb2aa4ec05bfbb7c" },
+    { "panel": "hsi", "frame": { "width": 480, "height": 360 }, "sha256": "a6b8808adb6d3181e45c55c1f8c5cf68eb248a0b4a71dedb744e3fbae8b0ab7e" },
     { "panel": "monitor", "frame": { "width": 480, "height": 360 }, "sha256": "40f44383f3ad46a0bbd65f04afc1d80fb9d94c11acff8dc66edbfcf7b8fa4c01" }
   ],
   "glyphPackHash": "281eef6229feee417c7090d8c8ea79489c017cd1c02fc7234876b2a64a532158",
