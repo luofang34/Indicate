@@ -216,7 +216,7 @@ fn source_ink(data: &PanelData) -> SourceInk {
 }
 
 #[test]
-fn nav_source_label_cdi_and_course_box_switch_together() {
+fn receiver_label_cdi_and_course_box_switch_together() {
     let cases = [
         (NavSource::Gps, "GPS", palette::MAGENTA),
         (NavSource::Nav1, "NAV1", palette::GREEN),
@@ -273,7 +273,7 @@ fn nav_source_label_cdi_and_course_box_switch_together() {
 }
 
 #[test]
-fn the_source_label_shares_the_cdi_gate() {
+fn the_receiver_label_shares_the_cdi_gate() {
     // No source selected: no needle, no label.
     let t = texts(&heading_only_panel());
     for label in ["GPS", "NAV1", "NAV2"] {

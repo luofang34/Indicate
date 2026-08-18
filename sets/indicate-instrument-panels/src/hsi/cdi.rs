@@ -44,7 +44,8 @@ pub(crate) fn receiver_text(source: NavSource) -> Option<&'static str> {
 /// that growing the rose fails rather than overlapping the label.
 pub(crate) const RECEIVER_LABEL_POS: (f32, f32) = (60.0, super::CY + 110.0);
 
-/// Half the anchor box the label occupies, for the clearance test.
+/// The run size the label paints at. Named so the clearance test
+/// measures the box the label really occupies.
 pub(crate) const RECEIVER_LABEL_SIZE: f32 = 14.0;
 
 /// Draws the receiver label in the source color, claimed from the nav
