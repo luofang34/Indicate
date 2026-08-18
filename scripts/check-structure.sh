@@ -220,6 +220,23 @@ check_display_reason_completeness() {
         inside && /^            Self::[A-Za-z0-9]+ => [0-9]+,$/ { n++ }
         END { print n + 0 }
     ' "$file")
+    # Arms this counter cannot read are the hole the strict pattern
+    # leaves: a wildcard arm, or a pattern with a payload, satisfies the
+    # compiler while the count skips it, so the counts agree and a
+    # variant outside `ALL` collides unseen. Count every arm and refuse
+    # when the two disagree.
+    local arms
+    arms=$(awk '
+        /const fn slot\(self\) -> usize \{/ { inside = 1; next }
+        inside && /^    \}/ { inside = 0 }
+        inside && /=>/ { n++ }
+        END { print n + 0 }
+    ' "$file")
+    if [ "$arms" -ne "$variants" ]; then
+        echo "FORBIDDEN: the DisplayFault \`slot\` match has $arms arms but only $variants name a variant; an arm this check cannot read hides a variant from the count (fail-closed)" >&2
+        status=1
+        return
+    fi
     if [ "$variants" -eq 0 ]; then
         echo "FORBIDDEN: condition.rs has no readable \`slot\` match to count; the display-reason registry is unguarded (fail-closed)" >&2
         status=1
