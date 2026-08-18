@@ -17,6 +17,7 @@ cd "$root_dir"
 
 probe_dir="sets/indicate-tier-probe"
 probe_doc="docs/instruments/zz-structure-probe.md"
+worktree_probe_dir=".worktrees/zz-structure-probe"
 lock_backup="$(mktemp)"
 cp Cargo.lock "$lock_backup"
 # Every tracked file this script edits is restored by the trap, not by
@@ -29,6 +30,7 @@ cp CONTRIBUTING.md "$citation_backup"
 
 cleanup() {
     rm -rf "$probe_dir"
+    rm -rf "$worktree_probe_dir"
     rm -f "$probe_doc"
     cp "$lock_backup" Cargo.lock
     rm -f "$lock_backup"
@@ -152,6 +154,27 @@ expect_term_refusal "InstrumentSceneKit" "InstrumentSceneKit"
 expect_term_refusal "IndicateAppleDisplay" "IndicateAppleDisplay"
 expect_term_refusal "Swift SceneKit backend" "Swift SceneKit backend"
 
+# A linked worktree is a checkout, not content, and the gate walks the
+# tree with `find`, which reads no ignore file. Without the prune the
+# walks reach a worktree's own manifests and sources: the workspace-only
+# root manifest has no `[package]` name, so the gate reports findings
+# against a checkout of itself. Plant both a manifest and a source file,
+# because the manifest walks and the source walk are pruned separately.
+mkdir -p "$worktree_probe_dir/probe/src"
+cat > "$worktree_probe_dir/probe/Cargo.toml" <<'EOF'
+[workspace]
+members = []
+EOF
+printf '//! Structure probe inside a linked worktree.\n' \
+    > "$worktree_probe_dir/probe/src/mod.rs"
+if INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh >/dev/null 2>&1; then
+    echo "ok: content under .worktrees is not walked"
+    passed=$((passed + 1))
+else
+    echo "REGRESSION: the gate walked into a linked worktree and reported on a checkout" >&2
+    failed=$((failed + 1))
+fi
+rm -rf "$worktree_probe_dir"
 # A citation the clone cannot resolve must be refused wherever it sits
 # on the line. The first version of this check read only the last
 # citation per line, so a document that named a missing file before a
