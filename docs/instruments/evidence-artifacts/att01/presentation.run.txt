@@ -2,10 +2,10 @@ Indicate evidence — captured verification run (SIM / NOT FOR FLIGHT)
 scope: ATT-01
 suite: SO(3) presentation unit suite
 command: cargo test -p indicate-instrument-state
-config-digest: 66b9b4bf38418ca172712d31574cdd76d7bc3c57
+config-digest: 96f7a5177f7bd77e8cbccb817724f865d27a400f
 tool-version: rustc 1.95.0 (59807616e 2026-04-14)
-run-id: local:66b9b4bf38418ca172712d31574cdd76d7bc3c57
+run-id: local:96f7a5177f7bd77e8cbccb817724f865d27a400f
 outcome: pass
 summary:
-test result: ok. 185 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test result: ok. 188 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
