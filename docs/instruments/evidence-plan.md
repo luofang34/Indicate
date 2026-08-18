@@ -123,45 +123,76 @@ certified lifecycle data. Nothing here is marked satisfied.
 | EVP-20 | Synthetic-vision performance (DO-407 / ED-326 and earlier DO-315 / ED-179; active FAA vision ACs AC 20-167B / AC 20-185A) | SVS is supplemental only ([`AIR-OUT-005`](requirements.md#air-out-005)); no operational-credit artifact | engineering input; DO-407 / ED-326 released MASPS with authority acceptance unresolved — see [standards matrix](standards-applicability.md) STD-066 and [`standards-registry.toml`](standards-registry.toml) |
 | EVP-21 | Source equipment — attitude/heading (AC 20-181, AHRS / TSO-C201) | attitude and heading inputs ([`AIR-IN-001`](requirements.md#air-in-001), [`AIR-IN-005`](requirements.md#air-in-005)) | not applicable yet (no airborne AHRS source selected) — see [standards matrix](standards-applicability.md) STD-065 |
 
-## Recorded run evidence — identity, not currency
+## Recorded run evidence — identity, not freshness
 
 The evidence graph binds each recorded verification run to its command, its
-sources, its output artifact, and its baseline commit. The `evidence-gate`
-binary verifies the identity of such a record:
+sources, its output artifact, and its baseline commit.
+
+The `evidence-gate` binary, run with `--resolve-selectors` or
+`--require-resolvable`, verifies the identity of such a record. It checks
+that:
 
 - the artifact hashes to its declared `output-digest`;
 - the artifact's parsed fields agree with the result node's attrs;
 - the declared baseline commit is reachable from HEAD;
+- the baseline names the configuration item the record declares;
 - every case selector resolves against the tree;
+- every locator stays inside the repository root;
 - the bound source's blob matches its declared `source-digest`.
 
-The gate never re-runs the suite. It proves the identity of a record, not its
-currency. This is the same limit that `scripts/check-standards-registry.sh`
-states for itself: an automatic check proves internal consistency, not
-external freshness.
+Run without those flags, the binary parses and validates the graph alone. It
+performs none of the checks above.
 
-The pass count in an artifact's `summary:` is the one field that says what
-the recorded run did. Everything else is identity. A recorded count is only
-as fresh as its last re-record: a test added to a suite without an edit to
-the bound source file moves no digest, and no gate notices (issue #44).
+The gate never runs the suite again. It proves the identity of a record. It
+does not prove that the record describes this tree. That limit is also what
+`scripts/check-standards-registry.sh` states for itself: an automatic check
+proves internal consistency, not external freshness.
+
+The pass count in an artifact's `summary:` is the one field that says what the
+recorded run did. Every other field is identity. A count is thus only as fresh
+as the last time the artifact was written. A test added to a suite, without an
+edit to the bound source file, changes no digest.
+
+To **re-record** an artifact is to do all of these in one change:
+
+1. Run the artifact's own `command:` against the current tree.
+2. Write its output into the artifact, with the current configuration
+   identity.
+3. Update the result node's `output-digest` and `source-digest`.
+4. Re-anchor the baseline if the configuration item moved.
 
 The accepted rule is:
 
 - Re-record an artifact when its bound suite changes.
-- Treat the recorded count as a statement about the recorded execution, not
-  about the current tree.
-- An edit to a bound source file forces a re-record through the
-  `source-digest` mismatch. An added test that does not touch the bound file
-  forces nothing; the change that adds the test must include the re-record.
+- Read a recorded count as a statement about the recorded run. Do not read it
+  as a statement about the current tree.
+- An edit to a bound source file makes the `source-digest` disagree. The
+  record must then be updated before the gate passes again. An added test
+  that does not touch a bound file makes nothing disagree. The change that
+  adds the test must re-record.
+
+Freshness needs a build, which is why the gate does not check it.
+`scripts/check-recorded-counts.sh` does check it, because CI has already built
+and run the suites by the time that step runs. It compares each artifact's
+recorded result lines with what the artifact's own recorded command prints
+now, and it fails on any difference. The two guards are separate on purpose:
+the gate stays a program that reads files and runs `git`, and freshness is a
+step beside it.
+
+Neither guard proves that a recorded run happened. A record whose summary
+matches this tree may still have been written by hand. No check distinguishes
+a real execution from a consistent hand-edit. Only the discipline in
+`CONTRIBUTING.md` does.
 
 Declined alternatives, one sentence each:
 
-- Re-run the suite in the gate: the gate would depend on a toolchain and a
-  build; today it reads files and asks git.
+- Run the suite inside the gate: the gate would then require a toolchain and
+  a build, which `check-recorded-counts.sh` supplies beside it instead.
 - Pin the suite's test count as an attr and check it against
-  `cargo test -- --list`: cheaper than a full run, but still needs a build.
-- Bind the whole suite's sources instead of one locator per case: the
-  graph's case-to-locator model is per-case by design.
+  `cargo test -- --list`: this counts tests rather than results, and needs
+  the same build.
+- Bind the whole suite's sources instead of one locator per case: the graph's
+  case-to-locator model is per-case by design.
 
 ## Reuse as engineering input versus evidence established anew
 
