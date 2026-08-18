@@ -5,6 +5,10 @@
 All project-authored documentation MUST use ASD-STE100 Simplified Technical
 English.
 
+The rules below are the binding subset. Apply them without consulting the
+standard. The ASD-STE100 dictionary is advisory here: a reviewer cites a rule
+from this list, not a word from a dictionary neither party has.
+
 - Write in English.
 - Use an approved word when it has the required meaning.
 - Use one word for one meaning.

@@ -127,9 +127,9 @@ the tag is what a human owes it.
 ## Documentation language
 
 Project-authored documentation uses ASD-STE100 Simplified Technical
-English. `AGENTS.md` at the repository root holds the rules, and they
-apply to new text and to text you change, not to legacy prose you happen
-to be near. No gate checks this; review does.
+English. `AGENTS.md` at the repository root holds the rules. They apply
+to new text and to text you change. They do not apply to legacy prose
+you happen to be near. No gate checks the prose itself. Review does.
 
 ## Discipline that is easy to miss
 
