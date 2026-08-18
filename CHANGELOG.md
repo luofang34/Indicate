@@ -124,10 +124,11 @@ Panel set changed since the previous release: no.
   failure looks like total signal loss rather than one short group. Emit
   the 16-byte payload, with a NaN in the true-airspeed slot when the
   source has none.
-- **A state writer must also declare the nav scale.** A writer that
-  leaves the spare byte at zero declares enroute, which is a scale, so
-  this one fails loudly only for writers that put something else there.
-  Declare the scale the guidance is actually flown to.
+- **A state writer must also write the longer Nav group.** A writer
+  that omits the scale emits a 42-byte payload, which is now below the
+  group's minimum, and the decoder rejects the whole frame exactly as
+  it does for a short Air group. Declare the scale the guidance is
+  actually flown to; there is no value that means "not stated".
 - **The speed tape starts 25 units lower.** The true-airspeed box is
   opaque and owns the strip above the tape, so the tape no longer paints
   under it. The visible speed range above the pointer shrinks by about
