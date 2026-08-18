@@ -74,6 +74,12 @@ pub struct PanelData {
     /// Heading bug presented in the rose reference; `Failed` when the
     /// bug's own reference is unknown or cannot convert.
     pub heading_bug_rose_rad: Sig<f32>,
+    /// Each bearing pointer converted into the rose reference, in draw
+    /// order. A pointer whose north cannot be resolved carries the
+    /// status of that failure, and the panel draws no needle for it.
+    pub bearings_rose_rad: [Sig<f32>; 2],
+    /// The bearing pointers as declared, with the group's status.
+    pub bearings: Sig<crate::aircraft::BearingPointers>,
     /// Flight-director command presentation: bars draw only from a
     /// fully valid, engaged director — under any degradation they
     /// disappear (a frozen or dashed command is still a command).
@@ -250,7 +256,16 @@ pub fn resolve_stateful(
         policy,
     );
 
+    let (bearings, bearings_rose_rad) = bearings_resolved(
+        state,
+        policy,
+        rose,
+        groups.status(crate::group_id::GroupId::BearingPointers),
+    );
+
     PanelData {
+        bearings_rose_rad,
+        bearings,
         roll_rad: finite(Sig::with_status(presentation.bank_rad, att_status)),
         pitch_rad: finite(Sig::with_status(presentation.pitch_rad, att_status)),
         heading,
@@ -437,37 +452,17 @@ fn nav_resolved(
     }
 }
 
-fn wind_signal(
-    state: &AircraftState,
-    policy: &FreshnessPolicy,
-    integrity: &StateIntegrity,
-) -> Sig<Wind> {
-    let wind_status = policy
-        .status_for_age(state.wind.age_ms)
-        .worst(fault_status(integrity.wind));
-    match (state.wind.data, wind_status) {
-        (Some(w), s) if s.shows_value() => Sig::with_status(w, s),
-        _ => Sig::with_status(
-            Wind {
-                from_rad: 0.0,
-                speed_mps: 0.0,
-            },
-            if state.wind.data.is_some() && wind_status == SignalStatus::Failed {
-                SignalStatus::Failed
-            } else {
-                SignalStatus::Missing
-            },
-        ),
-    }
-}
-
 mod altitude_signal;
+mod bearings_signal;
 mod dynamics_signal;
 mod group_status;
 mod kinematics_signal;
+mod wind_signal;
 use altitude_signal::altitude_resolved;
+use bearings_signal::bearings_resolved;
 use dynamics_signal::{slip_resolved, turn_resolved};
 use kinematics_signal::kinematic_signals;
+use wind_signal::wind_signal;
 mod heading_signal;
 pub use heading_signal::{ResolvedHeading, RoseBasis};
 mod director_signal;

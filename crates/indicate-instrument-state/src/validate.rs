@@ -86,6 +86,9 @@ pub struct StateIntegrity {
     /// Flight-director fault: non-finite or out-of-envelope commanded
     /// attitude, or an unknown mode/engagement byte.
     pub director: Option<GroupFault>,
+    /// Bearing-pointer fault: an unknown source or reference, or a
+    /// non-finite bearing.
+    pub bearings: Option<GroupFault>,
 }
 
 fn all_finite(values: &[f32]) -> bool {
@@ -126,6 +129,26 @@ fn selections_fault(selections: &Selections) -> Option<GroupFault> {
     }
 }
 
+/// The bearing group's own fault, if it has one.
+///
+/// A pointer whose source this build cannot name, or whose north it
+/// cannot resolve, fails the group: a needle pointing somewhere on
+/// behalf of nobody is worse than no needle. A pointer the source
+/// declares unusable is not a fault — it is simply not drawn.
+fn bearings_fault(pointers: &crate::aircraft::BearingPointers) -> Option<GroupFault> {
+    for pointer in [&pointers.first, &pointers.second] {
+        if matches!(pointer.source, crate::aircraft::NavSource::Unknown)
+            || matches!(pointer.reference, crate::heading::HeadingReference::Unknown)
+        {
+            return Some(GroupFault::UnknownEnum);
+        }
+        if pointer.valid && !pointer.bearing_rad.is_finite() {
+            return Some(GroupFault::NonFinite);
+        }
+    }
+    None
+}
+
 /// Validates every received group of `state` and reports per-group
 /// faults. Absent groups pass (their absence resolves `Missing`); the
 /// deterministic worst-of combination in `resolve` folds these faults
@@ -157,6 +180,9 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
         && !(opt_finite(air.ias_mps) && opt_finite(air.baro_setting_hpa) && opt_finite(air.tas_mps))
     {
         integrity.air = Some(GroupFault::NonFinite);
+    }
+    if let Some(pointers) = &state.bearings.data {
+        integrity.bearings = bearings_fault(pointers);
     }
     if let Some(nav) = &state.nav.data {
         if matches!(nav.source, NavSource::Unknown) || matches!(nav.fromto, NavFromTo::Unknown) {

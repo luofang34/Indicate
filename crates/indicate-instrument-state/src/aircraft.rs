@@ -126,6 +126,40 @@ pub struct Selections {
     pub baro_sel_hpa: Option<f32>,
 }
 
+/// One bearing pointer: which receiver it follows and where that
+/// receiver says the station is.
+///
+/// A pointer is independent of the CDI: it can follow a receiver the
+/// course selector is not on, which is the whole reason to have one.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct BearingPointer {
+    /// Which receiver drives this pointer.
+    pub source: NavSource,
+    /// Bearing to the station in radians from ITS OWN declared north.
+    pub bearing_rad: f32,
+    /// The north the bearing is expressed against. A pointer renders
+    /// only after conversion into the rose reference; unknown fails.
+    pub reference: HeadingReference,
+    /// The source declares this bearing usable. A pointer whose source
+    /// says otherwise is removed, never parked.
+    pub valid: bool,
+}
+
+/// The bearing pointers, in draw order.
+///
+/// Two, because the panel draws two distinct needle forms and a pilot
+/// tells them apart by shape. A pointer whose source is `None` is not
+/// drawn; one whose source this build cannot name fails the group,
+/// because a needle pointing somewhere on behalf of nobody is worse
+/// than no needle.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct BearingPointers {
+    /// The single-line needle.
+    pub first: BearingPointer,
+    /// The double-line needle.
+    pub second: BearingPointer,
+}
+
 /// Wind estimate.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Wind {
@@ -265,6 +299,8 @@ pub struct AircraftState {
     /// Machine-monitoring text channel (AIR-IN-014); advisory content
     /// with its own slow freshness policy, never flight data.
     pub monitor_text: Stamped<crate::monitor_text::MonitorText>,
+    /// Bearing pointers, independent of the selected nav source.
+    pub bearings: Stamped<BearingPointers>,
 }
 
 impl Default for Selections {

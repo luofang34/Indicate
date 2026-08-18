@@ -12,9 +12,9 @@ fn builtin_panels_pass_admission() {
     let registry = Registry::new(BUILTIN_PANELS).expect("composes");
     let report = admit(&registry).expect("shipped panels must be admissible");
     // PFD: (5 canonical + 3 extreme) states × (1 fed + 8 withheld);
-    // HSI: (5 + 2) × 8; monitor: 6 × 2 — each drawn twice, quiet and
+    // HSI: (5 + 3) × 9; monitor: 6 × 2 — each drawn twice, quiet and
     // with the saturated alert stack.
-    assert_eq!(report.cases, 280);
+    assert_eq!(report.cases, 312);
     // Every warning is the PFD's groundspeed or baro readout: each box
     // is 90 units wide but a wide value at size 16 has ~107 units of
     // nominal ink, so the run overhangs its box and the frame edge —
