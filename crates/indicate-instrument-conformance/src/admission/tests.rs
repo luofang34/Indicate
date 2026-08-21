@@ -23,14 +23,16 @@ fn builtin_panels_pass_admission() {
     // state; fixing it moves frame hashes and is its own change, for
     // both boxes at once.
     //
-    // Thirty per PFD state that paints both boxes with wide values, and
-    // sixteen for source-unusable, where only the groundspeed box
-    // dashes — its baro box still paints a wide value, because a dialed
-    // setting is not an estimate and does not fold source quality. The
-    // true-airspeed box adds none of them: it sizes its label to its own
-    // width, so a third readout arrives without a third overflow.
-    // Twice the quiet-frame count, because the alert stack does not
-    // touch these boxes: each overhangs on both sides of the alert axis.
+    // Thirty for each of the eight PFD states that paint both boxes with
+    // wide values, and sixteen for source-unusable, where only the
+    // groundspeed box dashes — its baro box still paints a wide value,
+    // because a dialed setting is not an estimate and does not fold
+    // source quality. Nothing-fed contributes none: it dashes both. The
+    // true-airspeed box adds none of them either: it sizes its label to
+    // its own width, so a third readout arrives without a third
+    // overflow. Twice the quiet-frame count, because the alert stack
+    // does not touch these boxes: each overhangs on both sides of the
+    // alert axis.
     assert_eq!(report.warnings.len(), 256);
     assert!(report.warnings.iter().all(|w| matches!(
         w,

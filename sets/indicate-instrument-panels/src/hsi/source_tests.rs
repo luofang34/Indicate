@@ -484,4 +484,11 @@ fn a_valid_group_with_an_unnameable_scale_still_draws_no_needle() {
     for label in ["ENR", "TERM", "APR"] {
         assert!(!t.contains(&s(label)), "no scale is invented: {t:?}");
     }
+    // The receiver label goes with the needle. Naming the receiver that
+    // drives a deflection, beside a deflection the panel is refusing to
+    // draw, would leave the label pointing at nothing.
+    assert!(
+        !t.contains(&s("GPS")),
+        "the receiver label must not outlive the needle: {t:?}"
+    );
 }
