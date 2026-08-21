@@ -124,6 +124,13 @@ for — `accepts` is the predicate that says so, and a shell is expected
 to consult it, but nothing in the draw path re-checks the argument. Every
 shipped panel declares a degenerate range today.
 
+Which frame a shell asks for is the shell's half of this contract, and
+your descriptor answers it. `PanelDescriptor::choose_frame` gives the
+largest frame that fits a shell's space and that `accepts` admits, so
+two shells with the same space and your descriptor ask for the same
+frame. You get this from declaring the range honestly; there is nothing
+more for you to write.
+
 What is refused is declaring a range and not using it. Admission renders
 a non-degenerate panel at both ends of its range, across the whole case
 matrix, and requires the bytes to differ in at least one case. One

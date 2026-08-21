@@ -57,9 +57,9 @@ evidence is pinned at are shapes the panel really declared.
 
 Note how far that reaches, and how far it does not: a valid range may
 still *contain* an in-range, on-grid frame that violates the aspect
-bounds. Choosing a frame inside the range, and clamping to what the
-panel supports, is the shell's job — nothing in the draw path re-checks
-the argument.
+bounds. Asking for a frame is the shell's job, and nothing in the draw
+path re-checks the argument — so the shell asks the panel which frame
+to use, with `choose_frame` below, rather than deriving one.
 
 **Do not re-derive the rule.** `PanelDescriptor::accepts(DesignFrame)`
 is the predicate over those fields, and it is the only copy of it. It
@@ -76,9 +76,40 @@ whether the step is measured from the minimum or from zero — and each
 will be locally green, because each only ever tests its own. The panel
 is the one thing that knows which frames it accepts, so ask the panel.
 
+Which frame to ask for has the same answer, for the same reason.
+`accepts` can only refuse a frame you already hold; it cannot give you
+one. A shell that had to produce a candidate would walk the step grid
+itself, which is the arithmetic above. So the panel answers this too:
+
+```rust
+let frame = descriptor.choose_frame(space)?;
+```
+
+`PanelDescriptor::choose_frame` gives the largest frame by area that
+fits inside `space` on both axes and that `accepts` admits. It walks
+one axis and computes the other, so its cost is the declared width grid
+and not the product of both. Read its documentation for the rule. Do
+not restate the rule in a shell.
+
+Three properties of it bind on you:
+
+- **The space is in logical units, the units a `DesignFrame` is in.**
+  It is not device pixels. A shell with a surface in physical pixels
+  divides by its own scale factor before it asks. Two shells that pass
+  different units for one window get different frames, which is what
+  this rule exists to prevent.
+- **A refusal is an answer.** A space too small for `frame_min` refuses
+  with `OutOfRange`. `frame_min` is the readability floor, so the panel
+  will not name a frame below it. What to do then is yours: scale the
+  frame you did get, letterbox it, or show a different panel.
+- **A shell under no constraint asks with `frame_max`** and gets it
+  back. There is no separate rule for the unconstrained case.
+
 Every shipped panel currently declares a degenerate range —
 `frame_min == frame_max == 480×360`, one canonical frame — so the only
 frame a conforming shell may ask any of them for is 480×360.
+`choose_frame` returns that one frame today. It exists so that when a
+panel ships a real range, every shell makes the same choice.
 
 - Every backend clips at the frame it asked for: ink outside it never
   reaches a pixel, on any backend.
