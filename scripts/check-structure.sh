@@ -329,7 +329,8 @@ check_crate_naming() {
 #                 on the kernel only.
 #   verification  raster, conformance, registry, evidence. Consumes
 #                 sets; is never a normal dependency of one.
-#   sets          panel providers under sets/, one crate per set. Normal
+#   sets          panel providers under sets/, one crate per set family.
+#                 A crate exports at least one PanelSet. Normal
 #                 dependencies are kernel-only. The registry is allowed
 #                 as a DEV dependency so a set can pin its own scene
 #                 digest without a shell — a test-graph edge is not a

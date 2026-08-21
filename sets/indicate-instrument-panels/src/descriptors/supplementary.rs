@@ -177,19 +177,47 @@ pub const CONFIG_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     canonical_frames: CANONICAL_FRAMES,
     background: BackgroundCapability::Opaque,
     config_schema: &[],
-    // The scales and their numerals: with the group withheld the panel
-    // dashes both, and the region has to hold the dashes as well as the
-    // readings.
+    // The two numerals. The dashes a withheld group draws are plain
+    // text carrying no claim, so they are not what this region is
+    // measured against — only attributed runs are, and the panel
+    // attributes exactly the flap reading and the trim reading.
+    //
+    // The two sit in separate columns with a gap between them, so the
+    // width spans both columns and that gap. It does not exclude every
+    // unclaimed mark: about ninety units of the trim ladder fall inside
+    // it, because the ladder crosses the column the flap numeral needs.
+    // The bottom is set by the trim numeral at y 320, not by the flap
+    // numeral, which stops at y 290 with the flaps fully extended.
+    //
+    // Admission does not hold these bounds: `GroupRegionEmpty` fires
+    // only when a region catches no claim at all, so a region far
+    // smaller than the ink passes it. What holds them is
+    // `every_attributed_numeral_lies_inside_the_declared_region` beside
+    // the panel.
     group_regions: &[(
         GroupId::AirframeConfig,
         Region {
-            x: 40.0,
-            y: 40.0,
-            width: 400.0,
-            height: 300.0,
+            x: 170.0,
+            y: 50.0,
+            width: 170.0,
+            height: 290.0,
         },
     )],
-    extreme_states: &[],
+    // The corpus reaches one flap position and one trim setting, both
+    // mid-scale, so these are the only states that draw either numeral
+    // anywhere else. They are coverage of the panel's geometry, not a
+    // constraint on the region above: non-vacuity is monotone, so more
+    // cases can only make a region easier to populate, never harder.
+    extreme_states: &[
+        ExtremeState {
+            id: "flaps-up-trim-nose-down",
+            build: extreme_states::config_low_extremes,
+        },
+        ExtremeState {
+            id: "flaps-full-trim-nose-up",
+            build: extreme_states::config_high_extremes,
+        },
+    ],
     // No baseline until the rasterizer covers this set; the contract
     // asserts none that was never declared.
     raster_baselines: &[],

@@ -84,8 +84,11 @@ normal dependency of one.**
 
 ### Sets — `sets/`
 
-Panel providers, one crate per set, each exporting one `PanelSet`. A set
-lives here whether or not it was written in this repository.
+Panel providers, one crate per set family, each exporting at least one
+`PanelSet`. A crate may export more than one when the sets carry the
+same tier obligations; `panel-contract.md` states when they belong
+apart. A set lives here whether or not it was written in this
+repository.
 
 Normal dependencies are kernel-only, so a set cannot reach the machinery
 that judges it. The registry is allowed as a **dev**-dependency: that
@@ -98,7 +101,7 @@ passes admission — copy it rather than starting from a shipped panel.
 
 | Crate | Role |
 |---|---|
-| `indicate-instrument-panels` | The shipped panels (PFD, HSI, monitor): immediate-mode scene emission per frame. |
+| `indicate-instrument-panels` | The shipped panels, in two sets: the flight set (PFD, HSI, autoflight, monitor) and the configuration set a shell composes when the airframe has the sensors. Immediate-mode scene emission per frame. |
 | `indicate-instrument-template` | The smallest set that passes admission, written to be read and copied; its own test admits it, so the worked example cannot drift from the contract. |
 
 ### Tools — `tools/`
