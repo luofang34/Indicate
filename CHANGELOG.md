@@ -43,7 +43,7 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
-## [0.5.1] — 2026-08-18
+## [0.5.2] — 2026-08-21
 
 `SnapshotMeta::generation` counts snapshots admitted, not source groups
 advanced. The meaning is stated once, for every shell, in
@@ -79,6 +79,46 @@ compares numbers.
 | Panel set | `pfd`, `hsi`, `monitor` |
 
 Panel set changed since the previous release: no.
+
+## [0.5.1] — 2026-08-18
+
+`PanelDescriptor::choose_frame` answers which frame a shell should ask a
+panel for. `accepts` can only refuse a frame a shell already holds, so a
+shell that had to produce one walked the step grid itself. That is the
+arithmetic the contract tells shells not to write, because two shells
+write it differently and each stays green against its own tests.
+
+| Value | This release |
+|---|---|
+| State ABI | 7 |
+| Scene format | 1 |
+| Corpus | 5 |
+| Composition digest | `5cded14978b2e5ba3a17b61959ed0b35061334adf3fde4242f47e214f0f07aef` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no. The five values match
+the entry below: this release is a public API addition, cut so that
+consumers can reach the new predicate without pinning a bare revision.
+
+### Choosing a frame ([#32](https://github.com/luofang34/Indicate/issues/32))
+
+- **`choose_frame(space) -> Result<DesignFrame, FrameRefusal>`** gives
+  the largest frame by area that fits `space` on both axes and that
+  `accepts` admits. It walks the declared width grid and computes each
+  width's tallest admissible height, so its cost is one axis and not
+  the product of both.
+- **`space` is in logical units**, the units a `DesignFrame` is in, not
+  device pixels. A shell with a surface in physical pixels divides by
+  its own scale factor before it asks.
+- **A space below `frame_min` is refused** with the bound that refused
+  it. The panel does not name a frame below its readability floor. To
+  scale, letterbox, or show a different panel stays the shell's choice.
+- **A shell under no constraint asks with `frame_max`** and gets it
+  back, so that case needs no separate rule.
+
+Every shipped panel declares one frame today, so `choose_frame` returns
+480x360 for every space that admits it. The value is in what happens
+when a panel declares a real range.
 
 ## [0.5.0] — 2026-08-18
 
