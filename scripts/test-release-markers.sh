@@ -93,6 +93,22 @@ DRIFT
 refuses "a value that disagrees with the tree" "DRIFT:"
 cp "$pristine" "$changelog"
 
+# An entry that exists but omits one of the five rows. This is the only
+# refusal path with no case of its own otherwise: the check would still
+# refuse a changelog missing every row, so a case that dropped them all
+# would pass on the no-versioned-entry guard instead.
+python3 - "$changelog" <<'DROP'
+import sys, pathlib, re
+p = pathlib.Path(sys.argv[1])
+s = p.read_text()
+# Inside the newest release entry, not the legend table above it.
+start = re.search(r"^## \[\d+\.\d+\.\d+\]", s, re.M).start()
+head, tail = s[:start], s[start:]
+p.write_text(head + re.sub(r"^\| Scene format \|[^\n]*\n", "", tail, count=1, flags=re.M))
+DROP
+refuses "an entry missing one of the five rows" "states no 'Scene format' row"
+cp "$pristine" "$changelog"
+
 # No versioned entry at all.
 python3 - "$changelog" <<'STRIP'
 import sys, pathlib, re
