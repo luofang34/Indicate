@@ -181,9 +181,17 @@ pub const CONFIG_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     // draws are plain text carrying no claim, so they are not what this
     // region is measured against — only attributed runs are, and the
     // panel attributes exactly the flap reading and the trim reading.
-    // The height is most of the frame because the flap numeral rides
-    // its pointer down the whole scale; the width is not, because
-    // neither numeral leaves the column they share.
+    // The two sit in separate columns with a gap between them, so the
+    // width spans both columns and that gap, and stops short of the
+    // scale labels and the ladders, which carry no claim either. The
+    // height is most of the frame because the flap numeral rides its
+    // pointer down the whole scale.
+    //
+    // Admission does not hold these bounds: `GroupRegionEmpty` fires
+    // only when a region catches no claim at all, so a region far
+    // smaller than the ink passes it. What holds them is
+    // `every_attributed_numeral_lies_inside_the_declared_region` beside
+    // the panel.
     group_regions: &[(
         GroupId::AirframeConfig,
         Region {
@@ -193,7 +201,20 @@ pub const CONFIG_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
             height: 290.0,
         },
     )],
-    extreme_states: &[],
+    // The corpus reaches one flap position and one trim setting, both
+    // mid-scale, so without these the region is only ever probed at two
+    // points and a rectangle a fraction of its size would pass. These
+    // put both numerals at the ends of their travel.
+    extreme_states: &[
+        ExtremeState {
+            id: "flaps-up-trim-nose-down",
+            build: extreme_states::config_low_extremes,
+        },
+        ExtremeState {
+            id: "flaps-full-trim-nose-up",
+            build: extreme_states::config_high_extremes,
+        },
+    ],
     // No baseline until the rasterizer covers this set; the contract
     // asserts none that was never declared.
     raster_baselines: &[],

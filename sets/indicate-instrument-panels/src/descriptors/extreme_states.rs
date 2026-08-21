@@ -4,11 +4,46 @@
 
 use indicate_instrument_descriptor::states;
 use indicate_instrument_state::{
-    AirData, AircraftState, ApEngagement, ApModes, Attitude, BearingPointer, BearingPointers,
-    DynSample, FdEngagement, FdMode, FdSample, HeadingReference, HeadingSample, Kinematics,
-    LateralMode, MonitorText, NavData, NavFromTo, NavScale, NavSource, OriginId, Quat, Stamped,
-    TextLine, TurnBasis, TurnSample, VerticalMode,
+    AirData, AircraftState, AirframeConfig, ApEngagement, ApModes, Attitude, BearingPointer,
+    BearingPointers, DynSample, FdEngagement, FdMode, FdSample, HeadingReference, HeadingSample,
+    Kinematics, LateralMode, MonitorText, NavData, NavFromTo, NavScale, NavSource, OriginId, Quat,
+    Stamped, TextLine, TurnBasis, TurnSample, VerticalMode,
 };
+
+/// Both surfaces at the low end of their travel: flaps up, trim fully
+/// nose-down. The flap numeral sits at the top of its scale and the
+/// trim numeral carries its widest negative run.
+pub(super) fn config_low_extremes() -> AircraftState {
+    let mut state = states::typical();
+    state.airframe = Stamped {
+        data: Some(AirframeConfig {
+            flap_ratio: Some(0.0),
+            flap_selected_ratio: Some(0.0),
+            elevator_trim_ratio: Some(-1.0),
+            aileron_trim_ratio: None,
+            rudder_trim_ratio: None,
+        }),
+        age_ms: Some(40.0),
+    };
+    state
+}
+
+/// Both surfaces at the high end: flaps fully extended, trim fully
+/// nose-up, so the flap numeral reaches the bottom of its scale.
+pub(super) fn config_high_extremes() -> AircraftState {
+    let mut state = states::typical();
+    state.airframe = Stamped {
+        data: Some(AirframeConfig {
+            flap_ratio: Some(1.0),
+            flap_selected_ratio: Some(1.0),
+            elevator_trim_ratio: Some(1.0),
+            aileron_trim_ratio: None,
+            rudder_trim_ratio: None,
+        }),
+        age_ms: Some(40.0),
+    };
+    state
+}
 
 /// Inverted, nose-low, rolling hard: the unusual-attitude tier, the
 /// recovery chevrons, and the pitch ladder far from level — the PFD's

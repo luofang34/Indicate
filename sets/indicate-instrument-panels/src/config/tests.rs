@@ -253,3 +253,69 @@ fn out_of_range_configuration_faults_the_group_per_field() {
         );
     }
 }
+
+/// Every numeral the panel attributes falls inside the region its
+/// descriptor declares, at both ends of both scales.
+///
+/// The admission harness cannot say this. `GroupRegionEmpty` fires only
+/// when a region catches no claim at all, so a region far smaller than
+/// the ink still passes there as long as one run lands in it. What that
+/// leaves unguarded is a region that has drifted away from the readings
+/// it names, which is what a composition plans obscuration around.
+#[test]
+fn every_attributed_numeral_lies_inside_the_declared_region() {
+    use crate::descriptors::CONFIG_DESCRIPTOR;
+    let region = CONFIG_DESCRIPTOR
+        .group_regions
+        .iter()
+        .find(|(group, _)| *group == indicate_instrument_state::GroupId::AirframeConfig)
+        .map(|(_, region)| *region)
+        .expect("the descriptor declares a region for the group it draws");
+
+    for (flap, trim) in [(0.0, -1.0), (0.5, 0.0), (1.0, 1.0), (0.25, -0.15)] {
+        let data = panel(
+            Some(AirframeConfig {
+                flap_ratio: Some(flap),
+                flap_selected_ratio: Some(flap),
+                elevator_trim_ratio: Some(trim),
+                aileron_trim_ratio: None,
+                rudder_trim_ratio: None,
+            }),
+            Some(40.0),
+        );
+        let mut buf = std::vec![0u8; MAX_SCENE_BYTES];
+        let mut writer = SceneWriter::new(&mut buf).expect("writer");
+        draw_config(&data, None, BUILTIN_FRAME, &mut writer).expect("panel fits buffer");
+        let len = writer.finish();
+
+        // `Attribute` claims the run that immediately follows it, so
+        // the claim is carried forward one command rather than read off
+        // the text itself.
+        let mut claimed = 0;
+        let mut pending: Option<u8> = None;
+        for command in SceneCmds::new(&buf[..len]).expect("valid scene") {
+            match command.expect("valid command") {
+                Cmd::Attribute { group } => pending = Some(group),
+                Cmd::Text { x, y, .. } => {
+                    let Some(group) = pending.take() else {
+                        continue;
+                    };
+                    if group != indicate_instrument_state::GroupId::AirframeConfig.to_u8() {
+                        continue;
+                    }
+                    claimed += 1;
+                    assert!(
+                        x >= region.x
+                            && x <= region.x + region.width
+                            && y >= region.y
+                            && y <= region.y + region.height,
+                        "flap {flap} trim {trim}: a claimed numeral at ({x}, {y}) \
+                         sits outside {region:?}"
+                    );
+                }
+                _ => pending = None,
+            }
+        }
+        assert_eq!(claimed, 2, "flap {flap} trim {trim}: both numerals claim");
+    }
+}

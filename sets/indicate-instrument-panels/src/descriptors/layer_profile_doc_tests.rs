@@ -11,7 +11,7 @@ use std::vec::Vec;
 use indicate_instrument_descriptor::PanelDescriptor;
 use indicate_instrument_scene::{LAYER_COUNT, LayerId};
 
-use super::{BUILTIN_PANELS, CONFIG_PANELS, layer_bit};
+use super::{ALL_SETS, layer_bit};
 
 const PROTOCOL_DOC: &str = include_str!("../../../../docs/instruments/scene-layer-protocol.md");
 
@@ -123,13 +123,15 @@ fn the_profiles_section_holds_exactly_one_table() {
     );
 }
 
-/// Every panel this crate ships, in table order: the flight set, then
-/// the sets a shell composes on its own. A table checked against
-/// `BUILTIN_PANELS` alone cannot see a panel that ships outside it,
-/// which is how the configuration panel reached a release without a
-/// row.
+/// Every panel this crate ships, in table order, taken from
+/// [`super::ALL_SETS`] rather than from a list written here.
+///
+/// A check that names the sets it walks cannot see a panel in a set it
+/// does not name, and the next set added is the one it will not name.
+/// Reading the registry instead makes the table's coverage follow what
+/// the crate ships.
 fn shipped_panels() -> Vec<&'static PanelDescriptor> {
-    BUILTIN_PANELS.iter().chain(CONFIG_PANELS.iter()).collect()
+    ALL_SETS.iter().flat_map(|set| set.panels.iter()).collect()
 }
 
 #[test]
@@ -174,12 +176,11 @@ fn the_documented_profiles_are_the_descriptor_masks() {
 /// it compares, so drift cannot hide behind an unchanged string.
 #[test]
 fn a_changed_mask_changes_the_cell_the_guard_compares() {
-    let panel = BUILTIN_PANELS
-        .first()
-        .expect("the family ships at least one panel");
+    let panels = shipped_panels();
+    let panel = panels.first().expect("the family ships at least one panel");
     let rows = documented_rows();
     let row = rows.first().expect("that panel has a row");
-    let mut drifted = *panel;
+    let mut drifted = **panel;
     drifted.required_layers &= !layer_bit(LayerId::Annunciation);
     assert_eq!(
         cells_from_mask(panel).0,

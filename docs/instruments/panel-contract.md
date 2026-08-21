@@ -36,8 +36,7 @@ composes only when the airframe has the sensors — keeping it out of
 screen-composition digest and the panel-set release value unmoved by a
 panel most airframes do not show.
 
-A set's
-normal dependencies are kernel-only — `crates/README.md` states the tier
+A set's normal dependencies are kernel-only — `crates/README.md` states the tier
 law and `check-structure.sh` enforces it, so a set cannot *ship* against
 the registry, the rasterizer, or the conformance harness that judges it.
 The whole verification tier is permitted as **dev**-dependencies, and a

@@ -328,6 +328,15 @@ pub const BUILTIN_SET: PanelSet = PanelSet {
     panels: BUILTIN_PANELS,
 };
 
+/// Every set this crate exports, in the order the layer-profile table
+/// lists their panels.
+///
+/// A check that named the sets it walked would keep passing when a
+/// third set arrived, which is how the configuration panel reached a
+/// release with no row in that table. Anything asking "what does this
+/// crate ship?" asks here.
+pub const ALL_SETS: &[PanelSet] = &[BUILTIN_SET, CONFIG_SET];
+
 /// The pinned scene digest over [`BUILTIN_PANELS`] and the canonical
 /// corpus (ADR-0033): the composition contract every build target must
 /// reproduce — the host (bench and unit pin) and the wasm build (the

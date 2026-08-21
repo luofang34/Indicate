@@ -96,11 +96,13 @@ fn the_config_set_passes_admission() {
     static SETS: [&PanelSet; 1] = [&CONFIG_SET];
     let registry = Registry::from_sets(&SETS).expect("the config set composes");
     let report = admit(&registry).expect("the config panel must be admissible");
-    // Five canonical states x (one fed case + one per required group
-    // withheld) x (quiet, alerted); the panel declares no extreme state
-    // of its own. It requires two groups: the configuration it draws,
-    // and the trust its status folds.
-    assert_eq!(report.cases, 30);
+    // (five canonical + two extreme) states x (one fed case + one per
+    // required group withheld) x (quiet, alerted). It requires two
+    // groups: the configuration it draws, and the trust its status
+    // folds. The two extreme states put both numerals at the ends of
+    // their travel, which is what makes the declared group region
+    // measured against more than one point.
+    assert_eq!(report.cases, 42);
     // Nothing tolerated: every run's nominal ink sits inside the design
     // frame, so a first warning here would be a decision rather than a
     // drift.

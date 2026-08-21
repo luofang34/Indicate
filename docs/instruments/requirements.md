@@ -190,8 +190,10 @@ and quality, and shall declare the range each axis is defined over. A value
 outside its declared range shall fail its group rather than be clamped: a
 clamped indication shows a position the airframe never reached. A selected
 detent and a sensed position are separate quantities and shall not be
-substituted for one another; an airframe that reports one and not the other
-shall present the one it reports and no indication for the other.
+substituted for one another. A detent shall be presented only beside the
+sensed position it is read against: a detent alone is a selection, not a
+configuration, and presenting it alone invites reading it as a position the
+airframe reached.
 
 ## Outputs and functions
 
