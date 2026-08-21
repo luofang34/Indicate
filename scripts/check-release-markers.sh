@@ -57,6 +57,18 @@ entry="$(awk '
 
 version="$(printf '%s\n' "$entry" | awk 'NR == 1 { gsub(/^## \[|\].*$/, ""); print; exit }')"
 
+# Two entries under one version is the shape a merge produces when two
+# branches each add the next release. This check reads the newest entry
+# only, so the older twin's values are never compared against anything
+# and its claims go unchecked. Refuse the file rather than the entry:
+# which of the two is "the" release is not a question this check can
+# answer.
+duplicate="$(grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' "$changelog" \
+    | sort | uniq -d | head -1 || true)"
+if [ -n "$duplicate" ]; then
+    fail_closed "$changelog declares $duplicate more than once; two entries under one version leave the older one unchecked (fail-closed)"
+fi
+
 # The value cell of a `| <label> | <value> |` row in the entry's table.
 # Rows inside a fenced block or an HTML comment are illustration, not
 # claim, so a table that exists only as an example cannot stand in for
