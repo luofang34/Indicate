@@ -43,6 +43,107 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.5.3] — 2026-08-21
+
+Every shell that draws a display failure now reads its reason from one
+registry. `DisplayFault` gains `ALL`, `code()` and `from_code()`, so a
+reason has one wire code and one identity wherever it is shown, and a
+shell no longer carries a private mapping that can drift from another
+shell's ([#46](https://github.com/luofang34/Indicate/issues/46)).
+
+A reason added outside `ALL` would take a code no Rust test can see —
+the type still compiles, the suite still passes, and the new variant
+silently shares an existing reason's code, identity and class. No
+compiler check can catch it, so `check-structure.sh` counts the
+variants against the list and refuses a disagreement.
+
+| Value | This release |
+|---|---|
+| State ABI | 7 |
+| Scene format | 1 |
+| Corpus | 5 |
+| Composition digest | `5cded14978b2e5ba3a17b61959ed0b35061334adf3fde4242f47e214f0f07aef` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no.
+
+## [0.5.2] — 2026-08-21
+
+`SnapshotMeta::generation` counts snapshots admitted, not source groups
+advanced. The meaning is stated once, for every shell, in
+`backend-contract.md`
+([#47](https://github.com/luofang34/Indicate/issues/47)).
+
+**This changes what a consumer holding the old meaning reads.** A
+generation that stops advancing used to mean the sources stopped
+changing; it now means the gate stopped admitting. A consumer that
+raised a liveness fault on a stalled generation was reporting quiet
+data and now reports a stalled producer, which is the question liveness
+asks. A consumer that compared generations to detect a content change
+was always wrong under both meanings and is now wrong more often: two
+admissions of identical content advance the counter twice. Compare the
+content.
+
+The gate assigns the counter, never a source. A source sits on the
+untrusted side of the boundary the snapshot describes, so a counter a
+source supplied would be the thing being judged rather than the
+judgement.
+
+No wire byte moves: the field, its width and its offset are unchanged.
+The ABI number therefore does not move either, which is why this note
+exists — no gate can see a meaning change, and `check-release-markers`
+compares numbers.
+
+| Value | This release |
+|---|---|
+| State ABI | 7 |
+| Scene format | 1 |
+| Corpus | 5 |
+| Composition digest | `5cded14978b2e5ba3a17b61959ed0b35061334adf3fde4242f47e214f0f07aef` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no.
+
+## [0.5.1] — 2026-08-18
+
+`PanelDescriptor::choose_frame` answers which frame a shell should ask a
+panel for. `accepts` can only refuse a frame a shell already holds, so a
+shell that had to produce one walked the step grid itself. That is the
+arithmetic the contract tells shells not to write, because two shells
+write it differently and each stays green against its own tests.
+
+| Value | This release |
+|---|---|
+| State ABI | 7 |
+| Scene format | 1 |
+| Corpus | 5 |
+| Composition digest | `5cded14978b2e5ba3a17b61959ed0b35061334adf3fde4242f47e214f0f07aef` |
+| Panel set | `pfd`, `hsi`, `monitor` |
+
+Panel set changed since the previous release: no. The five values match
+the entry below: this release is a public API addition, cut so that
+consumers can reach the new predicate without pinning a bare revision.
+
+### Choosing a frame ([#32](https://github.com/luofang34/Indicate/issues/32))
+
+- **`choose_frame(space) -> Result<DesignFrame, FrameRefusal>`** gives
+  the largest frame by area that fits `space` on both axes and that
+  `accepts` admits. It walks the declared width grid and computes each
+  width's tallest admissible height, so its cost is one axis and not
+  the product of both.
+- **`space` is in logical units**, the units a `DesignFrame` is in, not
+  device pixels. A shell with a surface in physical pixels divides by
+  its own scale factor before it asks.
+- **A space below `frame_min` is refused** with the bound that refused
+  it. The panel does not name a frame below its readability floor. To
+  scale, letterbox, or show a different panel stays the shell's choice.
+- **A shell under no constraint asks with `frame_max`** and gets it
+  back, so that case needs no separate rule.
+
+Every shipped panel declares one frame today, so `choose_frame` returns
+480x360 for every space that admits it. The value is in what happens
+when a panel declares a real range.
+
 ## [0.5.0] — 2026-08-18
 
 The altitude readout becomes a rolling-digit drum. The final digit pair

@@ -19,16 +19,16 @@ fn draw_nothing(
     Ok(())
 }
 
-const fn frame(width: f32, height: f32) -> DesignFrame {
+pub(super) const fn frame(width: f32, height: f32) -> DesignFrame {
     DesignFrame { width, height }
 }
 
-const MIN: DesignFrame = frame(480.0, 360.0);
+pub(super) const MIN: DesignFrame = frame(480.0, 360.0);
 const MAX: DesignFrame = frame(600.0, 450.0);
 
 /// 480×360 to 600×450, both 4:3, on a 40×30 grid — a range wide enough
 /// that each bound can be violated on its own.
-const RANGED: PanelDescriptor = PanelDescriptor {
+pub(super) const RANGED: PanelDescriptor = PanelDescriptor {
     id: "ranged",
     title: "Ranged",
     required_layers: 0b0000_0110,
@@ -137,4 +137,138 @@ fn bounds_that_are_not_numbers_refuse_rather_than_admit() {
         ..RANGED
     };
     assert_eq!(ZERO_STEP.accepts(MIN), Err(FrameRefusal::OffStep));
+}
+
+// ---- choosing a frame for a space --------------------------------------------
+
+/// The whole point of publishing the rule: a shell that must pick a
+/// frame asks the panel instead of walking the grid itself.
+#[test]
+fn a_space_larger_than_the_range_gets_the_largest_declared_frame() {
+    assert_eq!(RANGED.choose_frame(frame(4096.0, 2160.0)), Ok(MAX));
+    // Exactly the maximum is not "larger than"; it still gets it.
+    assert_eq!(RANGED.choose_frame(MAX), Ok(MAX));
+}
+
+/// A shell under no constraint asks with `frame_max` and receives it,
+/// so "unconstrained" needs no separate rule.
+#[test]
+fn the_unconstrained_shell_gets_what_it_asks_for() {
+    const FIXED: PanelDescriptor = PanelDescriptor {
+        frame_max: MIN,
+        frame_step: (1.0, 1.0),
+        ..RANGED
+    };
+    assert_eq!(RANGED.choose_frame(RANGED.frame_max), Ok(MAX));
+    assert_eq!(FIXED.choose_frame(FIXED.frame_max), Ok(MIN));
+}
+
+/// Between grid lines the answer floors: a space that fits 599 wide
+/// gets 560, never 600, and never a frame off the grid.
+#[test]
+fn a_space_between_grid_lines_floors_onto_the_grid() {
+    let chosen = RANGED
+        .choose_frame(frame(599.0, 449.0))
+        .expect("inside the range");
+    assert_eq!(chosen, frame(560.0, 420.0));
+    assert_eq!(RANGED.accepts(chosen), Ok(()));
+}
+
+/// The aspect bounds bind as hard as the range. A wide, short space
+/// cannot take the widest frame, and the answer is the largest frame
+/// that fits the space AND satisfies the aspect — not the clamp point,
+/// which would be 600x390 at aspect 1.54.
+#[test]
+fn a_space_of_the_wrong_shape_gets_the_largest_frame_of_the_right_shape() {
+    let chosen = RANGED
+        .choose_frame(frame(640.0, 400.0))
+        .expect("a 4:3 frame fits");
+    assert_eq!(chosen, frame(520.0, 390.0));
+    assert_eq!(RANGED.accepts(chosen), Ok(()));
+    // Nothing larger on the grid both fits and satisfies the aspect.
+    for bigger in [frame(560.0, 390.0), frame(600.0, 390.0)] {
+        assert!(
+            RANGED.accepts(bigger).is_err(),
+            "{bigger:?} would have been a larger admissible answer"
+        );
+    }
+}
+
+/// A frame is never shrunk below what the panel declared it needs. The
+/// panel refuses and says which bound it refused on, so the shell can
+/// scale, letterbox, or drop the panel — its choice, not the panel's.
+#[test]
+fn a_space_smaller_than_the_minimum_is_refused() {
+    assert_eq!(
+        RANGED.choose_frame(frame(479.0, 360.0)),
+        Err(FrameRefusal::OutOfRange)
+    );
+    assert_eq!(
+        RANGED.choose_frame(frame(480.0, 359.0)),
+        Err(FrameRefusal::OutOfRange)
+    );
+}
+
+/// A space that is not a space at all refuses rather than resolving to
+/// some frame, the same way `accepts` refuses a degenerate frame.
+#[test]
+fn a_degenerate_space_is_refused() {
+    for bad in [
+        frame(f32::NAN, 360.0),
+        frame(480.0, f32::INFINITY),
+        frame(0.0, 360.0),
+        frame(-480.0, -360.0),
+    ] {
+        assert_eq!(
+            RANGED.choose_frame(bad),
+            Err(FrameRefusal::Degenerate),
+            "{bad:?}"
+        );
+    }
+}
+
+/// Whatever it returns, it returns something `accepts` admits — the two
+/// halves of the rule cannot disagree. Swept across the grid and
+/// between its lines, in both axes.
+#[test]
+fn every_chosen_frame_is_one_the_panel_accepts() {
+    let mut checked = 0;
+    let mut w = 400.0f32;
+    while w <= 700.0 {
+        let mut h = 300.0f32;
+        while h <= 520.0 {
+            if let Ok(chosen) = RANGED.choose_frame(frame(w, h)) {
+                assert_eq!(
+                    RANGED.accepts(chosen),
+                    Ok(()),
+                    "chose {chosen:?} for {w}x{h}"
+                );
+                assert!(
+                    chosen.width <= w && chosen.height <= h,
+                    "chose {chosen:?}, which does not fit {w}x{h}"
+                );
+                checked += 1;
+            }
+            h += 7.0;
+        }
+        w += 11.0;
+    }
+    assert!(checked > 100, "the sweep exercised {checked} spaces");
+}
+
+/// A single-frame panel answers with that frame or refuses; it never
+/// invents one, and the sweep above would not catch that on its own.
+#[test]
+fn a_single_frame_panel_offers_only_its_one_frame() {
+    const FIXED: PanelDescriptor = PanelDescriptor {
+        frame_max: MIN,
+        frame_step: (1.0, 1.0),
+        ..RANGED
+    };
+    assert_eq!(FIXED.choose_frame(frame(1920.0, 1080.0)), Ok(MIN));
+    assert_eq!(FIXED.choose_frame(MIN), Ok(MIN));
+    assert_eq!(
+        FIXED.choose_frame(frame(479.0, 359.0)),
+        Err(FrameRefusal::OutOfRange)
+    );
 }
