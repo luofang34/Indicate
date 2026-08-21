@@ -46,6 +46,18 @@ pub struct ResolvedAltitude {
     pub bug_compatible: bool,
 }
 
+/// The autoflight targets in the units their readouts show.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ApTargetsResolved {
+    /// Target indicated airspeed in knots.
+    pub airspeed_kt: Sig<f32>,
+    /// Target vertical speed in feet per minute, positive up.
+    pub vertical_speed_fpm: Sig<f32>,
+    /// Target altitude in feet, `Missing` unless its reference identity
+    /// matches the displayed datum's.
+    pub altitude_ft: Sig<f32>,
+}
+
 /// Turn indication resolved from the typed dynamics group (DYN-01):
 /// the rate, its explicit basis, and nothing derived from body rates.
 /// The value is retained unclamped for monitoring — only the pointer
@@ -74,6 +86,12 @@ pub struct PanelData {
     /// Heading bug presented in the rose reference; `Failed` when the
     /// bug's own reference is unknown or cannot convert.
     pub heading_bug_rose_rad: Sig<f32>,
+    /// Each bearing pointer converted into the rose reference, in draw
+    /// order. A pointer whose north cannot be resolved carries the
+    /// status of that failure, and the panel draws no needle for it.
+    pub bearings_rose_rad: [Sig<f32>; 2],
+    /// The bearing pointers as declared, with the group's status.
+    pub bearings: Sig<crate::aircraft::BearingPointers>,
     /// Flight-director command presentation: bars draw only from a
     /// fully valid, engaged director — under any degradation they
     /// disappear (a frozen or dashed command is still a command).
@@ -83,8 +101,16 @@ pub struct PanelData {
     /// Lateral specific force (m/s², body +Y right) for the slip/skid
     /// ball; missing stays missing, never synthesized centered.
     pub slip_lat_mps2: Sig<f32>,
+    /// Rate of change of indicated airspeed, knots per second. The
+    /// trend cue reads it directly; the display never differences its
+    /// own frames for it.
+    pub ias_trend_kt_s: Sig<f32>,
     /// Indicated airspeed, knots.
     pub ias_kt: Sig<f32>,
+    /// True airspeed, knots. Source-supplied only: the display never
+    /// derives it from indicated airspeed (ADR-0017), so a source that
+    /// supplies one Air field and not the other leaves this `Missing`.
+    pub tas_kt: Sig<f32>,
     /// Groundspeed, knots.
     pub gs_kt: Sig<f32>,
     /// Datum-qualified altitude.
@@ -116,9 +142,18 @@ pub struct PanelData {
     /// when the caller resolves without source comparison;
     /// [`crate::resolve_with_sources`] populates it.
     pub sources: crate::source_monitor::SourceSelection,
+    /// Autoflight engagement and modes; `Missing` renders nothing, so
+    /// an annunciation never outlives the sample behind it.
+    pub ap_modes: Sig<crate::autopilot::ApModes>,
+    /// The values the automation is flying toward, in display units.
+    pub ap_targets: ApTargetsResolved,
     /// Machine-monitoring text channel (AIR-IN-014), advisory only; a
     /// hidden status leaves the default empty channel behind it.
     pub monitor_text: Sig<crate::monitor_text::MonitorText>,
+    /// Airframe configuration: flap position and trim, with the group's
+    /// own status. Each ratio stays optional inside it — a vehicle with
+    /// a flap sensor and no trim sensor shows one scale, not two.
+    pub airframe: Sig<crate::aircraft::AirframeConfig>,
     /// Group-level status keyed by [`crate::GroupId`] — the surface a
     /// registry or admission harness asks generically.
     pub groups: crate::group_id::GroupStatuses,
@@ -231,22 +266,21 @@ pub fn resolve_stateful(
 
     let kin = kinematic_signals(state, policy, &trust, &integrity);
 
-    let (ias, baro) = air_signals(state, policy, trust.quality, &integrity);
+    let (ias, tas, baro) = air_signals(state, policy, trust.quality, &integrity);
     let heading = heading_resolved(state, policy, &trust, &integrity);
     let basis = rose_basis(&heading, kin.track_rad.status.shows_value());
     let rose = basis.display_reference(heading.reference);
     let track = presented_true(kin.track_rad, rose, state, policy);
     let wind = presented_wind(wind_signal(state, policy, &integrity), rose, state, policy);
     let groups = group_status::group_statuses(state, policy, &trust, &integrity);
-    let bug = presented_angle(
-        Sig::with_status(state.selections.heading_bug_rad, SignalStatus::Valid),
-        state.selections.heading_bug_reference,
-        rose,
-        state,
-        policy,
-    );
+    let bug = heading_bug_presented(state, policy, rose);
 
+    let equipment = equipment_resolved(state, policy, &trust, &integrity, rose, &groups, &kin);
     PanelData {
+        bearings_rose_rad: equipment.bearings_rose_rad,
+        bearings: equipment.bearings,
+        ap_modes: equipment.ap_modes,
+        ap_targets: equipment.ap_targets,
         roll_rad: finite(Sig::with_status(presentation.bank_rad, att_status)),
         pitch_rad: finite(Sig::with_status(presentation.pitch_rad, att_status)),
         heading,
@@ -255,16 +289,11 @@ pub fn resolve_stateful(
         heading_bug_rose_rad: finite(bug),
         turn: turn_resolved(state, policy, &trust, &integrity),
         slip_lat_mps2: slip_resolved(state, policy, &trust, &integrity),
+        ias_trend_kt_s: ias_trend_resolved(state, policy, &trust, &integrity),
         ias_kt: finite(ias),
+        tas_kt: finite(tas),
         gs_kt: finite(kin.gs_kt),
-        altitude: altitude_resolved(
-            state,
-            policy,
-            &trust,
-            &integrity,
-            kin.position,
-            kin.rel_alt_ft,
-        ),
+        altitude: equipment.altitude,
         vsi_fpm: finite(kin.vsi_fpm),
         track_rad: finite(track),
         baro_hpa: finite(baro),
@@ -278,6 +307,10 @@ pub fn resolve_stateful(
         monitor_text: Sig::with_status(
             state.monitor_text.data.unwrap_or_default(),
             groups.status(crate::group_id::GroupId::MonitorText),
+        ),
+        airframe: Sig::with_status(
+            state.airframe.data.unwrap_or_default(),
+            groups.status(crate::group_id::GroupId::AirframeConfig),
         ),
         groups,
     }
@@ -364,11 +397,18 @@ fn air_signals(
     policy: &FreshnessPolicy,
     quality: SignalStatus,
     integrity: &StateIntegrity,
-) -> (Sig<f32>, Sig<f32>) {
+) -> (Sig<f32>, Sig<f32>, Sig<f32>) {
     let air_fresh = policy.status_for_age(state.air.age_ms);
     let air_fault = fault_status(integrity.air);
     let air = state.air.data.unwrap_or_default();
+    // Sensed air-data values fold source quality; the applied altimeter
+    // setting does not, because a setting is a dialed configuration
+    // value and an estimate's quality says nothing about it.
     let ias = match air.ias_mps {
+        Some(v) => Sig::with_status(v * MPS_TO_KT, air_fresh.worst(quality).worst(air_fault)),
+        None => Sig::missing(),
+    };
+    let tas = match air.tas_mps {
         Some(v) => Sig::with_status(v * MPS_TO_KT, air_fresh.worst(quality).worst(air_fault)),
         None => Sig::missing(),
     };
@@ -376,7 +416,7 @@ fn air_signals(
         Some(v) => Sig::with_status(v, air_fresh.worst(air_fault)),
         None => Sig::missing(),
     };
-    (ias, baro)
+    (ias, tas, baro)
 }
 
 fn nav_resolved(
@@ -425,42 +465,24 @@ fn nav_resolved(
     }
 }
 
-fn wind_signal(
-    state: &AircraftState,
-    policy: &FreshnessPolicy,
-    integrity: &StateIntegrity,
-) -> Sig<Wind> {
-    let wind_status = policy
-        .status_for_age(state.wind.age_ms)
-        .worst(fault_status(integrity.wind));
-    match (state.wind.data, wind_status) {
-        (Some(w), s) if s.shows_value() => Sig::with_status(w, s),
-        _ => Sig::with_status(
-            Wind {
-                from_rad: 0.0,
-                speed_mps: 0.0,
-            },
-            if state.wind.data.is_some() && wind_status == SignalStatus::Failed {
-                SignalStatus::Failed
-            } else {
-                SignalStatus::Missing
-            },
-        ),
-    }
-}
-
 mod altitude_signal;
+mod autoflight_signal;
+mod bearings_signal;
 mod dynamics_signal;
+mod equipment_signal;
 mod group_status;
 mod kinematics_signal;
-use altitude_signal::altitude_resolved;
-use dynamics_signal::{slip_resolved, turn_resolved};
+mod wind_signal;
+use dynamics_signal::{ias_trend_resolved, slip_resolved, turn_resolved};
+use equipment_signal::equipment_resolved;
 use kinematics_signal::kinematic_signals;
+use wind_signal::wind_signal;
 mod heading_signal;
 pub use heading_signal::{ResolvedHeading, RoseBasis};
 mod director_signal;
 pub use director_signal::ResolvedDirector;
 use director_signal::director_resolved;
+use heading_signal::heading_bug_presented;
 use heading_signal::rose_basis;
 use heading_signal::{heading_resolved, presented_angle, presented_true, presented_wind};
 

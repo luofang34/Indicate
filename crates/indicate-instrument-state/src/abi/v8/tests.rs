@@ -1,4 +1,4 @@
-//! v7 frame codec behavior: canonical round-trips, the fail-closed
+//! v8 frame codec behavior: canonical round-trips, the fail-closed
 //! decode table, and the two forward-compatibility axes (unknown tags,
 //! appended payload tails).
 
@@ -11,7 +11,7 @@ use crate::group_id::GroupId;
 use crate::validate::{GroupFault, validate_state};
 use std::vec::Vec;
 
-fn encode(state: &AircraftState) -> Vec<u8> {
+pub(super) fn encode(state: &AircraftState) -> Vec<u8> {
     let mut buf = [0u8; CAPACITY];
     let len = encode_state(state, &mut buf).expect("fixture fits");
     buf[..len].to_vec()
@@ -89,10 +89,10 @@ fn wrong_version_and_truncation_fail_closed() {
 fn duplicate_and_descending_tags_are_non_canonical() {
     // Two air groups.
     let mut frame = std::vec![VERSION, 2];
-    frame.extend_from_slice(&[0x03, 12, 0]);
-    frame.extend_from_slice(&[0u8; 12]);
-    frame.extend_from_slice(&[0x03, 12, 0]);
-    frame.extend_from_slice(&[0u8; 12]);
+    frame.extend_from_slice(&[0x03, 16, 0]);
+    frame.extend_from_slice(&[0u8; 16]);
+    frame.extend_from_slice(&[0x03, 16, 0]);
+    frame.extend_from_slice(&[0u8; 16]);
     assert_eq!(
         decode_state(&frame),
         Err(AbiError::NonCanonicalOrder { id: 0x03 })
@@ -102,8 +102,8 @@ fn duplicate_and_descending_tags_are_non_canonical() {
     let mut frame = std::vec![VERSION, 2];
     frame.extend_from_slice(&[0x05, 12, 0]);
     frame.extend_from_slice(&[0u8; 12]);
-    frame.extend_from_slice(&[0x03, 12, 0]);
-    frame.extend_from_slice(&[0u8; 12]);
+    frame.extend_from_slice(&[0x03, 16, 0]);
+    frame.extend_from_slice(&[0u8; 16]);
     assert_eq!(
         decode_state(&frame),
         Err(AbiError::NonCanonicalOrder { id: 0x03 })
@@ -112,8 +112,11 @@ fn duplicate_and_descending_tags_are_non_canonical() {
 
 #[test]
 fn a_known_group_below_its_minimum_length_fails_that_group() {
-    let mut frame = std::vec![VERSION, 1, 0x03, 8, 0];
-    frame.extend_from_slice(&[0u8; 8]);
+    // Twelve bytes is one f32 short of the Air minimum, so a producer
+    // that stamps the new version without writing the longer payload
+    // fails closed rather than decoding a short group.
+    let mut frame = std::vec![VERSION, 1, 0x03, 12, 0];
+    frame.extend_from_slice(&[0u8; 12]);
     assert_eq!(
         decode_state(&frame),
         Err(AbiError::GroupTruncated { id: GroupId::Air })
@@ -124,11 +127,12 @@ fn a_known_group_below_its_minimum_length_fails_that_group() {
 fn unknown_tags_are_counted_skips_between_known_groups() {
     // AIR, then an experimental tag, decoded around.
     let mut frame = std::vec![VERSION, 2];
-    frame.extend_from_slice(&[0x03, 12, 0]);
-    let mut air = [0u8; 12];
+    frame.extend_from_slice(&[0x03, 16, 0]);
+    let mut air = [0u8; 16];
     air[0..4].copy_from_slice(&51.5f32.to_le_bytes());
     air[4..8].copy_from_slice(&f32::NAN.to_le_bytes());
     air[8..12].copy_from_slice(&40.0f32.to_le_bytes());
+    air[12..16].copy_from_slice(&f32::NAN.to_le_bytes());
     frame.extend_from_slice(&air);
     frame.extend_from_slice(&[0xE5, 4, 0, 9, 9, 9, 9]);
     let report = decode_state(&frame).expect("unknown tag skips");
@@ -137,23 +141,44 @@ fn unknown_tags_are_counted_skips_between_known_groups() {
     let air = report.state.air.data.expect("air decoded");
     assert_eq!(air.ias_mps, Some(51.5));
     assert_eq!(air.baro_setting_hpa, None);
+    assert_eq!(air.tas_mps, None, "a NaN tail decodes as absent");
     assert_eq!(report.state.air.age_ms, Some(40.0));
 }
 
 #[test]
-fn an_appended_payload_tail_is_accepted_and_counted() {
-    let mut frame = std::vec![VERSION, 1, 0x03, 16, 0];
+fn air_decodes_tas_appended_after_the_trailing_age() {
+    // The Air layout: `age_ms` keeps offset 8 and `tas_mps` is the
+    // tail at offset 12; the 16-byte payload is the minimum, not a tail.
     let mut air = [0u8; 16];
     air[0..4].copy_from_slice(&48.0f32.to_le_bytes());
     air[4..8].copy_from_slice(&1010.0f32.to_le_bytes());
     air[8..12].copy_from_slice(&25.0f32.to_le_bytes());
-    air[12..16].copy_from_slice(&7.0f32.to_le_bytes());
-    frame.extend_from_slice(&air);
-    let report = decode_state(&frame).expect("extended group decodes");
+    air[12..16].copy_from_slice(&55.0f32.to_le_bytes());
+    let report = decode_state(&one_group_frame(0x03, &air)).expect("decodes");
+    assert_eq!(report.extended_groups, 0);
+    let air = report.state.air.data.expect("air decoded");
+    assert_eq!(air.ias_mps, Some(48.0));
+    assert_eq!(air.baro_setting_hpa, Some(1010.0));
+    assert_eq!(air.tas_mps, Some(55.0));
+    assert_eq!(report.state.air.age_ms, Some(25.0));
+}
+
+#[test]
+fn an_appended_payload_tail_is_accepted_and_counted() {
+    // A decoder that predates a further append sees a longer payload:
+    // the tail past `tas_mps` is ignored and counted.
+    let mut air = [0u8; 20];
+    air[0..4].copy_from_slice(&48.0f32.to_le_bytes());
+    air[4..8].copy_from_slice(&1010.0f32.to_le_bytes());
+    air[8..12].copy_from_slice(&25.0f32.to_le_bytes());
+    air[12..16].copy_from_slice(&55.0f32.to_le_bytes());
+    air[16..20].copy_from_slice(&7.0f32.to_le_bytes());
+    let report = decode_state(&one_group_frame(0x03, &air)).expect("extended group decodes");
     assert_eq!(report.extended_groups, 1);
     let air = report.state.air.data.expect("air decoded");
     assert_eq!(air.ias_mps, Some(48.0));
     assert_eq!(air.baro_setting_hpa, Some(1010.0));
+    assert_eq!(air.tas_mps, Some(55.0));
 }
 
 #[test]
@@ -193,7 +218,7 @@ fn encode_refuses_a_buffer_too_small() {
 }
 
 /// Byte offset of the payload of `tag` inside a canonical frame.
-fn locate_payload(frame: &[u8], tag: u8) -> Option<usize> {
+pub(super) fn locate_payload(frame: &[u8], tag: u8) -> Option<usize> {
     let count = *frame.get(1)?;
     let mut offset = 2usize;
     for _ in 0..count {
@@ -217,18 +242,21 @@ fn one_group_frame(tag: u8, payload: &[u8]) -> Vec<u8> {
 
 #[test]
 fn unknown_wire_enum_values_decode_fail_safe_not_benign() {
-    use crate::aircraft::{EstimateQuality, NavFromTo, NavSource, SnapshotCoherence};
-    // Nav source and from/to bytes outside the known set must decode to
-    // Unknown — guidance from an unidentifiable source fails, it never
-    // masquerades as no-source.
-    let mut nav = [0u8; 42];
+    use crate::aircraft::{EstimateQuality, NavFromTo, NavScale, NavSource, SnapshotCoherence};
+    // Nav source, from/to, and scale bytes outside the known set must
+    // decode to Unknown — guidance from an unidentifiable source fails,
+    // it never masquerades as no-source, and a deflection at a scale
+    // nobody named never masquerades as the widest scale.
+    let mut nav = [0u8; 43];
     nav[0] = 7;
     nav[1] = 9;
     nav[20..24].copy_from_slice(&10.0f32.to_le_bytes());
+    nav[42] = 7;
     let report = decode_state(&one_group_frame(0x04, &nav)).expect("decodes");
     let data = report.state.nav.data.expect("nav present");
     assert_eq!(data.source, NavSource::Unknown);
     assert_eq!(data.fromto, NavFromTo::Unknown);
+    assert_eq!(data.scale, NavScale::Unknown);
 
     // Quality and coherence bytes outside the known set decode Unknown,
     // which resolution treats as fail-closed distrust.
@@ -317,6 +345,7 @@ fn an_absent_trust_group_declares_neither_velocity_axis() {
             variation: false,
             turn: false,
             slip: false,
+            ias_trend: false,
         }
     );
     let frame = encode(&AircraftState::default());
@@ -407,4 +436,31 @@ fn director_faults_fail_the_group_per_branch() {
             "must fault: {bad:?}"
         );
     }
+}
+
+/// The nav scale appends after the group's existing tail, so a producer
+/// that stamps this version without writing it emits a payload below
+/// the group's minimum and the frame is refused. Reusing the reserved
+/// padding byte instead would have made an undeclared scale decode as
+/// `Enroute` — the loosest one, worth the most distance per dot.
+#[test]
+fn a_nav_payload_without_the_scale_byte_is_refused() {
+    use crate::aircraft::NavScale;
+    let state = fixtures::full();
+    let frame = encode(&state);
+    let payload = locate_payload(&frame, 0x04).expect("nav present");
+    assert_eq!(
+        frame[payload + 42],
+        NavScale::Terminal.to_u8(),
+        "the scale is the group's new tail byte"
+    );
+    let length_at = payload - 2;
+    let mut short = frame.clone();
+    short.remove(payload + 42);
+    short[length_at] = 42;
+    assert!(
+        decode_state(&short).is_err(),
+        "a payload one byte short of the scale must be refused, not \
+         decoded at a guessed scale"
+    );
 }

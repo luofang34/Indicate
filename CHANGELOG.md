@@ -13,7 +13,7 @@ it was written to remove.
 
 | Value | Where it lives |
 |---|---|
-| State ABI | `abi::v7::VERSION` in `indicate-instrument-state` |
+| State ABI | `abi::v8::VERSION` in `indicate-instrument-state` |
 | Scene format | `SCENE_FORMAT_VERSION` in `indicate-instrument-scene` |
 | Corpus | `corpusVersion` in `corpus/scene-conformance-corpus.json` |
 | Composition digest | `BUILTIN_SCENE_DIGEST` in `indicate-instrument-panels` |
@@ -42,6 +42,174 @@ below it is the second kind, and says so.
 Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
+
+## [0.6.0] — 2026-08-21
+
+The state ABI moves to v8. The bump is the coordination point for the
+allocation batch that issue #58 directs. Six issues need wire changes:
+#50, #51, #52, #53, #54 with the #55 follow-on, and #57. One coordinated
+revision carries all the agreed layouts. Each allocation lands as its
+own change onto this version before it is released, so the number names
+exactly one wire format. The registry table in `group_id.rs` records the
+agreed allocations and is the layout contract for the batch.
+
+This release carries every group the batch allocates and all but one of
+its field appends: true airspeed on the Air group, the airspeed trend on
+the Dynamics group, the deflection scale on the Nav group, and the
+bearing-pointer, airframe-configuration and autoflight groups.
+`facility_type` on Nav follows with its consumer.
+
+| Value | This release |
+|---|---|
+| State ABI | 8 |
+| Scene format | 1 |
+| Corpus | 6 |
+| Composition digest | `8291c73e7c92e8b04963f743c9d68d9e1f590aa576f3776d0a0cfdc3183ae35b` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
+
+Panel set changed since the previous release: yes — the autoflight
+annunciator joins the set. The configuration panel ships in its own
+set, `config`, which a shell composes when the airframe has the
+sensors, so it does not move `BUILTIN_PANELS`.
+
+### State ABI v8 ([#58](https://github.com/luofang34/Indicate/issues/58))
+
+- **v8 replaces v7.** `abi::v7` is gone rather than kept alongside. The
+  golden frames are now `state-abi-v8.*.hex`.
+- **Group 0x13, `AirframeConfig`, is on the wire.** A stamped group of
+  24 bytes: sensed flap ratio, selected flap detent, and elevator,
+  aileron and rudder trim ratios, each optional and NaN-absent. A ratio
+  outside the range its axis is defined over faults the group rather
+  than being clamped — a clamped pointer would sit at a limit the
+  airframe never reached.
+- **Assigned group ids stop being contiguous.** 0x0E to 0x11 have no
+  variant, so `GroupId::index` and the wire tag now genuinely disagree,
+  and the test that could only describe that difference proves it.
+- **The Nav group grows from 42 bytes to 43 and declares its deflection
+  scale.** `scale` appends after the group's existing tail, per the
+  stamped-lane growth policy. Enroute, terminal and approach are 0, 1
+  and 2; every other value is Unknown, and an Unknown scale fails the
+  whole nav group. A deflection in dots means nothing until the scale
+  says what a dot is worth, so guidance at an undeclared scale is not
+  drawn at a guessed one — and the needle carries its own gate on the
+  scale as well, so a group whose status says show still draws nothing
+  without one.
+
+  The feeder's public `LATERAL_M_PER_DOT` splits with it, into
+  `LATERAL_M_PER_DOT_ENROUTE`, `_TERMINAL` and `_APPROACH`. A single
+  constant could only be right at one scale; a caller that held the old
+  name was reading terminal metres whatever scale it flew.
+
+  The append is what makes an undeclared scale fail closed. Taking the
+  spare byte at offset 3 would have kept the length still and made a
+  producer that never wrote the field decode as `Enroute` — the loosest
+  scale, worth the most distance per dot.
+- **The Dynamics group grows from 16 bytes to 20.** `ias_trend` follows
+  the trailing `age_ms`, NaN-absent, and Trust valid bit 9 declares it.
+  A producer that stamps version 8 and keeps writing 16 bytes has the
+  whole frame refused, not that group.
+- **The Air group grows from 12 bytes to 16.** `tas_mps` follows the
+  trailing `age_ms`, NaN-absent like the altimeter setting beside it.
+  Its minimum length rises with it.
+- **The batch allocates four group ids and three field appends.** The
+  ids are 0x12 BearingPointers (stamped,
+  [#53](https://github.com/luofang34/Indicate/issues/53)), 0x13
+  AirframeConfig (stamped,
+  [#57](https://github.com/luofang34/Indicate/issues/57)), 0x14 ApModes
+  (stamped, [#50](https://github.com/luofang34/Indicate/issues/50)), and
+  0x15 ApTargets (declared, #50). 0x0E keeps its engine charter: flap
+  and trim are airframe configuration, not engine. The appends are
+  `tas_mps` on Air (0x03,
+  [#52](https://github.com/luofang34/Indicate/issues/52)), `ias_trend`
+  and Trust valid bit 9 on Dynamics (0x0B,
+  [#51](https://github.com/luofang34/Indicate/issues/51)), and
+  `scale_mode` on Nav (0x04, with `facility_type` to follow,
+  [#54](https://github.com/luofang34/Indicate/issues/54) and
+  [#55](https://github.com/luofang34/Indicate/issues/55)). Each append
+  goes after the trailing `age_ms`. An older decoder accepts the longer
+  payload and counts the tail.
+- **0x12 BearingPointers is a stamped group of 20 bytes.** Each of the
+  two pointers writes a source byte, a heading-reference byte, a
+  validity byte, one pad byte, and a `f32` bearing in radians. The
+  trailing `age_ms` follows the pair. A pointer names the north its own
+  receiver measured against, so the reference travels with the bearing
+  rather than being inherited from the heading group: a receiver that
+  reports magnetic bearings and an attitude source that reports true
+  heading are a normal pairing, and the display converts between them
+  or draws nothing.
+- **0x14 ApModes is a stamped group of 12 bytes.** Engagement, active
+  and armed lateral mode, active and armed vertical mode, three
+  reserved zero bytes, then the trailing `age_ms`. Each byte this build
+  cannot name decodes to its fail-closed `Unknown`, and one unknown
+  fails the whole group: annunciating the modes that did decode would
+  say the unreadable axis is holding nothing, which nobody claimed. The
+  group is stamped because an annunciation that outlives its source
+  says the automation is doing something it stopped doing.
+- **0x15 ApTargets is a declared group of 20 bytes.** Target airspeed,
+  the altitude target with the same reference-identity trio as the
+  selected altitude (class, geoid model, origin), and target vertical
+  speed. The layout mirrors the selections layout field for field. An
+  altitude target whose identity does not match the displayed datum is
+  withheld rather than drawn: a number the pilot could read against the
+  wrong datum is worse than no number.
+- **Group-status indexing no longer assumes contiguous ids.**
+  `GroupStatuses` was a dense table keyed by `tag - 1`. The batch
+  allocates 0x12 to 0x15 while 0x0E to 0x11 stay reserved, so the
+  arithmetic would break. The mapping is now an explicit match. This is
+  an internal change; it moves no wire byte.
+
+### Notes for anyone re-pinning
+
+- **Both digests moved, and so did the paint.** The composition digest
+  hashes the ABI version byte, and the screen-composition digest hashes
+  the composition digest beneath it, so both move on the version alone.
+  The PFD also gains a true-airspeed box at the head of its speed tape,
+  which moves its raster baseline and the three composed-frame hashes.
+- **A state writer must stamp version byte 8 AND write the longer Air
+  group.** A writer that changes only the version byte emits a 12-byte
+  Air payload, which is now below the group's minimum. The decoder
+  rejects the whole frame, not that group, so every panel blanks — the
+  failure looks like total signal loss rather than one short group. Emit
+  the 16-byte payload, with a NaN in the true-airspeed slot when the
+  source has none.
+- **The HSI gains two bearing needles, so its raster baseline and the
+  composed-frame hashes move.** The shared `typical` state now feeds
+  both pointers, and the HSI contributes a `bearing-split-references`
+  extreme state, which raises the admission case count.
+- **A state writer must also write the longer Nav group.** A writer
+  that omits the scale emits a 42-byte payload, which is now below the
+  group's minimum, and the decoder rejects the whole frame exactly as
+  it does for a short Air group. Declare the scale the guidance is
+  actually flown to; there is no value that means "not stated".
+- **The panel set gains the autoflight annunciator, which moves the
+  composition digest and the screen-composition digest.** A surface of
+  its own rather than a band inside the PFD: the PFD already
+  annunciates the flight director's mode, and a second mode vocabulary
+  competing for the same strip would leave a reader deciding which
+  annunciation answers which question. The shared `typical` state does
+  not feed the new groups, matching the posture — no feeder publishes
+  autoflight data — so the panel's pinned raster baseline is its
+  unfed presentation, and the panel's own extreme states carry the
+  engaged case.
+- **`Theme` gains `mode_active`, and a theme validation rule with it.**
+  The active-mode color must stay the same distance from both guidance
+  colors that those two must keep from each other. A mode annunciation
+  wearing the radio-nav green would say a receiver is guiding when what
+  it names is an automation state.
+- **The speed tape starts 25 units lower.** The true-airspeed box is
+  opaque and owns the strip above the tape, so the tape no longer paints
+  under it. The visible speed range above the pointer shrinks by about
+  3.5 kt.
+- **The scene conformance corpus moves to version 6.** The two entries
+  that replay the built-in PFD re-pin, because the panel above them
+  emits different bytes for the same altitude. No entry is added or
+  removed, and every hand-built scene keeps its bytes. Each pinned
+  consumer fails at its next pin advance; that failure is the
+  synchronization mechanism.
+- **The HSI paints two labels beside the rose, not one.** The receiver
+  label names which receiver drives the needle and the scale label names
+  what a dot is worth. They stack in one column under the needle's own
+  gate, and a test holds them clear of the rose rim and of each other.
 
 ## [0.5.3] — 2026-08-21
 

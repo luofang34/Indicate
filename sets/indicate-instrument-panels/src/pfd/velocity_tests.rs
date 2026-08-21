@@ -149,3 +149,119 @@ fn declaring_the_vertical_axis_restores_the_needle_and_its_numeral() {
         std::vec![String::from("800")]
     );
 }
+
+/// The trend bar marks where the airspeed will be after the look-ahead,
+/// so its length is the rate times that look-ahead — and its direction
+/// follows the sign, up for accelerating.
+#[test]
+fn the_trend_bar_reaches_the_speed_the_rate_predicts() {
+    use indicate_instrument_scene::{Cmd, PaintMode, SceneCmds};
+    use indicate_instrument_state::{Sig, SignalStatus};
+
+    fn trend_rect(data: &PanelData) -> Option<(f32, f32, f32, f32)> {
+        let scene = super::tests::render(data, &PfdConfig::default());
+        SceneCmds::new(&scene)
+            .expect("valid scene")
+            .map(|c| c.expect("valid command"))
+            .find_map(|c| match c {
+                Cmd::Rect {
+                    mode: PaintMode::Fill,
+                    x,
+                    y,
+                    w,
+                    h,
+                } if (x - 90.0).abs() < 1e-3 && (w - 4.0).abs() < 1e-3 => Some((x, y, w, h)),
+                _ => None,
+            })
+    }
+
+    // Accelerating at 2 kt/s: six seconds ahead is 12 kt, and the tape
+    // is 7.2 px/kt, so the bar reaches 86.4 px above the pointer.
+    let mut data = super::tests::flying();
+    data.ias_trend_kt_s = Sig::with_status(2.0, SignalStatus::Valid);
+    let (_, y, _, h) = trend_rect(&data).expect("an accelerating bar");
+    assert!((h - 86.4).abs() < 1e-2, "bar height {h}");
+    assert!((y - (180.0 - 86.4)).abs() < 1e-2, "bar top {y}");
+
+    // Decelerating: the same length below the pointer line.
+    data.ias_trend_kt_s = Sig::with_status(-2.0, SignalStatus::Valid);
+    let (_, y, _, h) = trend_rect(&data).expect("a decelerating bar");
+    assert!((h - 86.4).abs() < 1e-2, "bar height {h}");
+    assert!((y - 180.0).abs() < 1e-2, "bar top {y}");
+}
+
+/// An absent rate draws no bar at all. A zero-length one would say the
+/// airspeed is steady, which is not what "no rate" means — and a bar
+/// beside a dashed readout would mark a change in a number the pilot
+/// cannot read.
+#[test]
+fn an_absent_trend_draws_no_bar() {
+    use indicate_instrument_scene::{Cmd, PaintMode, SceneCmds};
+    use indicate_instrument_state::{Sig, SignalStatus};
+
+    fn has_bar(data: &PanelData) -> bool {
+        let scene = super::tests::render(data, &PfdConfig::default());
+        SceneCmds::new(&scene)
+            .expect("valid scene")
+            .map(|c| c.expect("valid command"))
+            .any(|c| {
+                matches!(
+                    c,
+                    Cmd::Rect { mode: PaintMode::Fill, x, w, .. }
+                        if (x - 90.0).abs() < 1e-3 && (w - 4.0).abs() < 1e-3
+                )
+            })
+    }
+
+    let mut data = super::tests::flying();
+    data.ias_trend_kt_s = Sig::missing();
+    assert!(!has_bar(&data), "a missing rate draws nothing");
+
+    // A live rate beside a dashed airspeed draws nothing either.
+    data.ias_trend_kt_s = Sig::with_status(2.0, SignalStatus::Valid);
+    data.ias_kt = Sig::missing();
+    assert!(!has_bar(&data), "no trend beside an unreadable airspeed");
+}
+
+/// The bar stops at the tape's ends. Past them its tip would point at a
+/// speed the tape is not showing, which is a reading nobody can check.
+#[test]
+fn the_trend_bar_stops_at_the_tape_ends() {
+    use indicate_instrument_scene::{Cmd, PaintMode, SceneCmds};
+    use indicate_instrument_state::{Sig, SignalStatus};
+
+    fn bar(data: &PanelData) -> Option<(f32, f32)> {
+        let scene = super::tests::render(data, &PfdConfig::default());
+        SceneCmds::new(&scene)
+            .expect("valid scene")
+            .map(|c| c.expect("valid command"))
+            .find_map(|c| match c {
+                Cmd::Rect {
+                    mode: PaintMode::Fill,
+                    x,
+                    y,
+                    w,
+                    h,
+                } if (x - 90.0).abs() < 1e-3 && (w - 4.0).abs() < 1e-3 => Some((y, h)),
+                _ => None,
+            })
+    }
+
+    let mut data = super::tests::flying();
+    // Far past the top of the tape: the tip parks at the tape's own end,
+    // which is below the true-airspeed box rather than at the frame edge.
+    data.ias_trend_kt_s = Sig::with_status(500.0, SignalStatus::Valid);
+    let (y, h) = bar(&data).expect("a saturated climbing bar");
+    assert!(
+        (y - 25.0).abs() < 1e-3 && (h - 155.0).abs() < 1e-3,
+        "{y} {h}"
+    );
+
+    // And the same downward.
+    data.ias_trend_kt_s = Sig::with_status(-500.0, SignalStatus::Valid);
+    let (y, h) = bar(&data).expect("a saturated falling bar");
+    assert!(
+        (y - 180.0).abs() < 1e-3 && (h - 155.0).abs() < 1e-3,
+        "{y} {h}"
+    );
+}

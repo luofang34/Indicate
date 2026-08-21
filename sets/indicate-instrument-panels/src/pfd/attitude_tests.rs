@@ -2,10 +2,10 @@
 //! Unusual-attitude (ATT-01) and frame-adapter (FRAME-01) scene tests,
 //! split from the base PFD suite to honor the file-size wall.
 
-use indicate_instrument_scene::{Cmd, SceneCmds};
+use indicate_instrument_scene::{Cmd, PaintMode, SceneCmds};
 use indicate_instrument_state::{
-    AirData, AircraftState, Attitude, FreshnessPolicy, Kinematics, PanelData, Quat, Stamped,
-    resolve,
+    AirData, AircraftState, Attitude, FreshnessPolicy, Kinematics, PanelData, Quat, Sig,
+    SignalStatus, Stamped, resolve,
 };
 
 use super::tests::{render, texts};
@@ -60,6 +60,7 @@ fn flying_state_air() -> Stamped<AirData> {
         data: Some(AirData {
             ias_mps: Some(40.0),
             baro_setting_hpa: Some(1013.0),
+            tas_mps: Some(45.0),
         }),
         age_ms: Some(20.0),
     }
@@ -97,6 +98,13 @@ fn turn_rate_cue_in(scene: &[u8]) -> bool {
     ) > 0
 }
 
+fn trend_bar_in(scene: &[u8]) -> bool {
+    count_cmds(
+        scene,
+        |c| matches!(c, Cmd::Rect { mode: PaintMode::Fill, x, w, .. } if *x == 90.0 && *w == 4.0),
+    ) > 0
+}
+
 fn bands_in(scene: &[u8]) -> bool {
     count_cmds(
         scene,
@@ -114,12 +122,21 @@ fn normal_envelope_has_no_unusual_artifacts() {
 
 #[test]
 fn declutter_follows_the_one_priority_table() {
-    let normal = render(&oriented(10.0, 5.0), &banded_cfg());
-    let decluttered = render(&oriented(70.0, 5.0), &banded_cfg());
+    // Both states carry a live trend rate, so a missing bar below is
+    // the tier removing it rather than a signal that never arrived.
+    let mut level = oriented(10.0, 5.0);
+    level.ias_trend_kt_s = Sig::with_status(2.0, SignalStatus::Valid);
+    let mut unusual = oriented(70.0, 5.0);
+    unusual.ias_trend_kt_s = Sig::with_status(2.0, SignalStatus::Valid);
+    let normal = render(&level, &banded_cfg());
+    let decluttered = render(&unusual, &banded_cfg());
 
-    // Removed: turn-rate cue, speed bands, minor ladder rows.
+    // Removed: turn-rate cue, speed bands, airspeed trend bar, minor
+    // ladder rows.
     assert!(!turn_rate_cue_in(&decluttered));
     assert!(!bands_in(&decluttered));
+    assert!(trend_bar_in(&normal), "trend bar drawn undecluttered");
+    assert!(!trend_bar_in(&decluttered));
     let lines = |scene: &[u8]| count_cmds(scene, |c| matches!(c, Cmd::Line { .. }));
     assert!(
         lines(&decluttered) < lines(&normal),

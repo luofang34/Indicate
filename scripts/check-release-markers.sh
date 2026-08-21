@@ -95,7 +95,7 @@ declared() {
 read_or_empty() { "$@" 2>/dev/null || true; }
 
 # The ABI in force is the highest version module the crate declares, so
-# adding `v7` moves what this validates instead of leaving it pinned to
+# adding `v9` moves what this validates instead of leaving it pinned to
 # the file that no longer answers.
 abi_module="$(read_or_empty grep -oE '^pub mod v[0-9]+;' crates/indicate-instrument-state/src/abi.rs \
     | grep -oE 'v[0-9]+' | sort -V | tail -1)"
@@ -115,6 +115,12 @@ actual_digest="$(read_or_empty grep -A2 'BUILTIN_SCENE_DIGEST: &str' \
 # descriptor constants, so each is resolved to the `id` its descriptor
 # declares: the id is what a shell selects and what a consumer reads,
 # and a constant renamed without its id is not a panel-set change.
+#
+# Every descriptor file is read, not just the one holding the slice: a
+# descriptor may live beside the panels it describes, and a resolution
+# that only searched one file would report a moved descriptor as a
+# vanished panel. An id that still cannot be resolved is refused rather
+# than skipped.
 actual_panels="$(read_or_empty awk '
     /^pub const [A-Z0-9_]+_DESCRIPTOR: PanelDescriptor/ {
         match($0, /[A-Z0-9_]+_DESCRIPTOR/)
@@ -140,7 +146,7 @@ actual_panels="$(read_or_empty awk '
         }
         print out
     }
-' sets/indicate-instrument-panels/src/descriptors.rs)"
+' $(find sets/indicate-instrument-panels/src -name '*.rs' | LC_ALL=C sort))"
 
 compare() {
     local label="$1" actual="$2" found

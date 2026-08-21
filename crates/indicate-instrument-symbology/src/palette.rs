@@ -59,3 +59,8 @@ pub const BAND_GREEN: Rgba8 = Rgba8::rgb(0, 160, 0);
 
 /// Caution-range band on the speed tape.
 pub const BAND_YELLOW: Rgba8 = safety::BAND_CAUTION;
+
+/// The autoflight mode in control now. Deliberately not [`GREEN`]: a
+/// mode annunciation in the radio-nav color would say a receiver is
+/// guiding when what it names is an automation state.
+pub const MODE_ACTIVE: Rgba8 = Rgba8::rgb(0, 230, 160);

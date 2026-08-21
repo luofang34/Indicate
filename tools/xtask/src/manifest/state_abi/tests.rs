@@ -42,7 +42,7 @@ fn the_shipped_crate_declares_the_module_this_generator_reads() {
     let root = crate::workspace::repo_root();
     let abi = super::read(&root).expect("the shipped abi.rs declares the compiled module");
     assert_eq!(abi.module, format!("v{}", super::COMPILED_MODULE));
-    assert_eq!(abi.version, indicate_instrument_state::abi::v7::VERSION);
+    assert_eq!(abi.version, indicate_instrument_state::abi::v8::VERSION);
 }
 
 /// A declaration is not hidden by anything following the semicolon. A

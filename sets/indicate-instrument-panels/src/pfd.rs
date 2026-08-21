@@ -91,6 +91,7 @@ pub struct PfdConfig {
 ///
 /// - minor (2.5° and 5°) pitch-ladder rows — major 10° bars remain
 /// - speed-tape color bands
+/// - the airspeed trend bar
 /// - the turn-rate cue
 pub fn draw_pfd(
     data: &PanelData,
@@ -143,6 +144,7 @@ pub fn draw_pfd(
         } else {
             cfg.v_speeds.as_ref()
         },
+        declutter,
     )?;
     tapes::altitude_tape(scene, data)?;
     tapes::vsi(scene, data)?;

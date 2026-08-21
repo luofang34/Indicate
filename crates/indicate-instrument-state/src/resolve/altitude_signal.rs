@@ -59,34 +59,70 @@ pub(super) fn altitude_resolved(
     }
 }
 
-/// Whether the pilot's altitude selection shares the displayed datum's
-/// COMPLETE reference identity — class equality alone is never
-/// compatibility. Local-relative selections must name the same origin;
-/// geometric-MSL selections must name the same declared model; a
-/// barometric selection's datum is the applied setting, so a disputed
-/// setting suppresses the bug; pressure altitude's datum is fully
-/// identified by its class (standard atmosphere); AGL carries no source
-/// identity in this ABI revision, so class equality is its complete
-/// identity today. Anything unknown or incomplete fails closed.
-fn selection_compatible(
+/// The complete reference identity of a value expressed against the
+/// altitude datum. A class alone is never an identity, so the three
+/// travel together and are compared together.
+pub(super) struct AltitudeIdentity {
+    /// The class the value is expressed in.
+    pub class: AltitudeClass,
+    /// Origin of a local-relative value.
+    pub origin: crate::altitude::OriginId,
+    /// Declared geoid model of a geometric-MSL value.
+    pub model: crate::altitude::GeoidModelId,
+    /// Whether the value exists at all.
+    pub present: bool,
+}
+
+/// Whether a value shares the displayed datum's COMPLETE reference
+/// identity — class equality alone is never compatibility.
+/// Local-relative values must name the same origin; geometric-MSL
+/// values must name the same declared model; a barometric value's datum
+/// is the applied setting, so a disputed setting suppresses it;
+/// pressure altitude's datum is fully identified by its class (standard
+/// atmosphere); AGL carries no source identity in this ABI revision, so
+/// class equality is its complete identity today. Anything unknown or
+/// incomplete fails closed.
+///
+/// One rule serves every value drawn against the datum — the pilot's
+/// selection and the automation's target both — so the two cannot drift
+/// into disagreeing about what makes an identity complete.
+pub(super) fn identity_compatible(
+    identity: &AltitudeIdentity,
     state: &AircraftState,
     displayed: AltitudeClass,
     setting_mismatch: bool,
 ) -> bool {
-    if state.selections.altitude_sel_m.is_none() || state.selections.altitude_sel_class != displayed
-    {
+    if !identity.present || identity.class != displayed {
         return false;
     }
     let decl = state.altitude;
-    let selections = state.selections;
     match displayed {
-        AltitudeClass::LocalRelative => selections.altitude_sel_origin == decl.origin,
+        AltitudeClass::LocalRelative => identity.origin == decl.origin,
         AltitudeClass::GeometricMsl => {
-            selections.altitude_sel_model == decl.geoid_model
-                && selections.altitude_sel_model != crate::altitude::GeoidModelId::UNDECLARED
+            identity.model == decl.geoid_model
+                && identity.model != crate::altitude::GeoidModelId::UNDECLARED
         }
         AltitudeClass::BaroIndicated => !setting_mismatch,
         AltitudeClass::Pressure | AltitudeClass::Agl => true,
         AltitudeClass::Unknown => false,
     }
+}
+
+fn selection_compatible(
+    state: &AircraftState,
+    displayed: AltitudeClass,
+    setting_mismatch: bool,
+) -> bool {
+    let selections = state.selections;
+    identity_compatible(
+        &AltitudeIdentity {
+            class: selections.altitude_sel_class,
+            origin: selections.altitude_sel_origin,
+            model: selections.altitude_sel_model,
+            present: selections.altitude_sel_m.is_some(),
+        },
+        state,
+        displayed,
+        setting_mismatch,
+    )
 }

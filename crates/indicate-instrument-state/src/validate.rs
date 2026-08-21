@@ -77,8 +77,8 @@ pub struct StateIntegrity {
     pub heading: Option<GroupFault>,
     /// Magnetic-variation fault: non-finite value or undeclared source.
     pub variation: Option<GroupFault>,
-    /// Dynamics fault: non-finite turn rate or lateral force, or an
-    /// unknown turn basis.
+    /// Dynamics fault: non-finite turn rate, lateral force, or airspeed
+    /// trend, or an unknown turn basis.
     pub dynamics: Option<GroupFault>,
     /// Monitor-text fault: an impossible line count or malformed line
     /// content on the wire.
@@ -86,6 +86,17 @@ pub struct StateIntegrity {
     /// Flight-director fault: non-finite or out-of-envelope commanded
     /// attitude, or an unknown mode/engagement byte.
     pub director: Option<GroupFault>,
+    /// Bearing-pointer fault: an unknown source or reference, or a
+    /// non-finite bearing.
+    pub bearings: Option<GroupFault>,
+    /// Airframe-configuration fault: a non-finite ratio, or one outside
+    /// the range its axis is defined over.
+    pub airframe: Option<GroupFault>,
+    /// Autoflight-mode fault: a mode or engagement byte this build
+    /// cannot name.
+    pub ap_modes: Option<GroupFault>,
+    /// Autoflight-target fault: a target present but not a number.
+    pub ap_targets: Option<GroupFault>,
 }
 
 fn all_finite(values: &[f32]) -> bool {
@@ -126,13 +137,81 @@ fn selections_fault(selections: &Selections) -> Option<GroupFault> {
     }
 }
 
-/// Validates every received group of `state` and reports per-group
-/// faults. Absent groups pass (their absence resolves `Missing`); the
-/// deterministic worst-of combination in `resolve` folds these faults
-/// into each signal's status.
-pub fn validate_state(state: &AircraftState) -> StateIntegrity {
-    let mut integrity = StateIntegrity::default();
+/// The nav group's own fault, if it has one.
+///
+/// An unknown scale fails with the other unknown enumerations: the
+/// deflection is in dots, and a dot means nothing until the scale says
+/// what it is worth.
+fn nav_fault(nav: &crate::aircraft::NavData) -> Option<GroupFault> {
+    if matches!(nav.source, NavSource::Unknown)
+        || matches!(nav.fromto, NavFromTo::Unknown)
+        || matches!(nav.scale, crate::aircraft::NavScale::Unknown)
+    {
+        return Some(GroupFault::UnknownEnum);
+    }
+    if nav.to_ident.is_invalid() || nav.from_ident.is_invalid() {
+        return Some(GroupFault::MalformedIdent);
+    }
+    if !(all_finite(&[nav.course_rad, nav.cdi_dots])
+        && opt_finite(nav.vdev_dots)
+        && opt_finite(nav.dist_nm))
+    {
+        return Some(GroupFault::NonFinite);
+    }
+    None
+}
 
+/// The bearing group's own fault, if it has one.
+///
+/// A pointer whose source this build cannot name, or whose north it
+/// cannot resolve, fails the group: a needle pointing somewhere on
+/// behalf of nobody is worse than no needle. A pointer the source
+/// declares unusable is not a fault — it is simply not drawn.
+fn bearings_fault(pointers: &crate::aircraft::BearingPointers) -> Option<GroupFault> {
+    for pointer in [&pointers.first, &pointers.second] {
+        if matches!(pointer.source, crate::aircraft::NavSource::Unknown)
+            || matches!(pointer.reference, crate::heading::HeadingReference::Unknown)
+        {
+            return Some(GroupFault::UnknownEnum);
+        }
+        if pointer.valid && !pointer.bearing_rad.is_finite() {
+            return Some(GroupFault::NonFinite);
+        }
+    }
+    None
+}
+
+/// The airframe group's own fault, if it has one.
+///
+/// A ratio outside the range its axis is defined over is not a reading
+/// the display can place on a scale, so it faults rather than clamping:
+/// a clamped pointer would sit at a limit the airframe never reached.
+fn airframe_fault(config: &crate::aircraft::AirframeConfig) -> Option<GroupFault> {
+    let in_unit = |value: Option<f32>| match value {
+        Some(v) => v.is_finite() && (0.0..=1.0).contains(&v),
+        None => true,
+    };
+    let in_signed = |value: Option<f32>| match value {
+        Some(v) => v.is_finite() && (-1.0..=1.0).contains(&v),
+        None => true,
+    };
+    if in_unit(config.flap_ratio)
+        && in_unit(config.flap_selected_ratio)
+        && in_signed(config.elevator_trim_ratio)
+        && in_signed(config.aileron_trim_ratio)
+        && in_signed(config.rudder_trim_ratio)
+    {
+        None
+    } else {
+        Some(GroupFault::NonFinite)
+    }
+}
+
+/// The two groups whose members fault separately: attitude reports its
+/// quaternion and its rates apart, and kinematics reports position and
+/// each velocity axis apart, because a consumer of one is not
+/// necessarily a consumer of the others.
+fn validate_state_estimates(state: &AircraftState, integrity: &mut StateIntegrity) {
     if let Some(attitude) = &state.attitude.data {
         if let Err(fault) = validate_quat(attitude.quat) {
             integrity.attitude = Some(fault);
@@ -153,22 +232,29 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
             integrity.velocity_vertical = Some(GroupFault::NonFinite);
         }
     }
+}
+
+/// Validates every received group of `state` and reports per-group
+/// faults. Absent groups pass (their absence resolves `Missing`); the
+/// deterministic worst-of combination in `resolve` folds these faults
+/// into each signal's status.
+pub fn validate_state(state: &AircraftState) -> StateIntegrity {
+    let mut integrity = StateIntegrity::default();
+
+    validate_state_estimates(state, &mut integrity);
     if let Some(air) = &state.air.data
-        && !(opt_finite(air.ias_mps) && opt_finite(air.baro_setting_hpa))
+        && !(opt_finite(air.ias_mps) && opt_finite(air.baro_setting_hpa) && opt_finite(air.tas_mps))
     {
         integrity.air = Some(GroupFault::NonFinite);
     }
+    if let Some(pointers) = &state.bearings.data {
+        integrity.bearings = bearings_fault(pointers);
+    }
+    if let Some(config) = &state.airframe.data {
+        integrity.airframe = airframe_fault(config);
+    }
     if let Some(nav) = &state.nav.data {
-        if matches!(nav.source, NavSource::Unknown) || matches!(nav.fromto, NavFromTo::Unknown) {
-            integrity.nav = Some(GroupFault::UnknownEnum);
-        } else if nav.to_ident.is_invalid() || nav.from_ident.is_invalid() {
-            integrity.nav = Some(GroupFault::MalformedIdent);
-        } else if !(all_finite(&[nav.course_rad, nav.cdi_dots])
-            && opt_finite(nav.vdev_dots)
-            && opt_finite(nav.dist_nm))
-        {
-            integrity.nav = Some(GroupFault::NonFinite);
-        }
+        integrity.nav = nav_fault(nav);
     }
     if let Some(wind) = &state.wind.data
         && !all_finite(&[wind.from_rad, wind.speed_mps])
@@ -199,12 +285,40 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
     }
     integrity.dynamics = state.dynamics.data.as_ref().and_then(dynamics_fault);
     integrity.director = state.director.data.as_ref().and_then(director_fault);
+    integrity.ap_modes = state.ap_modes.data.as_ref().and_then(ap_modes_fault);
+    integrity.ap_targets = ap_targets_fault(&state.ap_targets);
     if let Some(text) = &state.monitor_text.data
         && text.is_malformed()
     {
         integrity.monitor_text = Some(GroupFault::MalformedIdent);
     }
     integrity
+}
+
+/// A mode this build cannot name fails the whole group. Annunciating
+/// the modes it could read beside a silence where the unreadable one
+/// belongs would say the automation holds nothing on that axis, which
+/// is a claim nobody made.
+fn ap_modes_fault(modes: &crate::autopilot::ApModes) -> Option<GroupFault> {
+    use crate::autopilot::{ApEngagement, LateralMode, VerticalMode};
+    let unknown = modes.engagement == ApEngagement::Unknown
+        || modes.lateral_active == LateralMode::Unknown
+        || modes.lateral_armed == LateralMode::Unknown
+        || modes.vertical_active == VerticalMode::Unknown
+        || modes.vertical_armed == VerticalMode::Unknown;
+    unknown.then_some(GroupFault::UnknownEnum)
+}
+
+/// A target the automation is flying toward has to be a number. The
+/// reference identity of the altitude target is not checked here: an
+/// identity that does not match the displayed declaration is a
+/// comparability question the resolver answers by withholding the
+/// readout, not a fault in the source.
+fn ap_targets_fault(targets: &crate::autopilot::ApTargets) -> Option<GroupFault> {
+    let finite = opt_finite(targets.airspeed_mps)
+        && opt_finite(targets.vertical_speed_mps)
+        && opt_finite(targets.altitude_m);
+    (!finite).then_some(GroupFault::NonFinite)
 }
 
 fn director_fault(director: &crate::director::FdSample) -> Option<GroupFault> {
@@ -232,7 +346,7 @@ fn dynamics_fault(dynamics: &crate::dynamics::DynSample) -> Option<GroupFault> {
     let turn_bad = dynamics
         .turn
         .is_some_and(|sample| !sample.rate_rps.is_finite());
-    if turn_bad || !opt_finite(dynamics.lateral_mps2) {
+    if turn_bad || !opt_finite(dynamics.lateral_mps2) || !opt_finite(dynamics.ias_trend_mps2) {
         return Some(GroupFault::NonFinite);
     }
     None

@@ -33,6 +33,7 @@ pub(crate) fn flying() -> PanelData {
             data: Some(AirData {
                 ias_mps: Some(40.0),
                 baro_setting_hpa: Some(1013.0),
+                tas_mps: Some(45.0),
             }),
             age_ms: Some(20.0),
         },
@@ -280,4 +281,82 @@ fn air_data_failure_cues_are_annunciations() {
             "failure cue leaked into tapes: {tapes:?}"
         );
     }
+}
+
+/// A source that supplies indicated airspeed and no true airspeed shows
+/// dashes in the TAS box and leaves everything else on the tape alone.
+/// The display never derives one airspeed from the other, so the box
+/// going quiet must not take the tape, its ladder, or the IAS readout
+/// with it.
+#[test]
+fn an_absent_true_airspeed_dashes_its_own_box_only() {
+    let mut data = flying();
+    data.tas_kt = indicate_instrument_state::Sig::missing();
+    let labels = texts(&render(&data, &PfdConfig::default()));
+
+    assert!(
+        labels.iter().any(|t| t == "---"),
+        "the TAS box shows dashes: {labels:?}"
+    );
+    assert!(
+        !labels.iter().any(|t| t.starts_with("TAS ")),
+        "no TAS value is invented: {labels:?}"
+    );
+    // The tape is untouched: its own readout and its ladder still paint.
+    assert!(
+        labels.iter().any(|t| t == "078"),
+        "the IAS readout stays live: {labels:?}"
+    );
+    assert!(
+        labels.iter().any(|t| t == "80"),
+        "the speed ladder stays live: {labels:?}"
+    );
+    assert!(
+        labels.iter().any(|t| t.starts_with("GS ")),
+        "the groundspeed box stays live: {labels:?}"
+    );
+}
+
+/// The TAS label fits its box at every width the value can take, so no
+/// glyph paints off the panel edge. The box is 90 units wide at the
+/// frame's left edge, so an overflowing centered label loses its leading
+/// character entirely rather than merely crowding.
+#[test]
+fn the_true_airspeed_label_fits_its_box_at_every_width() {
+    use indicate_instrument_scene::nominal_text_ink_width;
+
+    for kt in [0.0f32, 9.0, 113.0, 430.0, 1043.0] {
+        let mut data = flying();
+        data.tas_kt = indicate_instrument_state::Sig::with_status(
+            kt,
+            indicate_instrument_state::SignalStatus::Valid,
+        );
+        let scene = render(&data, &PfdConfig::default());
+        let run = runs_with_size(&scene)
+            .into_iter()
+            .find(|(text, _)| text.starts_with("TAS "))
+            .unwrap_or_else(|| panic!("a TAS run at {kt} kt"));
+        let ink = nominal_text_ink_width(run.1, run.0.chars().count());
+        // The same tolerance the containment sweep uses: the fit divides
+        // and multiplies in f32, so an exact fit can land a fraction of a
+        // thousandth of a unit over its own bound.
+        const TOLERANCE: f32 = 1e-3;
+        assert!(
+            ink <= 90.0 + TOLERANCE,
+            "'{}' carries {ink} units of ink into a 90-unit box",
+            run.0
+        );
+    }
+}
+
+/// Text runs with the size they paint at.
+fn runs_with_size(scene: &[u8]) -> Vec<(String, f32)> {
+    SceneCmds::new(scene)
+        .expect("valid scene")
+        .map(|c| c.expect("valid command"))
+        .filter_map(|c| match c {
+            Cmd::Text { text, size, .. } => Some((String::from(text), size)),
+            _ => None,
+        })
+        .collect()
 }
