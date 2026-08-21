@@ -37,7 +37,9 @@ pub struct RawStamp {
     pub source_id: u64,
     /// Opaque attachment/boot identity.
     pub incarnation: [u8; 16],
-    /// Source boot/attachment generation.
+    /// Which boot or attachment of the source this is. Not a
+    /// generation in the production-counting sense: it steps when the
+    /// source restarts, not when it publishes.
     pub epoch: u32,
     /// Wrapping group sequence, advanced only for a new measurement.
     pub sequence: u32,

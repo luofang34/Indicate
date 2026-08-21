@@ -304,6 +304,83 @@ exists; take it only with the set in hand.
    (REN-04's 1000 ms frame budget derives from it) assumes a repaint
    clock that keeps ticking when data stops.
 
+## A generation counts output made, not content
+
+Each producer makes one kind of output, and this section calls that its
+**unit of output**. An input validation and time/integrity gate admits a
+snapshot. A renderer makes a frame. A **generation** is a `u32` counter.
+A producer advances it when the producer completes one unit of output
+successfully.
+
+Generations appear at every shell boundary: the state snapshot, the
+render generation a liveness check watches, and the markers a consumer
+compares to see that a producer advances. This section states what a
+generation means, once, for every shell. The Rust, Swift, and JavaScript
+implementations must apply it identically.
+
+- **A generation counts the units a producer completes. It is not a
+  content identity.** It advances for each unit the producer completes
+  successfully, whatever that unit contains. Two units with identical
+  content advance the generation twice. A consumer that must know
+  whether the content changed compares the content. It does not compare
+  generations.
+- **Comparison across a wrap uses serial-number arithmetic** of the
+  RFC 1982 shape. Generation `a` is newer than generation `b` when
+  `0 < (a - b) mod 2^32 < 2^31`. Equal values name the same unit.
+  At a distance of exactly `2^31` the rule says neither value is newer,
+  in both directions. A consumer must therefore compare within `2^31`
+  steps of the producer. In that range the rule always names which value
+  is newer. Producers count with `wrapping_add(1)`, so the step from
+  `u32::MAX` to `0` is a
+  normal single advance, never a replay. `serial_is_newer` in
+  `indicate-instrument-feeder::stamp` already implements this rule for
+  stamp sequences; generation comparison is the same rule on every
+  shell.
+- **A generation and a freshness judgement answer different questions.**
+  A generation answers "has the producer advanced?". Telemetry
+  freshness answers "is the data inside recent?". Liveness keys on the
+  clock that makes the output: the 1000 ms deadline (REN-04) measures
+  how often a frame is made, never when data arrives. A frame made on
+  time from stale data is a live frame that carries stale data.
+  Freshness flags the data. The generation still advances. No shell may
+  substitute one notion for the other.
+
+Some counters in this repository are deliberately not generations under
+this rule. Each marks a change in its own output. A consumer must not
+read any of them as a count of a producer's output:
+
+- `SourceComparison::generation` in `indicate-instrument-state` advances
+  only when the selected source, the reversion, or the comparison state
+  changes.
+- `ActiveAlert::generation` in `indicate-alerts` advances only at the
+  alert's own state change. `AlertOutput::generation` reports the
+  manager's value after a step, so a manager stepped with no new alert
+  reports the same value again. A shell that reads that value as a
+  count of the manager's output raises a liveness fault on a healthy
+  manager.
+- `IngressSnapshot::generation` in `indicate-instrument-feeder` counts
+  publications that moved the admitted state. Admitting a group advances
+  it, and so does a publication that admitted nothing and only narrowed
+  the authorization, which is a content change.
+
+The wire generation a shell decodes is `SnapshotMeta::generation`. This
+rule governs that one, and the gate advances it once per snapshot the
+gate admits. A shell hosts the gate; it does not supply the counter, and
+a source never does — a source sits on the untrusted side of the
+boundary the snapshot describes.
+
+`IngressSnapshot::generation` above and `SnapshotMeta::generation` here
+are two counters, not one. The first is the feeder's own, and it
+advances on an authorization change as well, which this rule excludes.
+A shell must not forward it into the second.
+
+`FrameId::frame_generation` and `FrameId::render_generation` cross the
+raster boundary as data. The rasterizer is stateless: it carries both
+from input to report and advances neither. A shell owns them, and this
+rule governs how a shell advances them — a failed paint produces no
+frame, so it advances no render generation, and a frame generation is
+the snapshot's, so two paints of one snapshot carry one value.
+
 ## Conformance: what "correct" means
 
 An interpreter is correct only **relative to a corpus version**. The
