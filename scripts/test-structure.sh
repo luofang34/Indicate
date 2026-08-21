@@ -18,6 +18,7 @@ cd "$root_dir"
 probe_dir="sets/indicate-tier-probe"
 probe_doc="docs/instruments/zz-structure-probe.md"
 worktree_probe_dir=".worktrees/zz-structure-probe"
+agent_probe_dir=".claude/worktrees/zz-structure-probe"
 lock_backup="$(mktemp)"
 cp Cargo.lock "$lock_backup"
 # Every tracked file this script edits is restored by the trap, not by
@@ -31,6 +32,7 @@ cp CONTRIBUTING.md "$citation_backup"
 cleanup() {
     rm -rf "$probe_dir"
     rm -rf "$worktree_probe_dir"
+    rm -rf "$agent_probe_dir"
     rm -f "$probe_doc"
     cp "$lock_backup" Cargo.lock
     rm -f "$lock_backup"
@@ -230,6 +232,28 @@ for line in 'It cites `GHOST.md` and then `AGENTS.md`.' \
     fi
     cp "$citation_backup" CONTRIBUTING.md
 done
+
+# Agent tooling places its worktrees under `.claude/`, which is the same
+# argument in a different directory: a checkout, walked by the same
+# `find`, reported against as though it were this repository's content.
+# A contributor running the local battery while an agent holds a
+# worktree sees findings from a tree they did not write.
+mkdir -p "$agent_probe_dir/probe/src"
+cat > "$agent_probe_dir/probe/Cargo.toml" <<'EOF'
+[workspace]
+members = []
+EOF
+printf '//! Structure probe inside an agent worktree.
+' \
+    > "$agent_probe_dir/probe/src/mod.rs"
+if INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh >/dev/null 2>&1; then
+    echo "ok: content under .claude/worktrees is not walked"
+    passed=$((passed + 1))
+else
+    echo "REGRESSION: the gate walked into an agent worktree and reported on a checkout" >&2
+    failed=$((failed + 1))
+fi
+rm -rf "$agent_probe_dir"
 
 if [ "$failed" -ne 0 ]; then
     echo "structure-selftest: FAILED ($failed of $((passed + failed)) cases)" >&2
