@@ -156,6 +156,44 @@ expect_term_refusal "InstrumentSceneKit" "InstrumentSceneKit"
 expect_term_refusal "IndicateAppleDisplay" "IndicateAppleDisplay"
 expect_term_refusal "Swift SceneKit backend" "Swift SceneKit backend"
 
+# The display-reason completeness check: a variant outside `ALL` takes a
+# code no Rust test can see, and a duplicated slot then collides with an
+# existing reason's identity. Probe it by adding exactly that variant.
+condition_file="crates/indicate-alerts/src/condition.rs"
+condition_backup="$(mktemp)"
+cp "$condition_file" "$condition_backup"
+python3 - "$condition_file" <<'PROBE'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace("    RetainedImage,\n}", "    RetainedImage,\n    /// Probe.\n    ProbeReason,\n}", 1)
+s = s.replace("            Self::RetainedImage => 4,", "            Self::RetainedImage => 4,\n            Self::ProbeReason => 2,", 1)
+open(p, "w").write(s)
+PROBE
+# Matched on the message, not on the exit status: the gate refuses for
+# many reasons, so a case that accepted any refusal would pass on a file
+# that merely grew past its line limit — and then report that a check it
+# never ran is working.
+# Captured, not piped: this script runs under `pipefail`, so a pipeline
+# would carry the gate's own refusal status and say nothing about which
+# refusal it was.
+probe_status=0
+probe_output="$(INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh 2>&1)" \
+    || probe_status=$?
+# Both halves, because either alone passes a broken gate: a message with
+# a zero exit leaves CI green on a violation the gate printed out loud,
+# and a non-zero exit without the message is any other refusal.
+if [ "$probe_status" -ne 0 ] \
+    && printf '%s' "$probe_output" | grep -q "takes a code no test can see"; then
+    echo "ok: a reason outside DisplayFault::ALL refused"
+    passed=$((passed + 1))
+else
+    echo "REGRESSION: a reason outside ALL was accepted; it can take a code no test sees" >&2
+    failed=$((failed + 1))
+fi
+cp "$condition_backup" "$condition_file"
+rm -f "$condition_backup"
+
 # A linked worktree is a checkout, not content, and the gate walks the
 # tree with `find`, which reads no ignore file. Without the prune the
 # walks reach a worktree's own manifests and sources: the workspace-only

@@ -260,3 +260,37 @@ fn excessive_skew_between_groups_is_a_counted_transition() {
     let (counters, _) = ingress.diagnostics();
     assert_eq!(counters.excessive_skew, 1);
 }
+
+/// Admitting a publication advances the counter whatever the payload
+/// holds: two samples carrying byte-identical numbers on distinct
+/// sequences advance it twice. A consumer watching for producer
+/// progress would otherwise read a live producer as stalled every time
+/// the world held still, which is the substitution the contract
+/// forbids.
+#[test]
+fn identical_payloads_on_distinct_sequences_advance_the_generation_twice() {
+    let mut ingress = AvionicsIngress::new(config(IncarnationPolicy::PinFirst));
+    let before = ingress.snapshot(0.0).generation;
+
+    assert!(ingress.ingest(&sample(1, 1_000_000), 0.0), "first admitted");
+    let first = ingress.snapshot(0.0).generation;
+
+    // The same numbers again, one sequence later: nothing about the
+    // vehicle changed, but the producer did produce.
+    assert!(
+        ingress.ingest(&sample(2, 2_000_000), 10.0),
+        "second admitted"
+    );
+    let second = ingress.snapshot(10.0).generation;
+
+    assert_eq!(
+        first.wrapping_sub(before),
+        1,
+        "an admitted publication advances the generation"
+    );
+    assert_eq!(
+        second.wrapping_sub(first),
+        1,
+        "identical content is still a production"
+    );
+}
