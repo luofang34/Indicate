@@ -57,8 +57,8 @@ fn entry_problems(
     repo_root: &Path,
 ) -> Vec<String> {
     let Some((path, anchor)) = locator.split_once('#') else {
-        return vec![format!(
-            "is marked complete but its locator names no specific record entry (expected path#anchor)"
+        return vec![String::from(
+            "is marked complete but its locator names no specific record entry (expected path#anchor)",
         )];
     };
     let full = match crate::gate::contained::resolve_contained(repo_root, path) {
