@@ -41,6 +41,8 @@ bash scripts/check-recorded-counts.sh --selftest
 bash scripts/check-recorded-counts.sh
 bash scripts/test-baseline-survives-merge.sh
 bash scripts/check-baseline-survives-merge.sh
+bash scripts/test-release-markers.sh
+bash scripts/check-release-markers.sh
 ```
 
 The evidence gate binds recorded test sources by content digest: editing

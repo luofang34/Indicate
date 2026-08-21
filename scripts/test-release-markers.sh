@@ -11,33 +11,58 @@ root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root_dir"
 
 check="$root_dir/scripts/check-release-markers.sh"
-changelog="CHANGELOG.md"
+work="$(mktemp -d)"
+changelog="$work/CHANGELOG.md"
+output_file="$work/output"
+export INDICATE_CHANGELOG="$changelog"
 passed=0
 failed=0
 
-backup="$(mktemp)"
-cp "$changelog" "$backup"
-cleanup() {
-    cp "$backup" "$changelog"
-    rm -f "$backup"
-}
-trap cleanup EXIT
+# Every case works on a copy. The committed CHANGELOG is never written,
+# so a case that aborts cannot leave the repository dirty and a missing
+# restore cannot hide behind the next case's own restore.
+pristine="$work/pristine"
+cp CHANGELOG.md "$pristine"
+cp "$pristine" "$changelog"
+trap 'rm -rf "$work"' EXIT
 
-# `expect <want> <label>` runs the check against the CHANGELOG as it
-# currently stands and compares its exit status to `want`.
-expect() {
-    local want="$1" label="$2" got=0
-    "$check" >/dev/null 2>&1 || got=$?
-    if [ "$got" -eq "$want" ]; then
-        echo "ok: $label"
+# `accepts <label>` expects a clean run. `refuses <label> <phrase>`
+# expects a refusal AND that the refusal names `phrase`: the check has
+# several ways to refuse, so a case that only counted the exit status
+# would pass on a refusal it did not ask for. That is the shape the
+# duplicate-version case was written in first, and it passed with the
+# guard it named deleted.
+run_check() {
+    "$check" >"$output_file" 2>&1
+}
+
+accepts() {
+    if run_check; then
+        echo "ok: $1"
         passed=$((passed + 1))
     else
-        echo "REGRESSION: $label — wanted exit $want, got $got" >&2
+        echo "REGRESSION: $1 — refused, saying: $(head -1 "$output_file")" >&2
         failed=$((failed + 1))
     fi
 }
 
-expect 0 "the committed CHANGELOG agrees with the tree"
+refuses() {
+    if run_check; then
+        echo "REGRESSION: $1 was accepted; the guard did not notice" >&2
+        failed=$((failed + 1))
+        return
+    fi
+    if ! grep -Fq "$2" "$output_file"; then
+        echo "REGRESSION: $1 was refused, but not for '$2'" >&2
+        echo "  it said: $(head -1 "$output_file")" >&2
+        failed=$((failed + 1))
+        return
+    fi
+    echo "ok: $1 refused"
+    passed=$((passed + 1))
+}
+
+accepts "the committed CHANGELOG agrees with the tree"
 
 # Two entries under one version: the check reads the newest only, so the
 # older twin's values are never compared against anything. This is the
@@ -55,8 +80,8 @@ start = headings[0]
 end = headings[1] if len(headings) > 1 else len(s)
 p.write_text(s[:start] + s[start:end] + s[start:])
 PLANT
-expect 1 "a version declared twice is refused"
-cp "$backup" "$changelog"
+refuses "a version declared twice" "more than once"
+cp "$pristine" "$changelog"
 
 # A value that disagrees with the tree.
 python3 - "$changelog" <<'DRIFT'
@@ -65,8 +90,8 @@ p = pathlib.Path(sys.argv[1])
 s = p.read_text()
 p.write_text(re.sub(r"\| State ABI \| \d+ \|", "| State ABI | 99 |", s, count=1))
 DRIFT
-expect 1 "a value that disagrees with the tree is refused"
-cp "$backup" "$changelog"
+refuses "a value that disagrees with the tree" "DRIFT:"
+cp "$pristine" "$changelog"
 
 # No versioned entry at all.
 python3 - "$changelog" <<'STRIP'
@@ -74,10 +99,10 @@ import sys, pathlib, re
 p = pathlib.Path(sys.argv[1])
 p.write_text(re.sub(r"^## \[\d+\.\d+\.\d+\]", "## [Unreleased]", p.read_text(), flags=re.M))
 STRIP
-expect 1 "a changelog with no versioned entry is refused"
-cp "$backup" "$changelog"
+refuses "a changelog with no versioned entry" "no versioned release entry found"
+cp "$pristine" "$changelog"
 
-expect 0 "the restored CHANGELOG agrees again"
+accepts "the restored CHANGELOG agrees again"
 
 if [ "$failed" -ne 0 ]; then
     echo "release-markers-selftest: FAILED ($failed of $((passed + failed)) cases)" >&2
