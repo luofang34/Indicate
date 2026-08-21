@@ -39,13 +39,13 @@ fn render_scene(bytes: &[u8], w: u32, h: u32) -> (Result<RenderReport, RasterErr
     (res, fb)
 }
 
-fn is_black_opaque(px: &[u8]) -> bool {
+fn is_black_opaque(px: &[u8; 4]) -> bool {
     px[0] == 0 && px[1] == 0 && px[2] == 0 && px[3] == 255
 }
 
 fn assert_spoiled(fb: &[u8]) {
     assert!(
-        fb.chunks_exact(4).all(|px| px[3] == 255),
+        fb.as_chunks::<4>().0.iter().all(|px| px[3] == 255),
         "a spoiled frame is fully opaque"
     );
     assert!(
@@ -53,13 +53,13 @@ fn assert_spoiled(fb: &[u8]) {
         "the spoil cross reaches the top-left corner"
     );
     assert!(
-        fb.chunks_exact(4).any(is_black_opaque),
+        fb.as_chunks::<4>().0.iter().any(is_black_opaque),
         "the spoil pattern has a black field"
     );
 }
 
 fn painted_any(fb: &[u8]) -> bool {
-    fb.chunks_exact(4).any(|px| px[3] != 0)
+    fb.as_chunks::<4>().0.iter().any(|px| px[3] != 0)
 }
 
 #[test]
@@ -311,7 +311,7 @@ fn failure_overwrites_a_previously_plausible_frame() {
     // Pre-fill with a believable opaque frame, then fail: nothing of it
     // may survive.
     let mut fb = std::vec![0u8; 32 * 32 * 4];
-    for px in fb.chunks_exact_mut(4) {
+    for px in fb.as_chunks_mut::<4>().0 {
         px.copy_from_slice(&[20, 40, 60, 255]);
     }
     let bytes = scene(|w| {
@@ -327,7 +327,7 @@ fn failure_overwrites_a_previously_plausible_frame() {
     assert!(res.is_err());
     assert_spoiled(&fb);
     assert!(
-        !fb.chunks_exact(4).any(|px| px == [20, 40, 60, 255]),
+        !fb.as_chunks::<4>().0.contains(&[20, 40, 60, 255]),
         "no pixel of the stale frame remains"
     );
 }

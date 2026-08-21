@@ -340,10 +340,20 @@ pub enum SnapshotCoherence {
     Unknown,
 }
 
-/// Metadata assigned by the ingress gate to one immutable state generation.
+/// Metadata the input validation and time/integrity gate assigns to one
+/// immutable state snapshot.
+///
+/// The gate assigns it, never a source: a source is on the untrusted
+/// side of the boundary this metadata exists to describe, so a counter
+/// a source supplied would be the thing being judged rather than the
+/// judgement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SnapshotMeta {
-    /// Wrapping generation advanced only when a source group advances.
+    /// Wrapping generation: one step per snapshot the gate admits,
+    /// whatever the groups hold. It counts admission, not content, so
+    /// a consumer detecting a content change compares content. A gate
+    /// that admits nothing new still advances it; a gate that stopped
+    /// admitting does not, which is what a liveness check reads.
     pub generation: u32,
     /// Coherence result for the independently stamped input groups.
     pub coherence: SnapshotCoherence,
@@ -368,7 +378,7 @@ pub struct AircraftState {
     pub quality: EstimateQuality,
     /// Source validity flags.
     pub valid: ValidFlags,
-    /// Ingress generation and group-coherence result.
+    /// The gate's generation and group-coherence result.
     pub snapshot: SnapshotMeta,
     /// Datum declaration for the primary altitude (ALT-01).
     pub altitude: AltitudeDeclaration,

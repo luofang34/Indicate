@@ -35,7 +35,7 @@ impl FramebufferDims {
 pub struct FrameId {
     /// The snapshot/frame generation the scene was built from.
     pub frame_generation: u32,
-    /// The render generation of this paint attempt.
+    /// The render generation the shell assigned to this paint.
     pub render_generation: u32,
 }
 

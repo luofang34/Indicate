@@ -43,6 +43,10 @@ pub const CANONICAL_STATES: &[CanonicalState] = &[
         id: "ias-without-tas",
         build: ias_without_tas,
     },
+    CanonicalState {
+        id: "nav2-source",
+        build: nav2_source,
+    },
 ];
 
 /// Cold start: no group has ever been fed. Every signal must resolve
@@ -286,6 +290,18 @@ pub fn ias_without_tas() -> AircraftState {
     let mut state = typical();
     if let Some(air) = state.air.data.as_mut() {
         air.tas_mps = None;
+    }
+    state
+}
+
+/// The second nav receiver selected. `typical` names GPS and
+/// `fully-fed` names Nav1; Nav2 shares Nav1's green, so only the
+/// receiver label tells the two apart. This state exercises that
+/// distinction on every panel that draws nav guidance.
+pub fn nav2_source() -> AircraftState {
+    let mut state = typical();
+    if let Some(nav) = state.nav.data.as_mut() {
+        nav.source = NavSource::Nav2;
     }
     state
 }

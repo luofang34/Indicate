@@ -11,10 +11,10 @@ use super::{admit, criticality_bands};
 fn builtin_panels_pass_admission() {
     let registry = Registry::new(BUILTIN_PANELS).expect("composes");
     let report = admit(&registry).expect("shipped panels must be admissible");
-    // PFD: (5 canonical + 4 extreme) states × (1 fed + 8 withheld);
-    // HSI: (5 + 3) × 9; autoflight: (5 + 2) × 3; monitor: 6 × 2 — each
+    // PFD: (6 canonical + 4 extreme) states × (1 fed + 8 withheld);
+    // HSI: (6 + 3) × 9; autoflight: (6 + 2) × 3; monitor: 7 × 2 — each
     // drawn twice, quiet and with the saturated alert stack.
-    assert_eq!(report.cases, 372);
+    assert_eq!(report.cases, 418);
     // Every warning is the PFD's groundspeed or baro readout: each box
     // is 90 units wide but a wide value at size 16 has ~107 units of
     // nominal ink, so the run overhangs its box and the frame edge —
@@ -31,7 +31,7 @@ fn builtin_panels_pass_admission() {
     // width, so a third readout arrives without a third overflow.
     // Twice the quiet-frame count, because the alert stack does not
     // touch these boxes: each overhangs on both sides of the alert axis.
-    assert_eq!(report.warnings.len(), 226);
+    assert_eq!(report.warnings.len(), 256);
     assert!(report.warnings.iter().all(|w| matches!(
         w,
         super::AdmissionWarning::FrameOverflow { panel: "pfd", text, .. }
@@ -96,14 +96,14 @@ fn the_config_set_passes_admission() {
     static SETS: [&PanelSet; 1] = [&CONFIG_SET];
     let registry = Registry::from_sets(&SETS).expect("the config set composes");
     let report = admit(&registry).expect("the config panel must be admissible");
-    // (five canonical + two extreme) states x (one fed case + one per
+    // (six canonical + two extreme) states x (one fed case + one per
     // required group withheld) x (quiet, alerted). It requires two
     // groups: the configuration it draws, and the trust its status
     // folds. The two extreme states draw each numeral at the ends of
     // its travel, which the corpus never reaches; they do not constrain
     // the declared region, because a region is populated by any one
     // claim and more cases can only help it find one.
-    assert_eq!(report.cases, 42);
+    assert_eq!(report.cases, 48);
     // Nothing tolerated: every run's nominal ink sits inside the design
     // frame, so a first warning here would be a decision rather than a
     // drift.

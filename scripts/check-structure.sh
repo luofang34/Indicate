@@ -34,7 +34,8 @@ is_excluded_path() {
 
 collect_rs_files() {
     find . \
-        -type d \( -name target -o -name generated \) -prune -o \
+        -type d \( -name target -o -name generated -o -name .worktrees \) -prune -o \
+        -type d -path './.claude/worktrees' -prune -o \
         -type f -name '*.rs' -print
 }
 
@@ -184,6 +185,89 @@ check_safety_constant_count() {
     fi
 }
 
+# The display-reason registry is append-only, and a code IS a position in
+# `DisplayFault::ALL`, so reuse is impossible for any reason that list
+# holds. What the Rust tests cannot see is a variant the list does not
+# hold: nothing in Rust enumerates an enum's variants, so a variant given
+# an already-used slot and left out of `ALL` collides with an existing
+# reason's identity, label, and class, and every test still passes.
+#
+# Counting closes it. `ALL` is proven pairwise distinct by its own test,
+# so N distinct entries drawn from N variants means `ALL` is exactly the
+# variant set — and then every variant's code is its own position.
+check_display_reason_completeness() {
+    local file=./crates/indicate-alerts/src/condition.rs
+    local declarations declared variants
+    # Exactly one `ALL` may answer for this enum. A second one anywhere
+    # in the file would make the length ambiguous, and an ambiguous
+    # comparison must refuse rather than pass: `condition.rs` holds
+    # several fault families, and giving another the same registry
+    # treatment is the natural next change.
+    declarations=$(grep -c 'pub const ALL: \[Self; [0-9]*\]' "$file")
+    if [ "$declarations" -ne 1 ]; then
+        echo "FORBIDDEN: condition.rs declares $declarations \`ALL\` lengths; this check answers for one registry and cannot tell which (fail-closed)" >&2
+        status=1
+        return
+    fi
+    declared=$(sed -n 's/.*pub const ALL: \[Self; \([0-9]*\)\].*/\1/p' "$file")
+    # Count the arms of the exhaustive `slot` match, not the variant
+    # declarations: rustc guarantees an arm for every variant whatever
+    # syntax the declaration uses, so a variant with an explicit
+    # discriminant or a payload cannot slip past the way it can past a
+    # declaration parser.
+    variants=$(awk '
+        /const fn slot\(self\) -> usize \{/ { inside = 1; next }
+        inside && /^    \}/ { inside = 0 }
+        inside && /^            Self::[A-Za-z0-9]+ => [0-9]+,$/ { n++ }
+        END { print n + 0 }
+    ' "$file")
+    # Arms this counter cannot read are the hole the strict pattern
+    # leaves: a wildcard arm, or a pattern with a payload, satisfies the
+    # compiler while the count skips it, so the counts agree and a
+    # variant outside `ALL` collides unseen. Count every arm and refuse
+    # when the two disagree.
+    local arms
+    arms=$(awk '
+        /const fn slot\(self\) -> usize \{/ { inside = 1; next }
+        inside && /^    \}/ { inside = 0 }
+        inside && /=>/ { n++ }
+        END { print n + 0 }
+    ' "$file")
+    if [ "$arms" -ne "$variants" ]; then
+        echo "FORBIDDEN: the DisplayFault \`slot\` match has $arms arms but only $variants name a variant; an arm this check cannot read hides a variant from the count (fail-closed)" >&2
+        status=1
+        return
+    fi
+    if [ "$variants" -eq 0 ]; then
+        echo "FORBIDDEN: condition.rs has no readable \`slot\` match to count; the display-reason registry is unguarded (fail-closed)" >&2
+        status=1
+        return
+    fi
+    if [ "$declared" -ne "$variants" ]; then
+        echo "FORBIDDEN: DisplayFault has $variants slots but ALL holds $declared; a variant outside ALL takes a code no test can see, and a duplicated slot then collides with an existing reason's identity and class" >&2
+        status=1
+    fi
+}
+
+# A document that cites a rule nobody can read is not a rule: a reviewer
+# who holds a contributor to a standard the clone does not contain is
+# citing something the contributor cannot obey. The check is not over
+# prose — sentence quality is review's judgement. It is over the
+# pointer, which is mechanical.
+check_root_document_pointers() {
+    local doc target
+    for doc in ./CLAUDE.md ./CONTRIBUTING.md; do
+        [ -f "$doc" ] || continue
+        # Every backticked root-level markdown file the document names.
+        for target in $(grep -oE '`[A-Za-z0-9_-]*\.md`' "$doc" | tr -d '`' | sort -u); do
+            if [ ! -s "./$target" ]; then
+                echo "FORBIDDEN: $doc points at \`$target\`, which is missing or empty; a cited rule a clone does not contain is not a rule" >&2
+                status=1
+            fi
+        done
+    done
+}
+
 # The family is named after this repository, not after a consumer of it.
 # This checks NAMES ONLY — crate directories and package names. Values
 # that are hashed or pinned downstream keep whatever string they were
@@ -233,7 +317,8 @@ check_crate_naming() {
                 status=1
                 ;;
         esac
-    done < <(find . -name Cargo.toml -not -path './target/*' -not -path './.git/*' -mindepth 2)
+    done < <(find . -name Cargo.toml -not -path './target/*' -not -path './.git/*' \
+        -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -mindepth 2)
 }
 
 # The tier law from #13. The tiers are only real if the tree enforces
@@ -338,7 +423,8 @@ check_crate_map() {
             echo "FORBIDDEN: $map has no row for $name" >&2
             status=1
         fi
-    done < <(find . -name Cargo.toml -not -path './target/*' -not -path './.git/*' -mindepth 2)
+    done < <(find . -name Cargo.toml -not -path './target/*' -not -path './.git/*' \
+        -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -mindepth 2)
     while IFS= read -r name; do
         if [ ! -d "crates/$name" ] && [ ! -d "sets/$name" ]; then
             echo "FORBIDDEN: $map names $name, which is not a crate in this workspace" >&2
@@ -370,6 +456,8 @@ check_file_length
 check_function_length
 check_safety_palette_aliases
 check_safety_constant_count
+check_display_reason_completeness
+check_root_document_pointers
 check_crate_naming
 check_tier_law
 check_crate_map

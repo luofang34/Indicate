@@ -204,7 +204,7 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     // (REN-03).
     raster_baselines: &[(
         BUILTIN_FRAME,
-        "411ef00fcbd4bb1c53f4e17effa67b9eb69f4fb19d1b80d2576336d12094834c",
+        "6e6bd9b8fb4599a549d5b9a31bf34fa97a03ad2cca3f0d92eb869983f2bb52bd",
     )],
     draw: draw_pfd_panel,
 };
@@ -304,7 +304,7 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     ],
     raster_baselines: &[(
         BUILTIN_FRAME,
-        "a6b8808adb6d3181e45c55c1f8c5cf68eb248a0b4a71dedb744e3fbae8b0ab7e",
+        "cfe8fb5eba7a2947aa69138e934f7a90be07580be22532cda099eedf990ea8ae",
     )],
     draw: draw_hsi_panel,
 };
@@ -346,7 +346,7 @@ pub const ALL_SETS: &[PanelSet] = &[BUILTIN_SET, CONFIG_SET];
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "3ed6079befa5e5f1cfc39276598a46d49ae9578dde29e46b3165e698b3123a35";
+    "8291c73e7c92e8b04963f743c9d68d9e1f590aa576f3776d0a0cfdc3183ae35b";
 
 pub use criticality_bands::BUILTIN_CRITICALITY_BANDS;
 pub use supplementary::{

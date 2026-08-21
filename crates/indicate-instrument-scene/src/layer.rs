@@ -27,9 +27,9 @@
 //!   decode, because content whose criticality cannot be placed must
 //!   not be painted. Extending [`LayerId`] therefore requires a scene
 //!   format version bump, unlike ordinary appended opcodes.
-//! - One frame is one encoded scene; frame generation/identity is the
-//!   transport's concern (e.g. the WASM render generation), not encoded
-//!   per layer. Each layer is owned by exactly one producer per frame —
+//! - One frame is one encoded scene. Which production a frame is —
+//!   its generation — is the transport's concern, not encoded per
+//!   layer. Each layer is owned by exactly one producer per frame —
 //!   the duplicate rule makes split ownership structurally impossible.
 //!
 //! The SVS/raster boundary: backend-owned raster or depth imagery (such
