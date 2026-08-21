@@ -108,13 +108,18 @@ fn spoil_paints_opaque_black_with_a_red_cross() {
     let mut s = Surface::new(&mut buf, dims(16, 16)).expect("surface");
     s.spoil();
     // Every pixel is opaque: a spoiled frame can never read as transparent.
-    assert!(buf.chunks_exact(4).all(|px| px[3] == 255));
+    assert!(buf.as_chunks::<4>().0.iter().all(|px| px[3] == 255));
     // The top-left corner is on the main diagonal and painted red.
     assert_eq!(&buf[0..4], &[255, 0, 0, 255]);
     // A pixel off both diagonals stays black.
     let off = (10 * 16 + 2) * 4;
     assert_eq!(&buf[off..off + 4], &[0, 0, 0, 255]);
     // The cross is visibly present.
-    let red = buf.chunks_exact(4).filter(|px| px[0] == 255).count();
+    let red = buf
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .filter(|px| px[0] == 255)
+        .count();
     assert!(red >= 16);
 }

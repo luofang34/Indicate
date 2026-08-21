@@ -95,7 +95,12 @@ fn red_pixels(composition: &CompositionDescriptor) -> usize {
 }
 
 fn count_red(pixels: &[u8]) -> usize {
-    pixels.chunks_exact(4).filter(|px| *px == ALERT_RED).count()
+    pixels
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .filter(|px| **px == ALERT_RED)
+        .count()
 }
 
 /// The PFD alone, so the measurement below has a baseline for how much

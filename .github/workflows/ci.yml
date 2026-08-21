@@ -235,6 +235,25 @@ jobs:
           bash scripts/check-recorded-counts.sh --selftest
           bash scripts/check-recorded-counts.sh
 
+      - name: the baseline advisory can still fail
+        # A hard gate, deliberately outside the advisory step below: the
+        # advisory carries `continue-on-error`, so a selftest run inside
+        # it could go red without anyone noticing — which is the exact
+        # failure the selftest exists to catch.
+        run: bash scripts/test-baseline-survives-merge.sh
+
+      - name: baselines that a squash or rebase would orphan (advisory)
+        # Advisory by construction: a pull request that re-records
+        # evidence declares a baseline that is not yet on main, so this
+        # reports on every legitimate evidence change. Its value is that
+        # the requirement appears on the pull request page at the moment
+        # someone picks a merge button, rather than only in
+        # CONTRIBUTING.md. The hard reachability gate cannot cover this:
+        # a pull request build checks out the synthetic merge ref, where
+        # the lane commit is already an ancestor.
+        continue-on-error: true
+        run: bash scripts/check-baseline-survives-merge.sh
+
       - name: Negative fixtures must all FAIL the gate
         run: |
           set -u

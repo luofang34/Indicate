@@ -69,3 +69,41 @@ fn serial_ordering_is_wrap_safe() {
     // Half-range distances are ambiguous and refused.
     assert!(!serial_is_newer(0x8000_0000, 0));
 }
+
+/// At exactly half the range the rule names neither value newer, and it
+/// does so in both directions. The contract states this as the reason a
+/// consumer must compare within `2^31` steps of the producer: at that
+/// distance the question has no answer, so a consumer that drifted
+/// further would read a stale value as new in one direction and new as
+/// stale in the other.
+#[test]
+fn neither_value_is_newer_at_exactly_half_the_range() {
+    let half = 0x8000_0000u32;
+    for current in [0u32, 1, 7, u32::MAX, u32::MAX / 2] {
+        let opposite = current.wrapping_add(half);
+        assert!(
+            !super::serial_is_newer(opposite, current),
+            "forward across half the range must not be newer: {opposite} vs {current}"
+        );
+        assert!(
+            !super::serial_is_newer(current, opposite),
+            "and the reverse must not be either: {current} vs {opposite}"
+        );
+    }
+}
+
+/// One step inside the boundary the rule does answer, in both
+/// directions — so the test above pins a boundary rather than a
+/// function that always says no.
+#[test]
+fn one_step_inside_half_the_range_still_answers() {
+    let half = 0x8000_0000u32;
+    for current in [0u32, 1, 7, u32::MAX, u32::MAX / 2] {
+        let inside = current.wrapping_add(half - 1);
+        assert!(super::serial_is_newer(inside, current), "forward");
+        assert!(
+            !super::serial_is_newer(current, inside),
+            "and not the reverse"
+        );
+    }
+}
