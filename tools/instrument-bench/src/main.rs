@@ -238,7 +238,7 @@ fn write_ppm(
     std::fs::create_dir_all(dir).map_err(io)?;
     let mut out = Vec::new();
     out.extend_from_slice(format!("P6\n{w} {h}\n255\n").as_bytes());
-    for pixel in rgba.chunks_exact(4) {
+    for pixel in rgba.as_chunks::<4>().0 {
         out.extend_from_slice(&pixel[..3]);
     }
     let mut file = std::fs::File::create(&path).map_err(io)?;

@@ -21,6 +21,13 @@ worktree_probe_dir=".worktrees/zz-structure-probe"
 agent_probe_dir=".claude/worktrees/zz-structure-probe"
 lock_backup="$(mktemp)"
 cp Cargo.lock "$lock_backup"
+# Every tracked file this script edits is restored by the trap, not by
+# the case that edited it. A case that cleans up after itself leaves the
+# repository dirty the moment it aborts, and `CONTRIBUTING.md` carrying
+# an invented citation makes `check-structure.sh` fail against a
+# document the contributor never wrote.
+citation_backup="$(mktemp)"
+cp CONTRIBUTING.md "$citation_backup"
 
 cleanup() {
     rm -rf "$probe_dir"
@@ -29,6 +36,8 @@ cleanup() {
     rm -f "$probe_doc"
     cp "$lock_backup" Cargo.lock
     rm -f "$lock_backup"
+    cp "$citation_backup" CONTRIBUTING.md
+    rm -f "$citation_backup"
 }
 trap cleanup EXIT
 
@@ -168,6 +177,23 @@ else
     failed=$((failed + 1))
 fi
 rm -rf "$worktree_probe_dir"
+# A citation the clone cannot resolve must be refused wherever it sits
+# on the line. The first version of this check read only the last
+# citation per line, so a document that named a missing file before a
+# present one passed — which is the spelling a contributor would most
+# easily write by accident.
+for line in 'It cites `GHOST.md` and then `AGENTS.md`.' \
+    'It cites `AGENTS.md` and then `GHOST.md`.'; do
+    printf '%s\n' "$line" >> CONTRIBUTING.md
+    if INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh >/dev/null 2>&1; then
+        echo "REGRESSION: a citation of a missing document was accepted: $line" >&2
+        failed=$((failed + 1))
+    else
+        echo "ok: a citation of a missing document refused"
+        passed=$((passed + 1))
+    fi
+    cp "$citation_backup" CONTRIBUTING.md
+done
 
 # Agent tooling places its worktrees under `.claude/`, which is the same
 # argument in a different directory: a checkout, walked by the same
