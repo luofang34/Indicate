@@ -319,3 +319,49 @@ fn every_attributed_numeral_lies_inside_the_declared_region() {
         assert_eq!(claimed, 2, "flap {flap} trim {trim}: both numerals claim");
     }
 }
+
+/// A detent with no sensed position beside it is not drawn.
+///
+/// This is what `AIR-IN-016` requires and what the flap scale returns
+/// early to achieve: a selection with nothing to compare it against is
+/// a number, not a configuration, and a lone cyan mark on the scale
+/// reads as a position the airframe reached. No corpus or extreme state
+/// builds this combination, so without this case the early return can
+/// be moved and every gate stays green.
+#[test]
+fn a_detent_with_no_sensed_position_draws_nothing() {
+    let data = panel(
+        Some(AirframeConfig {
+            flap_ratio: None,
+            flap_selected_ratio: Some(1.0),
+            elevator_trim_ratio: Some(0.0),
+            aileron_trim_ratio: None,
+            rudder_trim_ratio: None,
+        }),
+        Some(40.0),
+    );
+    let mut buf = std::vec![0u8; MAX_SCENE_BYTES];
+    let mut writer = SceneWriter::new(&mut buf).expect("writer");
+    draw_config(&data, None, BUILTIN_FRAME, &mut writer).expect("panel fits buffer");
+    let len = writer.finish();
+
+    // The cyan detent mark is the only thing the panel paints in the
+    // selection colour, so its absence is the whole claim.
+    let mut fill = indicate_instrument_scene::Rgba8::rgb(0, 0, 0);
+    let mut detents = 0;
+    for command in SceneCmds::new(&buf[..len]).expect("valid scene") {
+        match command.expect("valid command") {
+            Cmd::FillColor { color } => fill = color,
+            Cmd::Polygon { .. } if fill == indicate_instrument_symbology::palette::CYAN => {
+                detents += 1;
+            }
+            _ => {}
+        }
+    }
+    assert_eq!(
+        detents, 0,
+        "a detent drew with no sensed position to read it against"
+    );
+    let t = texts(&data);
+    assert!(t.iter().any(|s| s == "---"), "the flap scale dashes: {t:?}");
+}

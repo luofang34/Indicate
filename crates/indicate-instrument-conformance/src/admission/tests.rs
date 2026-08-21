@@ -99,9 +99,10 @@ fn the_config_set_passes_admission() {
     // (five canonical + two extreme) states x (one fed case + one per
     // required group withheld) x (quiet, alerted). It requires two
     // groups: the configuration it draws, and the trust its status
-    // folds. The two extreme states put both numerals at the ends of
-    // their travel, which is what makes the declared group region
-    // measured against more than one point.
+    // folds. The two extreme states draw each numeral at the ends of
+    // its travel, which the corpus never reaches; they do not constrain
+    // the declared region, because a region is populated by any one
+    // claim and more cases can only help it find one.
     assert_eq!(report.cases, 42);
     // Nothing tolerated: every run's nominal ink sits inside the design
     // frame, so a first warning here would be a decision rather than a

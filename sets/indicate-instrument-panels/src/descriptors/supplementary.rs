@@ -177,15 +177,17 @@ pub const CONFIG_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     canonical_frames: CANONICAL_FRAMES,
     background: BackgroundCapability::Opaque,
     config_schema: &[],
-    // The two numerals, and nothing else. The dashes a withheld group
-    // draws are plain text carrying no claim, so they are not what this
-    // region is measured against — only attributed runs are, and the
-    // panel attributes exactly the flap reading and the trim reading.
+    // The two numerals. The dashes a withheld group draws are plain
+    // text carrying no claim, so they are not what this region is
+    // measured against — only attributed runs are, and the panel
+    // attributes exactly the flap reading and the trim reading.
+    //
     // The two sit in separate columns with a gap between them, so the
-    // width spans both columns and that gap, and stops short of the
-    // scale labels and the ladders, which carry no claim either. The
-    // height is most of the frame because the flap numeral rides its
-    // pointer down the whole scale.
+    // width spans both columns and that gap. It does not exclude every
+    // unclaimed mark: about ninety units of the trim ladder fall inside
+    // it, because the ladder crosses the column the flap numeral needs.
+    // The bottom is set by the trim numeral at y 320, not by the flap
+    // numeral, which stops at y 290 with the flaps fully extended.
     //
     // Admission does not hold these bounds: `GroupRegionEmpty` fires
     // only when a region catches no claim at all, so a region far
@@ -202,9 +204,10 @@ pub const CONFIG_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         },
     )],
     // The corpus reaches one flap position and one trim setting, both
-    // mid-scale, so without these the region is only ever probed at two
-    // points and a rectangle a fraction of its size would pass. These
-    // put both numerals at the ends of their travel.
+    // mid-scale, so these are the only states that draw either numeral
+    // anywhere else. They are coverage of the panel's geometry, not a
+    // constraint on the region above: non-vacuity is monotone, so more
+    // cases can only make a region easier to populate, never harder.
     extreme_states: &[
         ExtremeState {
             id: "flaps-up-trim-nose-down",
