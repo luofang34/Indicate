@@ -3,11 +3,12 @@
 //! vertical-speed bar beside it.
 
 use indicate_instrument_scene::{Anchor, PaintMode, SceneError, SceneWriter};
-use indicate_instrument_state::AltitudeClass;
+use indicate_instrument_state::{AltitudeClass, Sig};
 use indicate_instrument_state::{GroupId, PanelData};
 use indicate_instrument_symbology::{fmt_label, palette, safety, status_paint};
 
-use super::{ALT_READOUT, CENTER_Y, TAPE_BOTTOM, pointed_readout};
+use super::super::drum;
+use super::{ALT_READOUT, CENTER_Y, TAPE_BOTTOM, fitted_text_size, pointed_box};
 
 const PX_PER_FT: f32 = 1.2;
 
@@ -68,14 +69,7 @@ pub fn altitude_tape(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<()
         scene.text(435.0, 130.0, 16.0, Anchor::CENTER, "ALT")?;
     }
 
-    let text = fmt_label!(12, "{}", libm::roundf(alt.value / 10.0) as i64 * 10);
-    pointed_readout(
-        scene,
-        altitude_claim(data),
-        alt,
-        text.as_str(),
-        &ALT_READOUT,
-    )?;
+    altitude_readout(scene, data, alt)?;
     reference_label(scene, data)?;
     baro_and_sel_boxes(scene, data)?;
     Ok(())
@@ -205,4 +199,24 @@ pub fn vsi(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneErr
         )?;
     }
     Ok(())
+}
+
+/// The altitude readout: the pointed box every tape value gets, with a
+/// rolling-digit drum for its interior. Missing/Failed/Stale paint the
+/// same unclaimed dashes as the airspeed readout — the honesty paths do
+/// not move with the interior.
+fn altitude_readout(
+    scene: &mut SceneWriter<'_>,
+    data: &PanelData,
+    alt: Sig<f32>,
+) -> Result<(), SceneError> {
+    pointed_box(scene, alt, &ALT_READOUT)?;
+    if alt.status.shows_value() {
+        drum::draw(scene, altitude_claim(data), alt.value, &ALT_READOUT)
+    } else {
+        // Unclaimed, like every dash path: dashes are the honest
+        // degraded display, not a value derived from a withheld group.
+        let size = fitted_text_size(&ALT_READOUT, 3);
+        scene.text(ALT_READOUT.text_x, 180.0, size, Anchor::CENTER, "---")
+    }
 }

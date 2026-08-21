@@ -180,8 +180,19 @@ impl MiscompareFault {
     }
 }
 
-/// Display and renderer health faults (DISP-01-style reason codes, from the
+/// The append-only cross-shell display-reason registry: display and
+/// renderer health faults (DISP-01-style reason codes, from the
 /// renderer-health monitor, AIR-IN-013).
+///
+/// Every shell (Rust, Swift, JavaScript) draws its display reasons from
+/// this one enumeration, so a cross-shell comparison of display health
+/// compares states, not vocabularies. The registry is append-only, like
+/// the scene opcode vocabulary (ADR-0017): a new reason takes the next
+/// free code, and codes are never renumbered, reused, or removed, so an
+/// older shell can still show that the display is not current when it
+/// does not know the reason.
+/// `docs/instruments/display-reason-registry.md` states the contract,
+/// the unknown-reason mapping, and the mirror obligation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DisplayFault {
     /// The renderer stopped making progress.
@@ -197,17 +208,49 @@ pub enum DisplayFault {
 }
 
 impl DisplayFault {
-    const fn code(self) -> u8 {
+    /// Every registered reason, in ascending wire-code order. New reasons
+    /// are appended here and to the registry document in the same change;
+    /// entries are never reordered.
+    pub const ALL: [Self; 5] = [
+        Self::RendererStalled,
+        Self::FrameGenerationLost,
+        Self::CommandBufferCorrupt,
+        Self::BackendLost,
+        Self::RetainedImage,
+    ];
+
+    /// This reason's slot in [`Self::ALL`]. Exhaustive, so a new variant
+    /// does not compile until it is given one.
+    const fn slot(self) -> usize {
         match self {
-            Self::RendererStalled => 1,
-            Self::FrameGenerationLost => 2,
-            Self::CommandBufferCorrupt => 3,
-            Self::BackendLost => 4,
-            Self::RetainedImage => 5,
+            Self::RendererStalled => 0,
+            Self::FrameGenerationLost => 1,
+            Self::CommandBufferCorrupt => 2,
+            Self::BackendLost => 3,
+            Self::RetainedImage => 4,
         }
     }
 
-    const fn from_code(code: u8) -> Option<Self> {
+    /// The stable wire code of this reason. Codes are append-only and are
+    /// never renumbered or reused.
+    ///
+    /// Derived from the slot rather than written per variant, so two
+    /// reasons cannot be given the same code by hand: a duplicate would
+    /// have to be a duplicate slot, which
+    /// `every_reason_holds_its_own_slot_and_code` refuses. Slots are
+    /// positions in an append-only list, so an existing reason's code
+    /// cannot move without reordering the list, which is forbidden.
+    #[must_use]
+    pub const fn code(self) -> u8 {
+        // Codes start at 1: zero is not a reason, so a zeroed byte
+        // decodes to nothing rather than to the first entry.
+        self.slot() as u8 + 1
+    }
+
+    /// Fail-closed decoding: a code outside the registry yields `None`,
+    /// never a guessed reason.
+    #[must_use]
+    pub const fn from_code(code: u8) -> Option<Self> {
         match code {
             1 => Some(Self::RendererStalled),
             2 => Some(Self::FrameGenerationLost),

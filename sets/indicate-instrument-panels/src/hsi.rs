@@ -106,8 +106,10 @@ fn guidance(scene: &mut SceneWriter<'_>, data: &PanelData, up_rad: f32) -> Resul
         && !data.nav.data.scale.label().is_empty()
     {
         cdi::draw_cdi(scene, &data.nav, up_rad)?;
-        // Under the needle's own gate: what a dot is worth is only
-        // readable while there is a needle to read it against.
+        // Both labels draw under the needle's own gate: which receiver
+        // drives it and what a dot is worth are only readable while
+        // there is a needle to read them against.
+        cdi::draw_receiver_label(scene, data.nav.data.source)?;
         cdi::draw_scale_label(scene, &data.nav)?;
     }
     bearing::draw_bearing_pointers(scene, &data.bearings.value, data.bearings_rose_rad, up_rad)

@@ -59,7 +59,9 @@ jobs:
         # merge commit, which does not exist while the pull request that
         # writes the entry is open, so the check would fail every release
         # on the run that matters. Tagging is a step in CONTRIBUTING.md.
-        run: bash scripts/check-release-markers.sh
+        run: |
+          bash scripts/test-release-markers.sh
+          bash scripts/check-release-markers.sh
 
       - name: release manifest drift guard
         # The changelog entry is prose a person reads; release-manifest.json
@@ -224,6 +226,35 @@ jobs:
           cargo run --locked -q -p indicate-evidence --bin evidence-gate --
           --graph docs/instruments/evidence-graph.evg --repo-root .
           --require-resolvable
+
+      - name: recorded run evidence MUST be fresh (HARD)
+        # The gate proves a record's identity and deliberately runs no
+        # build, so it cannot notice a count that drifted when a test was
+        # added away from a bound source. This step re-runs each
+        # artifact's own recorded command and compares. The build it
+        # needs is already paid for by the test steps above.
+        run: |
+          bash scripts/check-recorded-counts.sh --selftest
+          bash scripts/check-recorded-counts.sh
+
+      - name: the baseline advisory can still fail
+        # A hard gate, deliberately outside the advisory step below: the
+        # advisory carries `continue-on-error`, so a selftest run inside
+        # it could go red without anyone noticing — which is the exact
+        # failure the selftest exists to catch.
+        run: bash scripts/test-baseline-survives-merge.sh
+
+      - name: baselines that a squash or rebase would orphan (advisory)
+        # Advisory by construction: a pull request that re-records
+        # evidence declares a baseline that is not yet on main, so this
+        # reports on every legitimate evidence change. Its value is that
+        # the requirement appears on the pull request page at the moment
+        # someone picks a merge button, rather than only in
+        # CONTRIBUTING.md. The hard reachability gate cannot cover this:
+        # a pull request build checks out the synthetic merge ref, where
+        # the lane commit is already an ancestor.
+        continue-on-error: true
+        run: bash scripts/check-baseline-survives-merge.sh
 
       - name: Negative fixtures must all FAIL the gate
         run: |

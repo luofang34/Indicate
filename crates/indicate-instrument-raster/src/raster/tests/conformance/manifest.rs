@@ -22,11 +22,14 @@ use super::outcomes::{Outcome, outcome_of};
 use crate::{MAX_DIMENSION, MAX_POLYGON_VERTICES, WORST_CASE_FRAME_BYTES};
 
 const SCHEMA_VERSION: u32 = 2;
-const CORPUS_VERSION: u32 = 4;
-const REVIEW_REASON: &str = "Add frame-edge-overhang: ink crossing all four design-frame edges \
-is a valid scene, not a fault — the gate accepts it, no raw-argument guard fires, and both \
-backends replay the overhanging coordinates verbatim. The design-frame clip itself is \
-surface-side and outside what the corpus records.";
+const CORPUS_VERSION: u32 = 6;
+const REVIEW_REASON: &str = "Re-pin pfd-altitude-drum-mid-roll and \
+pfd-altitude-drum-negative-cascade against state ABI v8. Both replay the built-in PFD, which \
+gains an opaque true-airspeed box at the head of the speed tape and starts the tape 25 units \
+lower to clear it, so the same altitude emits different bytes. Both entries still pin what they \
+named: the rolling-digit readout replays byte-identically on both backends, because the drum\'s \
+offsets derive from the value alone, never a clock. No entry is added or removed, and every \
+hand-built scene is unchanged.";
 const REVIEW_APPROVED_BY: &str =
     "REN-04 owner; regenerated goldens require human review and are never rewritten by CI.";
 

@@ -143,10 +143,12 @@ fn declutter_follows_the_one_priority_table() {
         "minor ladder rows removed"
     );
 
-    // Preserved: primary attitude, airspeed, altitude readouts.
+    // Preserved: primary attitude, airspeed, altitude readouts. The
+    // altitude drum at ≈984 ft shows its mid-roll faces ("80" in the
+    // pair window).
     let labels = texts(&decluttered);
     assert!(labels.iter().any(|t| t == "078"), "IAS kept: {labels:?}");
-    assert!(labels.iter().any(|t| t == "980"), "ALT kept: {labels:?}");
+    assert!(labels.iter().any(|t| t == "80"), "ALT kept: {labels:?}");
 }
 
 #[test]

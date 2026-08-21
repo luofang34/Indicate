@@ -17,14 +17,27 @@ cd "$root_dir"
 
 probe_dir="sets/indicate-tier-probe"
 probe_doc="docs/instruments/zz-structure-probe.md"
+worktree_probe_dir=".worktrees/zz-structure-probe"
+agent_probe_dir=".claude/worktrees/zz-structure-probe"
 lock_backup="$(mktemp)"
 cp Cargo.lock "$lock_backup"
+# Every tracked file this script edits is restored by the trap, not by
+# the case that edited it. A case that cleans up after itself leaves the
+# repository dirty the moment it aborts, and `CONTRIBUTING.md` carrying
+# an invented citation makes `check-structure.sh` fail against a
+# document the contributor never wrote.
+citation_backup="$(mktemp)"
+cp CONTRIBUTING.md "$citation_backup"
 
 cleanup() {
     rm -rf "$probe_dir"
+    rm -rf "$worktree_probe_dir"
+    rm -rf "$agent_probe_dir"
     rm -f "$probe_doc"
     cp "$lock_backup" Cargo.lock
     rm -f "$lock_backup"
+    cp "$citation_backup" CONTRIBUTING.md
+    rm -f "$citation_backup"
 }
 trap cleanup EXIT
 
@@ -142,6 +155,105 @@ expect_term_refusal() {
 expect_term_refusal "InstrumentSceneKit" "InstrumentSceneKit"
 expect_term_refusal "IndicateAppleDisplay" "IndicateAppleDisplay"
 expect_term_refusal "Swift SceneKit backend" "Swift SceneKit backend"
+
+# The display-reason completeness check: a variant outside `ALL` takes a
+# code no Rust test can see, and a duplicated slot then collides with an
+# existing reason's identity. Probe it by adding exactly that variant.
+condition_file="crates/indicate-alerts/src/condition.rs"
+condition_backup="$(mktemp)"
+cp "$condition_file" "$condition_backup"
+python3 - "$condition_file" <<'PROBE'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace("    RetainedImage,\n}", "    RetainedImage,\n    /// Probe.\n    ProbeReason,\n}", 1)
+s = s.replace("            Self::RetainedImage => 4,", "            Self::RetainedImage => 4,\n            Self::ProbeReason => 2,", 1)
+open(p, "w").write(s)
+PROBE
+# Matched on the message, not on the exit status: the gate refuses for
+# many reasons, so a case that accepted any refusal would pass on a file
+# that merely grew past its line limit — and then report that a check it
+# never ran is working.
+# Captured, not piped: this script runs under `pipefail`, so a pipeline
+# would carry the gate's own refusal status and say nothing about which
+# refusal it was.
+probe_status=0
+probe_output="$(INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh 2>&1)" \
+    || probe_status=$?
+# Both halves, because either alone passes a broken gate: a message with
+# a zero exit leaves CI green on a violation the gate printed out loud,
+# and a non-zero exit without the message is any other refusal.
+if [ "$probe_status" -ne 0 ] \
+    && printf '%s' "$probe_output" | grep -q "takes a code no test can see"; then
+    echo "ok: a reason outside DisplayFault::ALL refused"
+    passed=$((passed + 1))
+else
+    echo "REGRESSION: a reason outside ALL was accepted; it can take a code no test sees" >&2
+    failed=$((failed + 1))
+fi
+cp "$condition_backup" "$condition_file"
+rm -f "$condition_backup"
+
+# A linked worktree is a checkout, not content, and the gate walks the
+# tree with `find`, which reads no ignore file. Without the prune the
+# walks reach a worktree's own manifests and sources: the workspace-only
+# root manifest has no `[package]` name, so the gate reports findings
+# against a checkout of itself. Plant both a manifest and a source file,
+# because the manifest walks and the source walk are pruned separately.
+mkdir -p "$worktree_probe_dir/probe/src"
+cat > "$worktree_probe_dir/probe/Cargo.toml" <<'EOF'
+[workspace]
+members = []
+EOF
+printf '//! Structure probe inside a linked worktree.\n' \
+    > "$worktree_probe_dir/probe/src/mod.rs"
+if INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh >/dev/null 2>&1; then
+    echo "ok: content under .worktrees is not walked"
+    passed=$((passed + 1))
+else
+    echo "REGRESSION: the gate walked into a linked worktree and reported on a checkout" >&2
+    failed=$((failed + 1))
+fi
+rm -rf "$worktree_probe_dir"
+# A citation the clone cannot resolve must be refused wherever it sits
+# on the line. The first version of this check read only the last
+# citation per line, so a document that named a missing file before a
+# present one passed — which is the spelling a contributor would most
+# easily write by accident.
+for line in 'It cites `GHOST.md` and then `AGENTS.md`.' \
+    'It cites `AGENTS.md` and then `GHOST.md`.'; do
+    printf '%s\n' "$line" >> CONTRIBUTING.md
+    if INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh >/dev/null 2>&1; then
+        echo "REGRESSION: a citation of a missing document was accepted: $line" >&2
+        failed=$((failed + 1))
+    else
+        echo "ok: a citation of a missing document refused"
+        passed=$((passed + 1))
+    fi
+    cp "$citation_backup" CONTRIBUTING.md
+done
+
+# Agent tooling places its worktrees under `.claude/`, which is the same
+# argument in a different directory: a checkout, walked by the same
+# `find`, reported against as though it were this repository's content.
+# A contributor running the local battery while an agent holds a
+# worktree sees findings from a tree they did not write.
+mkdir -p "$agent_probe_dir/probe/src"
+cat > "$agent_probe_dir/probe/Cargo.toml" <<'EOF'
+[workspace]
+members = []
+EOF
+printf '//! Structure probe inside an agent worktree.
+' \
+    > "$agent_probe_dir/probe/src/mod.rs"
+if INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh >/dev/null 2>&1; then
+    echo "ok: content under .claude/worktrees is not walked"
+    passed=$((passed + 1))
+else
+    echo "REGRESSION: the gate walked into an agent worktree and reported on a checkout" >&2
+    failed=$((failed + 1))
+fi
+rm -rf "$agent_probe_dir"
 
 if [ "$failed" -ne 0 ]; then
     echo "structure-selftest: FAILED ($failed of $((passed + failed)) cases)" >&2

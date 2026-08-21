@@ -149,7 +149,16 @@ pub struct IngressConfig {
 /// The current admitted state and trust of one ingress.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct IngressSnapshot {
-    /// Wrapping generation advanced only when admitted state changed.
+    /// Wrapping counter of publications that moved the admitted state:
+    /// one that admitted a group, or one whose authorization narrowed
+    /// the valid flags or the quality. Two admitted publications
+    /// carrying identical numbers advance it twice, so it does not
+    /// track content — but a publication that admitted nothing and only
+    /// narrowed authorization advances it too, so it is not a pure
+    /// production sequence either, which is why the contract lists it
+    /// among the counters it does not govern. The generation a shell
+    /// decodes is `SnapshotMeta::generation`, which the gate advances
+    /// per snapshot it admits. This one is never forwarded into it.
     pub generation: u32,
     /// The pinned source id, once seen.
     pub source_id: Option<u64>,

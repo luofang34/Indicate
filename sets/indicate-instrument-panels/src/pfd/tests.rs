@@ -105,8 +105,12 @@ fn valid_state_renders_decodable_balanced_scene() {
     let labels = texts(&scene);
     // IAS readout: 40 m/s ≈ 078 kt.
     assert!(labels.iter().any(|t| t == "078"), "IAS readout: {labels:?}");
-    // Altitude readout: 300 m ≈ 980 ft (rounded to 10).
-    assert!(labels.iter().any(|t| t == "980"), "ALT readout: {labels:?}");
+    // Altitude readout: 300 m ≈ 984 ft — the drum mid-roll faces
+    // ("9" rolling out of the hundreds column, "80" mid-pair).
+    assert!(
+        labels.iter().any(|t| t == "9") && labels.iter().any(|t| t == "80"),
+        "ALT drum faces: {labels:?}"
+    );
     // No failure dashes anywhere.
     assert!(!labels.iter().any(|t| t == "---"));
 }
