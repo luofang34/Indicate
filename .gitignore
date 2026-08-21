@@ -26,8 +26,10 @@
 # path inside the work tree, so a worktree placed here needs this rule
 # where one placed outside the repository needs none. The `/target/`
 # rule above is anchored at the root and does not reach into them.
-# Agent tooling places worktrees under `.claude/` for the same reason a
-# contributor places them under `.worktrees/`, and they are checkouts
-# by the same argument.
+# Agent tooling places worktrees under `.claude/worktrees/` for the same
+# reason a contributor places them under `.worktrees/`, and they are
+# checkouts by the same argument. The rest of `.claude/` is content a
+# team commits — settings, agent definitions, commands — so the rule
+# names the subdirectory rather than the parent.
 .worktrees/
-.claude/
+.claude/worktrees/

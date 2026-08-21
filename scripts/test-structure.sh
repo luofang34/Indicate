@@ -183,7 +183,7 @@ printf '//! Structure probe inside an agent worktree.
 ' \
     > "$agent_probe_dir/probe/src/mod.rs"
 if INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh >/dev/null 2>&1; then
-    echo "ok: content under .claude is not walked"
+    echo "ok: content under .claude/worktrees is not walked"
     passed=$((passed + 1))
 else
     echo "REGRESSION: the gate walked into an agent worktree and reported on a checkout" >&2
