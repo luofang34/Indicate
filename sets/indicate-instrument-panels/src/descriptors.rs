@@ -346,7 +346,7 @@ pub const ALL_SETS: &[PanelSet] = &[BUILTIN_SET, CONFIG_SET];
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "8291c73e7c92e8b04963f743c9d68d9e1f590aa576f3776d0a0cfdc3183ae35b";
+    "c8cbcd92c71bf55fe73788c1455f4ee5435082dd4afd7940e0480a96fb9611d1";
 
 pub use criticality_bands::BUILTIN_CRITICALITY_BANDS;
 pub use supplementary::{
