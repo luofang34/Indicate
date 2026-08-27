@@ -43,6 +43,31 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.6.1] — 2026-08-26
+
+`GroupSet` now assigns bit positions through `GroupId::index()`, not
+sparse wire tags. The representation therefore supports 32 defined
+group slots regardless of their tag values.
+
+The public `bits()` value now uses dense group positions. Consumers
+that read descriptor group masks through FFI must use the same mapping.
+A static assertion binds the word width to `GroupId::COUNT`. A test
+also round-trips the highest allocated group.
+
+No panel paint moved. The composition digest moved because it includes
+the required-group mask. The screen-composition digest moved because it
+includes the composition digest. Raster baselines remain unchanged.
+
+| Value | This release |
+|---|---|
+| State ABI | 8 |
+| Scene format | 1 |
+| Corpus | 6 |
+| Composition digest | `c8cbcd92c71bf55fe73788c1455f4ee5435082dd4afd7940e0480a96fb9611d1` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
+
+Panel set changed since the previous release: no.
+
 ## [0.6.0] — 2026-08-21
 
 The state ABI moves to v8. The bump is the coordination point for the

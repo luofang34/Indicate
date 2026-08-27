@@ -17,9 +17,26 @@ fn membership_matches_construction() {
 }
 
 #[test]
-fn bits_use_wire_tags_as_positions() {
-    // The bitset is a wasm/FFI encoding: bit position must equal the
-    // group's wire tag, not an enum ordinal.
-    let set = GroupSet::of(&[GroupId::Attitude, GroupId::Trust]);
-    assert_eq!(set.bits(), (1 << 0x01) | (1 << 0x07));
+fn bits_use_dense_group_indexes_as_positions() {
+    let set = GroupSet::of(&[GroupId::Attitude, GroupId::Trust, GroupId::BearingPointers]);
+    assert_eq!(
+        set.bits(),
+        (1 << GroupId::Attitude.index())
+            | (1 << GroupId::Trust.index())
+            | (1 << GroupId::BearingPointers.index()),
+    );
+    assert_ne!(
+        GroupId::BearingPointers.index(),
+        GroupId::BearingPointers.to_u8() as usize
+    );
+}
+
+#[test]
+fn highest_allocated_group_round_trips_through_the_set() {
+    let highest = *GroupId::ALL
+        .last()
+        .expect("the group registry is not empty");
+    let set = GroupSet::of(&[highest]);
+    assert!(set.contains(highest));
+    assert_eq!(set.bits(), 1 << highest.index());
 }

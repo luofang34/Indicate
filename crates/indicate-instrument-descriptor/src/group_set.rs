@@ -2,11 +2,17 @@
 
 use indicate_instrument_state::GroupId;
 
-/// A set of state groups, as a bitset keyed by [`GroupId`] wire tags.
+/// A set of state groups, as a bitset keyed by [`GroupId::index`].
 /// Const-constructible so descriptors can declare their needs in
-/// `static` data.
+/// `static` data. Dense indexing keeps capacity tied to the number of
+/// defined groups rather than to sparse wire-tag allocations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct GroupSet(u32);
+
+const _: () = assert!(
+    GroupId::COUNT <= u32::BITS as usize,
+    "GroupSet is too narrow"
+);
 
 impl GroupSet {
     /// The empty set.
@@ -17,7 +23,7 @@ impl GroupSet {
         let mut bits = 0u32;
         let mut i = 0;
         while i < groups.len() {
-            bits |= 1 << groups[i] as u32;
+            bits |= 1 << groups[i].index();
             i += 1;
         }
         GroupSet(bits)
@@ -25,7 +31,7 @@ impl GroupSet {
 
     /// Whether `group` is in the set.
     pub const fn contains(&self, group: GroupId) -> bool {
-        self.0 & (1 << group as u32) != 0
+        self.0 & (1 << group.index()) != 0
     }
 
     /// Number of groups in the set.
@@ -38,7 +44,7 @@ impl GroupSet {
         self.0 == 0
     }
 
-    /// The raw bitset, bit position = [`GroupId`] wire tag. This is the
+    /// The raw bitset, bit position = [`GroupId::index`]. This is the
     /// wasm/FFI encoding of the set.
     pub const fn bits(&self) -> u32 {
         self.0
