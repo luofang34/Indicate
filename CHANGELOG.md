@@ -43,6 +43,31 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.6.3] — 2026-08-27
+
+Groundspeed and barometric-setting labels now shrink to fit their
+90-unit readout boxes. Hidden values keep the standard failure dashes.
+
+Admission now models centered text from its advance-anchored origin.
+It reports no frame overflows across 418 built-in cases.
+
+This change deliberately moves PFD paint. The PFD raster baseline and
+three composed-frame hashes move. The composition digest and screen
+composition digest also move.
+
+The conformance corpus advances to 8. Two built-in PFD replay fixtures
+now contain the fitted label commands. The corpus keeps the same entries.
+
+| Value | This release |
+|---|---|
+| State ABI | 8 |
+| Scene format | 1 |
+| Corpus | 8 |
+| Composition digest | `f6fb603bf2e1f7889ddc9b5d534f329a0379d34a8f00d954f366e9b270ddc273` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
+
+Panel set changed since the previous release: no.
+
 ## [0.6.2] — 2026-08-26
 
 Speed and altitude ladders now omit labels whose nominal ink crosses a

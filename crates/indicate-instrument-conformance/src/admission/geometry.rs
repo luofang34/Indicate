@@ -7,7 +7,10 @@
 //! transform, clip, and paint together and `Restore` pops all three, so
 //! a check that walks a scene sees what a backend would.
 
-use indicate_instrument_scene::{Cmd, HAlign, VAlign, nominal_text_ink_width};
+use indicate_instrument_scene::{Cmd, HAlign, VAlign, nominal_text_ink_width, nominal_text_width};
+
+#[cfg(test)]
+mod tests;
 
 /// An axis-aligned rectangle in design-frame units.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -238,11 +241,12 @@ pub(super) fn track_state(stack: &mut Vec<Gs>, cmd: &Cmd<'_>) {
 /// the scene text-metrics contract, cap height approximated by the run
 /// size, positioned by the anchor.
 pub(super) fn text_rect(x: f32, y: f32, size: f32, h: HAlign, v: VAlign, chars: usize) -> Rect {
-    let width = nominal_text_ink_width(size, chars);
+    let advance = nominal_text_width(size, chars);
+    let ink = nominal_text_ink_width(size, chars);
     let min_x = match h {
         HAlign::Left => x,
-        HAlign::Center => x - width / 2.0,
-        HAlign::Right => x - width,
+        HAlign::Center => x - advance / 2.0,
+        HAlign::Right => x - advance,
     };
     let min_y = match v {
         VAlign::Baseline | VAlign::Bottom => y - size,
@@ -252,7 +256,7 @@ pub(super) fn text_rect(x: f32, y: f32, size: f32, h: HAlign, v: VAlign, chars: 
     Rect {
         min_x,
         min_y,
-        max_x: min_x + width,
+        max_x: min_x + ink,
         max_y: min_y + size,
     }
 }

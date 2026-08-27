@@ -2,14 +2,13 @@
 //! bar, and the true-airspeed and groundspeed boxes at its head and
 //! foot.
 
-use indicate_instrument_scene::{
-    Anchor, PaintMode, Rgba8, SceneError, SceneWriter, nominal_text_ink_width,
-};
+use indicate_instrument_scene::{Anchor, PaintMode, Rgba8, SceneError, SceneWriter};
 use indicate_instrument_state::{GroupId, PanelData};
 use indicate_instrument_symbology::{fmt_label, palette, safety, status_paint};
 
 use super::{
-    CENTER_Y, IAS_READOUT, SPEED_TAPE_TOP, TAPE_BOTTOM, ladder_label_fits, pointed_readout,
+    CENTER_Y, IAS_READOUT, SPEED_TAPE_TOP, TAPE_BOTTOM, fitted_readout_size, ladder_label_fits,
+    pointed_readout,
 };
 use crate::pfd::VSpeeds;
 
@@ -140,7 +139,7 @@ fn tas_box(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneErr
         SPEED_TAPE_TOP,
         tas_text.as_str(),
         palette::WHITE,
-        fitted_label_size(90.0, tas_text.as_str().chars().count(), 16.0),
+        fitted_readout_size(90.0, tas_text.as_str(), 16.0, tas.status),
         tas.status,
     )
 }
@@ -160,18 +159,9 @@ fn gs_box(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneErro
         25.0,
         gs_text.as_str(),
         palette::MAGENTA,
-        16.0,
+        fitted_readout_size(90.0, gs_text.as_str(), 16.0, gs.status),
         gs.status,
     )
-}
-
-/// Largest size, capped at `preferred`, whose nominal ink fits `width`.
-fn fitted_label_size(width: f32, chars: usize, preferred: f32) -> f32 {
-    let ink = nominal_text_ink_width(preferred, chars);
-    if ink <= width {
-        return preferred;
-    }
-    preferred * width / ink
 }
 
 fn speed_bands(scene: &mut SceneWriter<'_>, ias: f32, v: &VSpeeds) -> Result<(), SceneError> {

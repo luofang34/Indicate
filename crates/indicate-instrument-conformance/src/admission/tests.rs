@@ -15,30 +15,7 @@ fn builtin_panels_pass_admission() {
     // HSI: (6 + 3) × 9; autoflight: (6 + 2) × 3; monitor: 7 × 2 — each
     // drawn twice, quiet and with the saturated alert stack.
     assert_eq!(report.cases, 418);
-    // Every warning is the PFD's groundspeed or baro readout: each box
-    // is 90 units wide but a wide value at size 16 has ~107 units of
-    // nominal ink, so the run overhangs its box and the frame edge —
-    // `status_paint::readout_box` paints at the size it is given. Real
-    // display debt, honestly counted across every corpus and extreme
-    // state; fixing it moves frame hashes and is its own change, for
-    // both boxes at once.
-    //
-    // Thirty for each of the eight PFD states that paint both boxes with
-    // wide values, and sixteen for source-unusable, where only the
-    // groundspeed box dashes — its baro box still paints a wide value,
-    // because a dialed setting is not an estimate and does not fold
-    // source quality. Nothing-fed contributes none: it dashes both. The
-    // true-airspeed box adds none of them either: it sizes its label to
-    // its own width, so a third readout arrives without a third
-    // overflow. Twice the quiet-frame count, because the alert stack
-    // does not touch these boxes: each overhangs on both sides of the
-    // alert axis.
-    assert_eq!(report.warnings.len(), 256);
-    assert!(report.warnings.iter().all(|w| matches!(
-        w,
-        super::AdmissionWarning::FrameOverflow { panel: "pfd", text, .. }
-            if text.starts_with("GS ") || text.starts_with("SET ")
-    )));
+    assert!(report.warnings.is_empty(), "{:?}", report.warnings);
 }
 
 /// The pinned bands must be what the emitted scenes actually measure:

@@ -6,6 +6,7 @@
 
 use std::string::String;
 
+use indicate_instrument_scene::{Cmd, SceneCmds, nominal_text_ink_width, nominal_text_width};
 use indicate_instrument_state::{AltitudeClass, PanelData, Sig, SignalStatus};
 
 use super::tests::{PfdConfig, flying, render, texts};
@@ -48,6 +49,64 @@ fn pressure_tape_shows_std() {
     data.altitude.class = AltitudeClass::Pressure;
     let all = rendered(&data);
     assert!(all.contains(&String::from("STD")), "{all:?}");
+}
+
+#[test]
+fn every_baro_label_fits_the_setting_box() {
+    for (class, hpa, expected) in [
+        (AltitudeClass::BaroIndicated, 1013.0, "1013"),
+        (AltitudeClass::Pressure, 1013.0, "STD"),
+        (AltitudeClass::LocalRelative, 800.0, "SET 800"),
+        (AltitudeClass::LocalRelative, 1100.0, "SET 1100"),
+    ] {
+        let mut data = flying();
+        data.altitude.class = class;
+        data.baro_hpa = Sig::with_status(hpa, SignalStatus::Valid);
+        let scene = render(&data, &PfdConfig::default());
+        let (text, size) = SceneCmds::new(&scene)
+            .expect("valid scene")
+            .map(|command| command.expect("valid command"))
+            .find_map(|command| match command {
+                Cmd::Text {
+                    x, y, size, text, ..
+                } if (x - 435.0).abs() < 1e-3 && (y - 347.5).abs() < 1e-3 => {
+                    Some((String::from(text), size))
+                }
+                _ => None,
+            })
+            .expect("baro run");
+        assert_eq!(text, expected);
+        let chars = text.chars().count();
+        let left = 435.0 - nominal_text_width(size, chars) / 2.0;
+        let right = left + nominal_text_ink_width(size, chars);
+        assert!(
+            left >= 390.0 - 1e-3 && right <= 480.0 + 1e-3,
+            "'{text}' paints from {left} to {right} outside its 390..480 box"
+        );
+    }
+}
+
+#[test]
+fn hidden_baro_values_keep_preferred_size_dashes() {
+    for hpa in [800.0f32, 1100.0] {
+        let mut data = flying();
+        data.altitude.class = AltitudeClass::LocalRelative;
+        data.baro_hpa = Sig::with_status(hpa, SignalStatus::Failed);
+        let scene = render(&data, &PfdConfig::default());
+        let size = SceneCmds::new(&scene)
+            .expect("valid scene")
+            .map(|command| command.expect("valid command"))
+            .find_map(|command| match command {
+                Cmd::Text {
+                    x, y, size, text, ..
+                } if (x - 435.0).abs() < 1e-3 && (y - 347.5).abs() < 1e-3 && text == "---" => {
+                    Some(size)
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("baro dashes at {hpa} hPa"));
+        assert!((size - 16.0).abs() < 1e-3);
+    }
 }
 
 #[test]

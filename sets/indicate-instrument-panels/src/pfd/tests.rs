@@ -323,7 +323,7 @@ fn an_absent_true_airspeed_dashes_its_own_box_only() {
 /// character entirely rather than merely crowding.
 #[test]
 fn the_true_airspeed_label_fits_its_box_at_every_width() {
-    use indicate_instrument_scene::nominal_text_ink_width;
+    use indicate_instrument_scene::{nominal_text_ink_width, nominal_text_width};
 
     for kt in [0.0f32, 9.0, 113.0, 430.0, 1043.0] {
         let mut data = flying();
@@ -336,16 +336,63 @@ fn the_true_airspeed_label_fits_its_box_at_every_width() {
             .into_iter()
             .find(|(text, _)| text.starts_with("TAS "))
             .unwrap_or_else(|| panic!("a TAS run at {kt} kt"));
-        let ink = nominal_text_ink_width(run.1, run.0.chars().count());
-        // The same tolerance the containment sweep uses: the fit divides
-        // and multiplies in f32, so an exact fit can land a fraction of a
-        // thousandth of a unit over its own bound.
-        const TOLERANCE: f32 = 1e-3;
+        let chars = run.0.chars().count();
+        let left = 45.0 - nominal_text_width(run.1, chars) / 2.0;
+        let right = left + nominal_text_ink_width(run.1, chars);
         assert!(
-            ink <= 90.0 + TOLERANCE,
-            "'{}' carries {ink} units of ink into a 90-unit box",
+            left >= -1e-3 && right <= 90.0 + 1e-3,
+            "'{}' paints from {left} to {right} outside its 0..90 box",
             run.0
         );
+    }
+}
+
+/// The groundspeed label stays within the matching box at the frame edge.
+#[test]
+fn the_groundspeed_label_fits_its_box_at_every_width() {
+    use indicate_instrument_scene::{nominal_text_ink_width, nominal_text_width};
+    use indicate_instrument_state::{Sig, SignalStatus};
+
+    for kt in [0.0f32, 9.0, 103.0, 430.0, 1043.0] {
+        let mut data = flying();
+        data.gs_kt = Sig::with_status(kt, SignalStatus::Valid);
+        let scene = render(&data, &PfdConfig::default());
+        let run = runs_with_size(&scene)
+            .into_iter()
+            .find(|(text, _)| text.starts_with("GS "))
+            .unwrap_or_else(|| panic!("a GS run at {kt} kt"));
+        let chars = run.0.chars().count();
+        let left = 45.0 - nominal_text_width(run.1, chars) / 2.0;
+        let right = left + nominal_text_ink_width(run.1, chars);
+        assert!(
+            left >= -1e-3 && right <= 90.0 + 1e-3,
+            "'{}' paints from {left} to {right} outside its 0..90 box",
+            run.0,
+        );
+    }
+}
+
+#[test]
+fn hidden_groundspeed_values_keep_preferred_size_dashes() {
+    use indicate_instrument_state::{Sig, SignalStatus};
+
+    for kt in [0.0f32, 1043.0] {
+        let mut data = flying();
+        data.gs_kt = Sig::with_status(kt, SignalStatus::Failed);
+        let scene = render(&data, &PfdConfig::default());
+        let size = SceneCmds::new(&scene)
+            .expect("valid scene")
+            .map(|command| command.expect("valid command"))
+            .find_map(|command| match command {
+                Cmd::Text {
+                    x, y, size, text, ..
+                } if (x - 45.0).abs() < 1e-3 && (y - 347.5).abs() < 1e-3 && text == "---" => {
+                    Some(size)
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("groundspeed dashes at {kt} kt"));
+        assert!((size - 16.0).abs() < 1e-3);
     }
 }
 

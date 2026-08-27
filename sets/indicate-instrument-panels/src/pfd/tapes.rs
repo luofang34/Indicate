@@ -12,7 +12,7 @@
 use indicate_instrument_scene::{
     Anchor, PaintMode, SceneError, SceneWriter, nominal_text_ink_width, nominal_text_width,
 };
-use indicate_instrument_state::Sig;
+use indicate_instrument_state::{Sig, SignalStatus};
 use indicate_instrument_symbology::{palette, safety, status_paint};
 
 mod airspeed;
@@ -39,6 +39,20 @@ pub(super) const TAPE_BOTTOM: f32 = 335.0;
 fn ladder_label_fits(y: f32, size: f32, top: f32) -> bool {
     let half_ink = size / 2.0;
     y - half_ink >= top && y + half_ink <= TAPE_BOTTOM
+}
+
+/// Fits the text that [`status_paint::readout_box`] will paint.
+fn fitted_readout_size(width: f32, text: &str, preferred: f32, status: SignalStatus) -> f32 {
+    let chars = if status.shows_value() {
+        text.chars().count()
+    } else {
+        3
+    };
+    let advance = nominal_text_width(preferred, chars);
+    if advance <= width {
+        return preferred;
+    }
+    preferred * width / advance
 }
 
 /// Geometry of a pointed tape readout: the rectangular body spans
