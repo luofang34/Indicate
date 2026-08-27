@@ -24,10 +24,22 @@ pub use altitude::{altitude_tape, vsi};
 /// The pointer line: the height at which either tape reads its value.
 const CENTER_Y: f32 = 180.0;
 
+/// Top of the visible speed strip, below its true-airspeed box.
+pub(super) const SPEED_TAPE_TOP: f32 = 25.0;
+
+/// Top of the visible altitude strip, below its selection box.
+pub(super) const ALTITUDE_TAPE_TOP: f32 = 24.0;
+
 /// The foot both tapes end at. The readout boxes hang from it, and a
 /// cue drawn past it would mark a value the tape beside it is not
 /// showing.
-const TAPE_BOTTOM: f32 = 335.0;
+pub(super) const TAPE_BOTTOM: f32 = 335.0;
+
+/// Whether a centered ladder label stays inside its visible tape.
+fn ladder_label_fits(y: f32, size: f32, top: f32) -> bool {
+    let half_ink = size / 2.0;
+    y - half_ink >= top && y + half_ink <= TAPE_BOTTOM
+}
 
 /// Geometry of a pointed tape readout: the rectangular body spans
 /// `far_x`..`near_x`, the tip at `tip_x` points toward the tape, and

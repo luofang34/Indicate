@@ -8,7 +8,10 @@ use indicate_instrument_state::{GroupId, PanelData};
 use indicate_instrument_symbology::{fmt_label, palette, safety, status_paint};
 
 use super::super::drum;
-use super::{ALT_READOUT, CENTER_Y, TAPE_BOTTOM, fitted_text_size, pointed_box};
+use super::{
+    ALT_READOUT, ALTITUDE_TAPE_TOP, CENTER_Y, TAPE_BOTTOM, fitted_text_size, ladder_label_fits,
+    pointed_box,
+};
 
 const PX_PER_FT: f32 = 1.2;
 
@@ -20,11 +23,22 @@ const PX_PER_FT: f32 = 1.2;
 pub fn altitude_tape(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneError> {
     let alt = data.altitude.value_ft;
     scene.fill_color(palette::TAPE_BG)?;
-    scene.rect(PaintMode::Fill, 390.0, 0.0, 90.0, TAPE_BOTTOM)?;
+    scene.rect(
+        PaintMode::Fill,
+        390.0,
+        ALTITUDE_TAPE_TOP,
+        90.0,
+        TAPE_BOTTOM - ALTITUDE_TAPE_TOP,
+    )?;
 
     if alt.status.shows_value() {
         scene.save()?;
-        scene.clip_rect(390.0, 0.0, 90.0, TAPE_BOTTOM)?;
+        scene.clip_rect(
+            390.0,
+            ALTITUDE_TAPE_TOP,
+            90.0,
+            TAPE_BOTTOM - ALTITUDE_TAPE_TOP,
+        )?;
         scene.stroke(palette::WHITE, 2.0)?;
         scene.fill_color(palette::WHITE)?;
         let lo = ((alt.value - 155.0) / 20.0) as i32;
@@ -33,7 +47,7 @@ pub fn altitude_tape(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<()
             let ft = step * 20;
             let y = CENTER_Y - (ft as f32 - alt.value) * PX_PER_FT;
             scene.line(390.0, y, 400.0, y)?;
-            if step.rem_euclid(5) == 0 {
+            if step.rem_euclid(5) == 0 && ladder_label_fits(y, 18.0, ALTITUDE_TAPE_TOP) {
                 let label = fmt_label!(12, "{ft}");
                 scene.text_attributed(
                     altitude_claim(data),
@@ -48,7 +62,8 @@ pub fn altitude_tape(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<()
         if let (true, Some(sel_m)) = (data.altitude.bug_compatible, data.selections.altitude_sel_m)
         {
             let sel_ft = sel_m * indicate_instrument_state::units::M_TO_FT;
-            let y = (CENTER_Y - (sel_ft - alt.value) * PX_PER_FT).clamp(4.0, 331.0);
+            let y = (CENTER_Y - (sel_ft - alt.value) * PX_PER_FT)
+                .clamp(ALTITUDE_TAPE_TOP + 4.0, TAPE_BOTTOM - 4.0);
             scene.fill_color(palette::CYAN)?;
             scene.polygon(
                 PaintMode::Fill,
@@ -134,7 +149,7 @@ fn baro_and_sel_boxes(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(
             let text = fmt_label!(12, "{}", libm::roundf(sel_ft) as i64);
             scene.fill_color(palette::BOX_BG)?;
             scene.stroke(palette::GREY, 1.5)?;
-            scene.rect(PaintMode::FillStroke, 390.0, 0.0, 90.0, 24.0)?;
+            scene.rect(PaintMode::FillStroke, 390.0, 0.0, 90.0, ALTITUDE_TAPE_TOP)?;
             scene.fill_color(palette::CYAN)?;
             scene.text_attributed(
                 GroupId::Selections.to_u8(),
