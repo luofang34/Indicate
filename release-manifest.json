@@ -6,10 +6,10 @@
   "sceneFormatVersion": 1,
   "corpus": {
     "path": "crates/indicate-instrument-scene/corpus/scene-conformance-corpus.json",
-    "version": 6,
-    "sha256": "9881c1d5fc4f3cdb869a2589b8f2c0fd5e50ea931b2eb128ea1f1f801d9c08cc"
+    "version": 7,
+    "sha256": "eb261c7abb7a6429b71448690cff63c5f99275b2f98810c22d575c7ef7ab6a6d"
   },
-  "compositionDigest": "c8cbcd92c71bf55fe73788c1455f4ee5435082dd4afd7940e0480a96fb9611d1",
+  "compositionDigest": "ef0f5fd1eb5299611383950cf6853b1c61653fb70af78ab5133d312407410863",
   "screenComposition": {
     "fixture": "tools/instrument-bench",
     "screen": { "width": 960, "height": 720 },
@@ -18,10 +18,10 @@
       { "panel": "hsi", "x": 480, "y": 0, "width": 480, "height": 360 },
       { "panel": "monitor", "x": 0, "y": 360, "width": 480, "height": 360 }
     ],
-    "digest": "0f4f7c7fb27be2bb0df1fee4462d5aa0121001be1643299c705e117f379292dd"
+    "digest": "701e83e800df0ea3a79fa5dc05f9617b5a6f9c604ceacaf552caa3c2284ae42d"
   },
   "rasterBaselines": [
-    { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "sha256": "6e6bd9b8fb4599a549d5b9a31bf34fa97a03ad2cca3f0d92eb869983f2bb52bd" },
+    { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "sha256": "8d577be84282249385fdcd8389777c8de1ebdeea8b3ce5162b48541b047327d0" },
     { "panel": "hsi", "frame": { "width": 480, "height": 360 }, "sha256": "cfe8fb5eba7a2947aa69138e934f7a90be07580be22532cda099eedf990ea8ae" },
     { "panel": "autoflight", "frame": { "width": 480, "height": 360 }, "sha256": "fbc6d9448f9e73fc736a82059afe796d0853c31610c4d8360111a1d150976ead" },
     { "panel": "monitor", "frame": { "width": 480, "height": 360 }, "sha256": "40f44383f3ad46a0bbd65f04afc1d80fb9d94c11acff8dc66edbfcf7b8fa4c01" }

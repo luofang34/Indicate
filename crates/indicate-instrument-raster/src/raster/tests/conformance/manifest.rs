@@ -22,14 +22,10 @@ use super::outcomes::{Outcome, outcome_of};
 use crate::{MAX_DIMENSION, MAX_POLYGON_VERTICES, WORST_CASE_FRAME_BYTES};
 
 const SCHEMA_VERSION: u32 = 2;
-const CORPUS_VERSION: u32 = 6;
-const REVIEW_REASON: &str = "Re-pin pfd-altitude-drum-mid-roll and \
-pfd-altitude-drum-negative-cascade against state ABI v8. Both replay the built-in PFD, which \
-gains an opaque true-airspeed box at the head of the speed tape and starts the tape 25 units \
-lower to clear it, so the same altitude emits different bytes. Both entries still pin what they \
-named: the rolling-digit readout replays byte-identically on both backends, because the drum\'s \
-offsets derive from the value alone, never a clock. No entry is added or removed, and every \
-hand-built scene is unchanged.";
+const CORPUS_VERSION: u32 = 7;
+const REVIEW_REASON: &str = "Re-pin the two built-in PFD drum fixtures after visible speed and \
+altitude strips omit labels crossing their edges. Both fixtures still verify deterministic \
+rolling-digit replay. No entry is added or removed. Each hand-built scene is unchanged.";
 const REVIEW_APPROVED_BY: &str =
     "REN-04 owner; regenerated goldens require human review and are never rewritten by CI.";
 

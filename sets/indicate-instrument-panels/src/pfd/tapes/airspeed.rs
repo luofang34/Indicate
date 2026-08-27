@@ -8,16 +8,12 @@ use indicate_instrument_scene::{
 use indicate_instrument_state::{GroupId, PanelData};
 use indicate_instrument_symbology::{fmt_label, palette, safety, status_paint};
 
-use super::{CENTER_Y, IAS_READOUT, TAPE_BOTTOM, pointed_readout};
+use super::{
+    CENTER_Y, IAS_READOUT, SPEED_TAPE_TOP, TAPE_BOTTOM, ladder_label_fits, pointed_readout,
+};
 use crate::pfd::VSpeeds;
 
 const PX_PER_KT: f32 = 7.2;
-
-/// Top of the airspeed tape. The true-airspeed box owns the strip above
-/// it: the box is opaque, so a tape that started at the frame edge
-/// would have its topmost gradation painted over rather than covered by
-/// a box beside it.
-const SPEED_TAPE_TOP: f32 = 25.0;
 
 /// Left-edge airspeed tape with bands, readout, and the TAS and
 /// groundspeed boxes at its head and foot.
@@ -51,7 +47,7 @@ pub fn speed_tape(
             let kt = step * 5;
             let y = CENTER_Y - (kt as f32 - ias.value) * PX_PER_KT;
             scene.line(78.0, y, 90.0, y)?;
-            if step % 2 == 0 {
+            if step % 2 == 0 && ladder_label_fits(y, 20.0, SPEED_TAPE_TOP) {
                 let label = fmt_label!(8, "{kt}");
                 scene.text_attributed(
                     GroupId::Air.to_u8(),
@@ -170,13 +166,6 @@ fn gs_box(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneErro
 }
 
 /// Largest size, capped at `preferred`, whose nominal ink fits `width`.
-///
-/// A centered label in a box of fixed width overflows on both sides once
-/// its ink outstrips the box, and the frame edge is one of those sides:
-/// `TAS 113kt` at 16 units carries 121 units of ink into a 90-unit box,
-/// so the leading glyph paints off the panel entirely. The size follows
-/// the value's width instead, which is what the pointed readouts already
-/// do (DISP-02).
 fn fitted_label_size(width: f32, chars: usize, preferred: f32) -> f32 {
     let ink = nominal_text_ink_width(preferred, chars);
     if ink <= width {

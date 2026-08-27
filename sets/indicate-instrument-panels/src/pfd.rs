@@ -391,6 +391,8 @@ mod dyn_tests;
 #[cfg(test)]
 mod source_tests;
 #[cfg(test)]
+mod tape_edge_tests;
+#[cfg(test)]
 pub(crate) mod tests;
 #[cfg(test)]
 mod velocity_tests;

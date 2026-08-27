@@ -43,6 +43,29 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.6.2] — 2026-08-26
+
+Speed and altitude ladders now omit labels whose nominal ink crosses a
+visible tape edge. The altitude backdrop and clip now start below the
+selected-altitude box.
+
+This change deliberately moves PFD paint. The PFD raster baseline and
+three composed-frame hashes move. The composition digest and screen
+composition digest also move.
+
+The conformance corpus advances to 7. Two built-in PFD replay fixtures
+now contain the changed tape commands. The corpus keeps the same entries.
+
+| Value | This release |
+|---|---|
+| State ABI | 8 |
+| Scene format | 1 |
+| Corpus | 7 |
+| Composition digest | `ef0f5fd1eb5299611383950cf6853b1c61653fb70af78ab5133d312407410863` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
+
+Panel set changed since the previous release: no.
+
 ## [0.6.1] — 2026-08-26
 
 `GroupSet` now assigns bit positions through `GroupId::index()`, not
