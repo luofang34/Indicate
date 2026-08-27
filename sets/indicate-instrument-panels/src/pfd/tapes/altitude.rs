@@ -9,8 +9,8 @@ use indicate_instrument_symbology::{fmt_label, palette, safety, status_paint};
 
 use super::super::drum;
 use super::{
-    ALT_READOUT, ALTITUDE_TAPE_TOP, CENTER_Y, TAPE_BOTTOM, fitted_text_size, ladder_label_fits,
-    pointed_box,
+    ALT_READOUT, ALTITUDE_TAPE_TOP, CENTER_Y, TAPE_BOTTOM, fitted_readout_size, fitted_text_size,
+    ladder_label_fits, pointed_box,
 };
 
 const PX_PER_FT: f32 = 1.2;
@@ -137,7 +137,7 @@ fn baro_and_sel_boxes(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(
         25.0,
         text.as_str(),
         color,
-        16.0,
+        fitted_readout_size(90.0, text.as_str(), 16.0, baro.status),
         baro.status,
     )?;
     if data.altitude.setting_mismatch {

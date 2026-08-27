@@ -45,4 +45,4 @@ pub const BENCH_COMPOSITION: CompositionDescriptor = CompositionDescriptor {
 /// The pinned screen-composition digest over [`BENCH_COMPOSITION`]:
 /// every shell composing this screen from this registry reproduces it.
 pub const BENCH_COMPOSITION_DIGEST: &str =
-    "701e83e800df0ea3a79fa5dc05f9617b5a6f9c604ceacaf552caa3c2284ae42d";
+    "47d862544850465b02cd2f9ff056f454331d82020ce5f8081b5f24bd1f630880";
