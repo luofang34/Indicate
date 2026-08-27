@@ -9,7 +9,7 @@
 //! sides of that boundary can only drift by turning a consumer's CI red.
 
 use indicate_instrument_state::AircraftState;
-use indicate_instrument_state::abi::v7::{CAPACITY, encode_state, fixtures};
+use indicate_instrument_state::abi::v8::{CAPACITY, VERSION, encode_state, fixtures};
 
 use crate::error::XtaskError;
 use crate::output::print_line;
@@ -18,15 +18,20 @@ use crate::workspace::repo_root;
 /// Builds one posture fixture.
 type FixtureBuilder = fn() -> AircraftState;
 
-/// The committed fixtures: stable file stem and the state behind it.
+/// The committed fixtures: posture name and the state behind it. The
+/// file stem is derived from the compiled ABI version rather than
+/// written out, so a version bump cannot leave the generator
+/// overwriting a file whose name still says the version before it.
 const FIXTURES: [(&str, FixtureBuilder); 3] = [
-    ("state-abi-v7.full", fixtures::full),
-    ("state-abi-v7.data-gateway", fixtures::data_gateway),
-    (
-        "state-abi-v7.flight-controller",
-        fixtures::flight_controller,
-    ),
+    ("full", fixtures::full),
+    ("data-gateway", fixtures::data_gateway),
+    ("flight-controller", fixtures::flight_controller),
 ];
+
+/// The file stem for one posture at the compiled ABI version.
+fn stem_for(posture: &str) -> String {
+    format!("state-abi-v{VERSION}.{posture}")
+}
 
 fn hex_of(bytes: &[u8]) -> String {
     use std::fmt::Write as _;
@@ -48,7 +53,8 @@ pub fn run() -> Result<(), XtaskError> {
         context: "creating crates/indicate-instrument-state/fixtures",
         source,
     })?;
-    for (stem, build) in FIXTURES {
+    for (posture, build) in FIXTURES {
+        let stem = stem_for(posture);
         let state = build();
         let mut buf = [0u8; CAPACITY];
         let len = encode_state(&state, &mut buf).map_err(|error| XtaskError::Usage {

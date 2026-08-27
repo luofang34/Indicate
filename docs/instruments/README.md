@@ -50,6 +50,9 @@ independent review.
 - [Standards applicability matrix](standards-applicability.md) classifies each
   standard as authority-accepted, latest engineering baseline, requiring authority
   agreement, or not applicable, with rationale, gaps, and issue-paper needs.
+- [Display-reason registry](display-reason-registry.md) is the append-only
+  vocabulary of renderer-health reasons that every shell reports against, with
+  the wire code of each reason and the rule for one a shell does not know.
 - [Lifecycle evidence plan](evidence-plan.md) indexes today's requirement, design,
   code, test, review, and configuration baselines, and states which prototype
   artifacts may be reused as engineering input versus which DO-178C lifecycle

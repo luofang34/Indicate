@@ -12,10 +12,11 @@
 //! | selections | heading bug f32; bug ref u8; alt sel class u8; alt sel model u8; 0; alt sel f32; alt sel origin u32; baro sel f32 | 20 |
 //! | trust | quality u8; coherence u8; valid flags u16; generation u32 | 8 |
 //! | altitude | class u8; geoid model u8; 0×2; sample f32; origin u32 | 12 |
+//! | ap targets | airspeed f32; alt class u8; alt model u8; 0×2; alt f32; alt origin u32; vertical speed f32 | 20 |
 //!
 //! Trust valid-flag bits: 0 attitude, 1 rates, 2 position, 3 horizontal
-//! velocity, 4 heading, 5 variation, 6 turn, 7 slip, 8 vertical speed;
-//! bits 9–15 spare (zero).
+//! velocity, 4 heading, 5 variation, 6 turn, 7 slip, 8 vertical speed,
+//! 9 airspeed trend; bits 10–15 spare (zero).
 
 use super::{AbiError, get_f32, get_u8, get_u16, get_u32, put_f32, put_u8, put_u16, put_u32};
 use crate::abi::{opt, or_nan};
@@ -23,6 +24,7 @@ use crate::aircraft::{
     AircraftState, EstimateQuality, Selections, SnapshotCoherence, SnapshotMeta, ValidFlags,
 };
 use crate::altitude::{AltitudeClass, AltitudeDeclaration, GeoidModelId, OriginId};
+use crate::autopilot::ApTargets;
 use crate::heading::HeadingReference;
 
 fn sized(out: &mut [u8], len: usize) -> Result<&mut [u8], AbiError> {
@@ -61,6 +63,41 @@ pub(super) fn encode_selections(
     Ok(Some(20))
 }
 
+/// The target layout mirrors the selections layout field for field, so
+/// a reader of one reads the other: a target and a selection carry the
+/// same altitude reference-identity trio, and putting them at different
+/// offsets would invite reading one against the other.
+pub(super) fn decode_ap_targets(state: &mut AircraftState, p: &[u8]) {
+    state.ap_targets = ApTargets {
+        airspeed_mps: opt(get_f32(p, 0)),
+        altitude_class: AltitudeClass::from_u8(get_u8(p, 4)),
+        altitude_model: GeoidModelId(get_u8(p, 5)),
+        altitude_m: opt(get_f32(p, 8)),
+        altitude_origin: OriginId(get_u32(p, 12)),
+        vertical_speed_mps: opt(get_f32(p, 16)),
+    };
+}
+
+pub(super) fn encode_ap_targets(
+    state: &AircraftState,
+    out: &mut [u8],
+) -> Result<Option<usize>, AbiError> {
+    if state.ap_targets == ApTargets::default() {
+        return Ok(None);
+    }
+    let p = sized(out, 20)?;
+    let targets = &state.ap_targets;
+    put_f32(p, 0, or_nan(targets.airspeed_mps));
+    put_u8(p, 4, targets.altitude_class.to_u8());
+    put_u8(p, 5, targets.altitude_model.0);
+    put_u8(p, 6, 0);
+    put_u8(p, 7, 0);
+    put_f32(p, 8, or_nan(targets.altitude_m));
+    put_u32(p, 12, targets.altitude_origin.0);
+    put_f32(p, 16, or_nan(targets.vertical_speed_mps));
+    Ok(Some(20))
+}
+
 pub(super) fn decode_trust(state: &mut AircraftState, p: &[u8]) {
     state.quality = match get_u8(p, 0) {
         0 => EstimateQuality::Good,
@@ -85,6 +122,7 @@ pub(super) fn decode_trust(state: &mut AircraftState, p: &[u8]) {
         turn: flags & 0x0040 != 0,
         slip: flags & 0x0080 != 0,
         velocity_vertical: flags & 0x0100 != 0,
+        ias_trend: flags & 0x0200 != 0,
     };
     state.snapshot = SnapshotMeta {
         generation: get_u32(p, 4),
@@ -132,7 +170,8 @@ pub(super) fn encode_trust(
         | (u16::from(v.variation) << 5)
         | (u16::from(v.turn) << 6)
         | (u16::from(v.slip) << 7)
-        | (u16::from(v.velocity_vertical) << 8);
+        | (u16::from(v.velocity_vertical) << 8)
+        | (u16::from(v.ias_trend) << 9);
     put_u16(p, 2, flags);
     put_u32(p, 4, state.snapshot.generation);
     Ok(Some(8))

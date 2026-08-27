@@ -1,9 +1,9 @@
-//! Tagged-group state ABI, version 7 (ADR-0029 extensible state groups).
+//! Tagged-group state ABI, version 8 (ADR-0029 extensible state groups).
 //!
 //! The frame is self-delimiting:
 //!
 //! ```text
-//! [0] u8 version (= 7)
+//! [0] u8 version (= 8)
 //! [1] u8 group count (N)
 //! then N groups, each:
 //!     u8  group id        (strictly ascending across the frame)
@@ -27,6 +27,28 @@
 //! enum bytes count from zero in declaration order with 255 as the
 //! fail-closed unknown, and a wire value outside the known set decodes
 //! to each type's `Unknown`, never to a benign variant (VAL-01).
+//!
+//! # One version, one format
+//!
+//! This version is the coordination point for a batch of group
+//! allocations and field appends. The registry table in the
+//! `group_id` module is their layout contract: it fixes each new group
+//! id, its lane (stamped or declared), and each append to an existing
+//! group. Each lands as its own change — a vertical slice of codec,
+//! resolve, feeder, drawing, and guardrails — onto this version before
+//! it is released.
+//!
+//! The batch is what makes the number honest. A version identifies a
+//! wire format, so the version a consumer pins must name exactly one:
+//! releasing the bump first and changing layouts inside it afterwards
+//! would give two incompatible formats the same number, and a consumer
+//! comparing its pins against the manifest would see agreement while
+//! every frame it emits was rejected.
+//!
+//! The allocation table on [`crate::GroupId`] names which groups and
+//! appends this revision carries; `min_len` below is what the decoder
+//! actually enforces, and the two are checked against each other by the
+//! golden frames rather than by prose here.
 
 use crate::aircraft::AircraftState;
 use crate::group_id::GroupId;
@@ -34,18 +56,19 @@ use crate::group_id::GroupId;
 pub mod fixtures;
 
 mod declared;
+mod equipment;
 mod monitor;
 mod stamped;
 
 /// Version stamped in the frame's first byte.
-pub const VERSION: u8 = 7;
+pub const VERSION: u8 = 8;
 
 /// Buffer capacity a feeder allocates. This is an allocation bound, not
 /// wire shape: the frame is self-delimiting, and growing the capacity is
 /// not a wire break because consumers read it at runtime.
 pub const CAPACITY: usize = 1024;
 
-/// Why a v7 frame failed to encode or decode.
+/// Why a v8 frame failed to encode or decode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum AbiError {
     /// The buffer ends before the announced content does.
@@ -88,17 +111,21 @@ const fn min_len(id: GroupId) -> usize {
     match id {
         GroupId::Attitude => 32,
         GroupId::Kinematics => 28,
-        GroupId::Air => 12,
-        GroupId::Nav => 42,
+        GroupId::Air => 16,
+        GroupId::Nav => 43,
         GroupId::Wind => 12,
         GroupId::Selections => 20,
         GroupId::Trust => 8,
         GroupId::Altitude => 12,
         GroupId::Heading => 12,
         GroupId::Variation => 12,
-        GroupId::Dynamics => 16,
+        GroupId::Dynamics => 20,
+        GroupId::BearingPointers => 20,
+        GroupId::AirframeConfig => 24,
         GroupId::MonitorText => monitor::MONITOR_LEN,
         GroupId::FlightDirector => 16,
+        GroupId::ApModes => 12,
+        GroupId::ApTargets => 20,
     }
 }
 
@@ -117,8 +144,12 @@ fn decode_group(state: &mut AircraftState, id: GroupId, payload: &[u8]) {
         GroupId::Heading => stamped::decode_heading(state, payload),
         GroupId::Variation => stamped::decode_variation(state, payload),
         GroupId::Dynamics => stamped::decode_dynamics(state, payload),
+        GroupId::BearingPointers => equipment::decode_bearings(state, payload),
+        GroupId::AirframeConfig => equipment::decode_airframe(state, payload),
         GroupId::MonitorText => monitor::decode_monitor_text(state, payload),
-        GroupId::FlightDirector => stamped::decode_director(state, payload),
+        GroupId::FlightDirector => equipment::decode_director(state, payload),
+        GroupId::ApModes => equipment::decode_ap_modes(state, payload),
+        GroupId::ApTargets => declared::decode_ap_targets(state, payload),
     }
 }
 
@@ -142,12 +173,16 @@ fn encode_group(
         GroupId::Heading => stamped::encode_heading(state, out),
         GroupId::Variation => stamped::encode_variation(state, out),
         GroupId::Dynamics => stamped::encode_dynamics(state, out),
+        GroupId::BearingPointers => equipment::encode_bearings(state, out),
+        GroupId::AirframeConfig => equipment::encode_airframe(state, out),
         GroupId::MonitorText => monitor::encode_monitor_text(state, out),
-        GroupId::FlightDirector => stamped::encode_director(state, out),
+        GroupId::FlightDirector => equipment::encode_director(state, out),
+        GroupId::ApModes => equipment::encode_ap_modes(state, out),
+        GroupId::ApTargets => declared::encode_ap_targets(state, out),
     }
 }
 
-/// Decodes a v7 frame.
+/// Decodes a v8 frame.
 pub fn decode_state(buf: &[u8]) -> Result<DecodeReport, AbiError> {
     let version = *buf.first().ok_or(AbiError::Truncated)?;
     if version != VERSION {
@@ -192,7 +227,7 @@ pub fn decode_state(buf: &[u8]) -> Result<DecodeReport, AbiError> {
     Ok(report)
 }
 
-/// Encodes `state` as a canonical v7 frame — present groups only, in
+/// Encodes `state` as a canonical v8 frame — present groups only, in
 /// ascending tag order — returning the used length.
 pub fn encode_state(state: &AircraftState, buf: &mut [u8]) -> Result<usize, AbiError> {
     if buf.len() < 2 {
@@ -269,6 +304,10 @@ pub(super) fn put_u32(payload: &mut [u8], off: usize, value: u32) {
     }
 }
 
+#[cfg(test)]
+mod autoflight_tests;
+#[cfg(test)]
+mod bearing_tests;
 #[cfg(test)]
 mod fixture_tests;
 #[cfg(test)]

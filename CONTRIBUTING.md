@@ -37,12 +37,24 @@ cargo run --locked -q -p indicate-evidence --bin evidence-gate -- \
   --graph docs/instruments/evidence-graph.evg --repo-root . --resolve-selectors
 cargo run --locked -q -p indicate-evidence --bin evidence-gate -- \
   --graph docs/instruments/evidence-graph.evg --repo-root . --require-resolvable
+bash scripts/check-recorded-counts.sh --selftest
+bash scripts/check-recorded-counts.sh
+bash scripts/test-baseline-survives-merge.sh
+bash scripts/check-baseline-survives-merge.sh
+bash scripts/test-release-markers.sh
+bash scripts/check-release-markers.sh
 ```
 
 The evidence gate binds recorded test sources by content digest: editing
 a recorded test file (the attitude-behavior and presentation suites
 among them) reddens the gate until that evidence is re-recorded, so run
 the two gate invocations locally after touching any recorded source.
+
+The gate runs no build, so it cannot see a recorded pass count that
+drifted when a test was added away from a bound source.
+`check-recorded-counts.sh` re-runs each artifact's own recorded command
+and compares. The re-record procedure is four steps, written once in
+`docs/instruments/evidence-plan.md`.
 
 ## PR discipline
 
@@ -116,6 +128,16 @@ entry is open, so a CI check for the tag would fail every release on the
 one run that matters. The changelog entry is what CI can hold honest;
 the tag is what a human owes it.
 
+## Documentation language
+
+Project-authored documentation follows the rule list in `AGENTS.md` at
+the repository root. The list is modelled on ASD-STE100 Simplified
+Technical English, and following it is not a conformance claim against
+that standard: this repository does not distribute the specification or
+its dictionary. The rules apply to new text and to text you change.
+They do not apply to legacy prose you happen to be near. No gate checks
+the prose itself. Review does, citing a rule from the list.
+
 ## Discipline that is easy to miss
 
 - REN-03 frame hashes and the scene digest are pinned invariants, not
@@ -129,6 +151,28 @@ the tag is what a human owes it.
   sources by content digest and its baseline by commit: editing a
   recorded source file requires re-recording that evidence, and history
   rewrites that orphan the baseline commit are forbidden.
+- **Use a merge commit when a branch changes a `config-digest` in the
+  evidence graph. Do not squash and do not rebase.** The test is
+  mechanical: `git diff` shows whether the branch moved one. Squash and
+  rebase both replace the commit that the record names, and the gate
+  then refuses the record as unreachable, correctly, because a fresh
+  clone cannot fetch it. `scripts/check-baseline-survives-merge.sh`
+  reports which baselines either would orphan, and CI runs it as an
+  advisory step on every pull request: the step exits non-zero when it
+  has something to say, so the requirement is on the page when someone
+  picks a merge button.
+- **Do not move the record back to an older commit instead.** When the
+  branch changed a bound source, the gate refuses loudly, because the
+  older baseline never contained that source. When it changed only a
+  count, the reachability check and the artifact check both pass while
+  the record claims a run against a tree that produces a different
+  count. The first is noisy and the second is silent, and neither keeps
+  the record true.
+- Re-anchoring the record after the merge does work, and this
+  repository has done it repeatedly. It leaves `main` red until the
+  re-anchor lands. Merge style is what preserves the commit a record
+  names; changing what a baseline *is* would be a change to the gate,
+  not to merge policy.
 - Panels are authored against the frame range their descriptor declares
   and receive the chosen frame as a draw argument; unclipped ink past
   that frame's edge is counted and ratcheted per frame by the admission

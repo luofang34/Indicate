@@ -9,6 +9,7 @@ use indicate_instrument_state::{ChevronSense, FdEngagement, GroupId, PanelData, 
 
 use indicate_instrument_symbology::{annunciation, palette, safety, source_label, status_paint};
 
+mod drum;
 mod horizon;
 mod panel_config;
 mod tapes;
@@ -90,6 +91,7 @@ pub struct PfdConfig {
 ///
 /// - minor (2.5° and 5°) pitch-ladder rows — major 10° bars remain
 /// - speed-tape color bands
+/// - the airspeed trend bar
 /// - the turn-rate cue
 pub fn draw_pfd(
     data: &PanelData,
@@ -142,6 +144,7 @@ pub fn draw_pfd(
         } else {
             cfg.v_speeds.as_ref()
         },
+        declutter,
     )?;
     tapes::altitude_tape(scene, data)?;
     tapes::vsi(scene, data)?;
@@ -382,9 +385,13 @@ mod datum_tests;
 #[cfg(test)]
 mod director_tests;
 #[cfg(test)]
+mod drum_tests;
+#[cfg(test)]
 mod dyn_tests;
 #[cfg(test)]
 mod source_tests;
+#[cfg(test)]
+mod tape_edge_tests;
 #[cfg(test)]
 pub(crate) mod tests;
 #[cfg(test)]

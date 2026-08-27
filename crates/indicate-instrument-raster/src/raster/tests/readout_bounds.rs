@@ -10,11 +10,17 @@
 //! not as an unexplained pixel diff. A drift guard binds the scene
 //! text-metrics contract to those manifest metrics, so the panel-side
 //! fitting and the backend-side painting cannot diverge silently.
+//!
+//! The altitude readout's interior is a rolling-digit drum: its sign
+//! run is extent-checked like any other run, and every rolling column
+//! paints through a clip window that must itself sit inside the box
+//! body — the window is the containment proof for the digits behind
+//! it.
 
 use indicate_instrument_glyphs::{ADVANCE, CELL_H, CELL_W};
 use indicate_instrument_panels::{BUILTIN_FRAME, PANEL_W, PfdConfig, draw_pfd};
 use indicate_instrument_scene::{
-    Anchor, Cmd, MAX_SCENE_BYTES, SceneCmds, SceneWriter, nominal_text_ink_width,
+    Anchor, Cmd, HAlign, MAX_SCENE_BYTES, SceneCmds, SceneWriter, nominal_text_ink_width,
     nominal_text_width,
 };
 use indicate_instrument_state::{
@@ -64,6 +70,7 @@ fn state_at(alt_ft: f32, ias_kt: f32) -> AircraftState {
         data: Some(AirData {
             ias_mps: Some(ias_kt * MPS_PER_KT),
             baro_setting_hpa: Some(1013.0),
+            tas_mps: None,
         }),
         age_ms: Some(20.0),
     };
@@ -87,13 +94,22 @@ fn pfd_scene(alt_ft: f32, ias_kt: f32) -> Vec<u8> {
     buf
 }
 
-/// One located readout: its box body span and the run that followed it.
-struct ReadoutRun {
-    body_left: f32,
-    body_right: f32,
+/// One text run inside a readout, with its clip window when it paints
+/// through one, as the drum's rolling columns do.
+struct Run {
     x: f32,
     size: f32,
+    anchor: Anchor,
     text: String,
+    window: Option<[f32; 4]>,
+}
+
+/// One located readout: its box body span and the interior that
+/// followed the box polygon.
+struct Readout {
+    body_left: f32,
+    body_right: f32,
+    runs: Vec<Run>,
 }
 
 /// The pointed-readout y profile: body corners at 155/205, shoulders at
@@ -106,25 +122,36 @@ fn is_pointed_box(points: &[[f32; 2]]) -> bool {
         && points.iter().filter(|p| p[1] == 180.0).count() == 1
 }
 
-/// Decodes the scene and pairs every pointed readout box with the text
-/// run drawn after it (the readout value is the next text command the
-/// panel emits).
-fn readout_runs(bytes: &[u8]) -> Vec<ReadoutRun> {
-    let mut runs = Vec::new();
-    let mut pending: Option<(f32, f32)> = None;
+/// Decodes the scene and pairs every pointed readout box with the
+/// interior the panel emits after it. The interior is that box's first
+/// run plus every run the drum paints through a clip window; the next
+/// unclipped run belongs to something else on the tape — the
+/// groundspeed box, the reference label — and closes the readout. A run
+/// painted between a clip and its restore carries the window as its
+/// containment proof.
+fn readouts(bytes: &[u8]) -> Vec<Readout> {
+    let mut out: Vec<Readout> = Vec::new();
+    let mut current: Option<Readout> = None;
+    let mut window: Option<[f32; 4]> = None;
     for cmd in SceneCmds::new(bytes).expect("decode") {
         match cmd.expect("cmd") {
             Cmd::Polygon { points, .. } => {
                 let pts: Vec<[f32; 2]> = points.iter().collect();
                 if is_pointed_box(&pts) {
-                    let tip_y = 180.0;
+                    if let Some(done) = current.take() {
+                        out.push(done);
+                    }
                     let body: Vec<f32> =
-                        pts.iter().filter(|p| p[1] != tip_y).map(|p| p[0]).collect();
-                    let left = body.iter().copied().fold(f32::INFINITY, f32::min);
-                    let right = body.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-                    pending = Some((left, right));
+                        pts.iter().filter(|p| p[1] != 180.0).map(|p| p[0]).collect();
+                    current = Some(Readout {
+                        body_left: body.iter().copied().fold(f32::INFINITY, f32::min),
+                        body_right: body.iter().copied().fold(f32::NEG_INFINITY, f32::max),
+                        runs: Vec::new(),
+                    });
                 }
             }
+            Cmd::ClipRect { x, y, w, h } => window = Some([x, y, w, h]),
+            Cmd::Restore => window = None,
             Cmd::Text {
                 x,
                 size,
@@ -132,40 +159,57 @@ fn readout_runs(bytes: &[u8]) -> Vec<ReadoutRun> {
                 text,
                 ..
             } => {
-                if let Some((body_left, body_right)) = pending.take() {
-                    assert_eq!(anchor, Anchor::CENTER, "readout anchor");
-                    runs.push(ReadoutRun {
-                        body_left,
-                        body_right,
-                        x,
-                        size,
-                        text: text.to_string(),
-                    });
+                if let Some(readout) = current.as_mut() {
+                    if readout.runs.is_empty() || window.is_some() {
+                        readout.runs.push(Run {
+                            x,
+                            size,
+                            anchor,
+                            text: text.to_string(),
+                            window,
+                        });
+                    } else if let Some(done) = current.take() {
+                        out.push(done);
+                    }
+                }
+            }
+            Cmd::EndLayer { .. } => {
+                if let Some(done) = current.take() {
+                    out.push(done);
                 }
             }
             _ => {}
         }
     }
-    runs
+    if let Some(done) = current.take() {
+        out.push(done);
+    }
+    out
 }
 
 /// Ink extents of a run exactly as the reference backend paints it
 /// (`raster::text::draw_run`): pen advances `ADVANCE`-scaled per char,
 /// glyph ink spans `CELL_W`-scaled from the pen.
-fn ink_extents(run: &ReadoutRun) -> (f32, f32) {
+fn ink_extents(run: &Run) -> (f32, f32) {
     let scale = run.size / CELL_H as f32;
     let advance = f32::from(ADVANCE) * scale;
     let chars = run.text.chars().count() as f32;
     let width = chars * advance;
-    let left = run.x - width / 2.0;
-    let ink_right = left + width - (f32::from(ADVANCE) - CELL_W as f32) * scale;
-    (left, ink_right)
+    let ink_slack = (f32::from(ADVANCE) - CELL_W as f32) * scale;
+    match run.anchor.h {
+        HAlign::Left => (run.x, run.x + width - ink_slack),
+        HAlign::Center => (run.x - width / 2.0, run.x + width / 2.0 - ink_slack),
+        // A right-anchored readout run would measure as centered here
+        // and the containment proof would stop proving anything, so the
+        // arm is explicit rather than a catch-all.
+        HAlign::Right => (run.x - width, run.x - ink_slack),
+    }
 }
 
-/// Altitude sweep: the full sign + five digit envelope after the 10-ft
-/// rounding — including the widest negative ("-99990"), both sides of
-/// every digit-count transition (±9,990 → ±10,000), and the live-defect
-/// value 1,030 ft that painted outside its box.
+/// Altitude sweep: the full sign + five digit envelope the drum's
+/// column budget must fit — including the widest negative ("-99990"),
+/// both sides of every digit-count transition (±9,990 → ±10,000), and
+/// 1,030 ft, whose column count would overflow an unfitted box.
 const ALT_SWEEP_FT: [f32; 15] = [
     -99_990.0, -10_000.0, -9_990.0, -1_030.0, -150.0, -10.0, 0.0, 990.0, 1_030.0, 2_450.0, 9_990.0,
     10_000.0, 12_340.0, 45_670.0, 99_990.0,
@@ -173,24 +217,47 @@ const ALT_SWEEP_FT: [f32; 15] = [
 /// Airspeed sweep: the `{:03}` format floor up through four digits.
 const IAS_SWEEP_KT: [f32; 6] = [0.0, 78.0, 145.0, 460.0, 999.0, 1_043.0];
 
-#[test]
-fn readout_runs_stay_inside_their_boxes_across_the_value_range() {
+/// One readout's containment: an unclipped run's ink stays inside the
+/// box body; a clipped run's window sits inside the body and the run's
+/// ink stays inside the window — the window is the containment proof
+/// for the digit behind it.
+fn check_readout(readout: &Readout, alt_ft: f32, ias_kt: f32) {
     const TOLERANCE: f32 = 1e-3;
-    for alt_ft in ALT_SWEEP_FT {
-        for ias_kt in IAS_SWEEP_KT {
-            let scene = pfd_scene(alt_ft, ias_kt);
-            let runs = readout_runs(&scene);
-            assert_eq!(runs.len(), 2, "both tape readouts at {alt_ft}/{ias_kt}");
-            for run in &runs {
-                assert!(!run.text.is_empty(), "readout shows a value");
-                let (left, ink_right) = ink_extents(run);
+    assert!(
+        !readout.runs.is_empty(),
+        "readout shows a value at {alt_ft}/{ias_kt}"
+    );
+    for run in &readout.runs {
+        assert!(!run.text.is_empty(), "readout shows a value");
+        let (left, ink_right) = ink_extents(run);
+        match run.window {
+            Some([wx, wy, ww, wh]) => {
                 assert!(
-                    left >= run.body_left - TOLERANCE && ink_right <= run.body_right + TOLERANCE,
+                    wx >= readout.body_left - TOLERANCE
+                        && wx + ww <= readout.body_right + TOLERANCE
+                        && wy >= 155.0 - TOLERANCE
+                        && wy + wh <= 205.0 + TOLERANCE,
+                    "drum window [{wx}, {wy}, {ww}, {wh}] leaves box body \
+                     [{}, {}] at alt {alt_ft} ft / ias {ias_kt} kt",
+                    readout.body_left,
+                    readout.body_right,
+                );
+                assert!(
+                    left >= wx - TOLERANCE && ink_right <= wx + ww + TOLERANCE,
+                    "run '{}' ink [{left}, {ink_right}] leaves its drum window \
+                     at alt {alt_ft} ft / ias {ias_kt} kt",
+                    run.text,
+                );
+            }
+            None => {
+                assert!(
+                    left >= readout.body_left - TOLERANCE
+                        && ink_right <= readout.body_right + TOLERANCE,
                     "run '{}' ink [{left}, {ink_right}] leaves box body \
                      [{}, {}] at alt {alt_ft} ft / ias {ias_kt} kt",
                     run.text,
-                    run.body_left,
-                    run.body_right,
+                    readout.body_left,
+                    readout.body_right,
                 );
                 assert!(
                     left >= 0.0 && ink_right <= PANEL_W,
@@ -203,16 +270,37 @@ fn readout_runs_stay_inside_their_boxes_across_the_value_range() {
 }
 
 #[test]
+fn readout_runs_stay_inside_their_boxes_across_the_value_range() {
+    for alt_ft in ALT_SWEEP_FT {
+        for ias_kt in IAS_SWEEP_KT {
+            let scene = pfd_scene(alt_ft, ias_kt);
+            let found = readouts(&scene);
+            assert_eq!(found.len(), 2, "both tape readouts at {alt_ft}/{ias_kt}");
+            for readout in &found {
+                check_readout(readout, alt_ft, ias_kt);
+            }
+        }
+    }
+}
+
+#[test]
 fn the_defect_value_renders_all_its_digits() {
-    // 1,030 ft rounds to "1030": the readout must carry every digit —
-    // shrinking is legal, truncating or clipping is not.
+    // 1,030 ft: the drum must carry every digit — upper "10", pair
+    // mid-roll on "20" — shrinking is legal, truncating or clipping
+    // away a digit is not.
     let scene = pfd_scene(1_030.0, 78.0);
-    let runs = readout_runs(&scene);
-    let alt = runs
+    let found = readouts(&scene);
+    let alt = found
         .iter()
         .find(|r| r.body_left > 300.0)
         .expect("altitude readout");
-    assert_eq!(alt.text, "1030");
+    for digit in ["10", "20"] {
+        assert!(
+            alt.runs.iter().any(|run| run.text == digit),
+            "the drum lost '{digit}': {:?}",
+            alt.runs.iter().map(|run| &run.text).collect::<Vec<_>>(),
+        );
+    }
 }
 
 #[test]
@@ -234,73 +322,82 @@ fn scene_text_metrics_contract_matches_the_glyph_manifest() {
 
 /// The worst-width corners of the sweep, re-checked at the PIXEL level:
 /// each readout run is re-drawn in isolation and rasterized by the real
-/// reference backend, and every painted glyph pixel must land inside the
-/// box body (one pixel of quantization slack) and the panel. The
-/// semantic extent test above cannot catch a regression in raster
-/// anchoring, quantization, or glyph painting; this one does.
+/// reference backend, and every painted glyph pixel must land inside
+/// what contains it — its clip window when it paints through one, else
+/// the box body (one pixel of quantization slack) — and inside the
+/// panel. The semantic extent test above cannot catch a regression in
+/// raster anchoring, quantization, or glyph painting; this one does.
 const PIXEL_CASES: [(f32, f32); 3] = [(-99_990.0, 1_043.0), (1_030.0, 78.0), (99_990.0, 999.0)];
 
 #[test]
 fn readout_glyphs_paint_only_inside_their_boxes() {
     let (w, h) = (PANEL_W as u32, 360u32);
     for (alt_ft, ias_kt) in PIXEL_CASES {
-        let runs = readout_runs(&pfd_scene(alt_ft, ias_kt));
-        assert_eq!(runs.len(), 2, "both readouts at {alt_ft}/{ias_kt}");
-        for run in &runs {
-            // The run in isolation: any lit pixel is glyph ink.
-            let mut buf = std::vec![0u8; MAX_SCENE_BYTES];
-            let mut writer = SceneWriter::new(&mut buf).expect("writer");
-            writer
-                .begin_layer(indicate_instrument_scene::LayerId::Tapes)
-                .expect("begin layer");
-            writer
-                .fill_color(indicate_instrument_scene::Rgba8 {
-                    r: 255,
-                    g: 255,
-                    b: 255,
-                    a: 255,
-                })
-                .expect("fill");
-            writer
-                .text(run.x, 180.0, run.size, Anchor::CENTER, &run.text)
-                .expect("text");
-            writer
-                .end_layer(indicate_instrument_scene::LayerId::Tapes)
-                .expect("end layer");
-            let n = writer.finish();
-            buf.truncate(n);
+        let found = readouts(&pfd_scene(alt_ft, ias_kt));
+        assert_eq!(found.len(), 2, "both readouts at {alt_ft}/{ias_kt}");
+        for readout in &found {
+            for run in &readout.runs {
+                // A rolling column paints its faces past the text line,
+                // so the window is what holds that ink in; an unclipped
+                // run answers to the box body itself.
+                let (left_bound, right_bound) = match run.window {
+                    Some([wx, _, ww, _]) => (wx, wx + ww),
+                    None => (readout.body_left, readout.body_right),
+                };
+                // The run in isolation, on the text line and at its own
+                // anchor: any lit pixel is this run's glyph ink.
+                let mut buf = std::vec![0u8; MAX_SCENE_BYTES];
+                let mut writer = SceneWriter::new(&mut buf).expect("writer");
+                writer
+                    .begin_layer(indicate_instrument_scene::LayerId::Tapes)
+                    .expect("begin layer");
+                writer
+                    .fill_color(indicate_instrument_scene::Rgba8 {
+                        r: 255,
+                        g: 255,
+                        b: 255,
+                        a: 255,
+                    })
+                    .expect("fill");
+                writer
+                    .text(run.x, 180.0, run.size, run.anchor, &run.text)
+                    .expect("text");
+                writer
+                    .end_layer(indicate_instrument_scene::LayerId::Tapes)
+                    .expect("end layer");
+                let n = writer.finish();
+                buf.truncate(n);
 
-            let mut fb = std::vec![0u8; (w * h * 4) as usize];
-            let report = crate::render(
-                &buf,
-                &mut fb,
-                crate::FramebufferDims::tight(w, h),
-                crate::FrameId::default(),
-            )
-            .expect("isolated run renders");
-            assert_eq!(report.status, crate::RenderStatus::Painted);
+                let mut fb = std::vec![0u8; (w * h * 4) as usize];
+                let report = crate::render(
+                    &buf,
+                    &mut fb,
+                    crate::FramebufferDims::tight(w, h),
+                    crate::FrameId::default(),
+                )
+                .expect("isolated run renders");
+                assert_eq!(report.status, crate::RenderStatus::Painted);
 
-            let mut lit = 0usize;
-            for py in 0..h {
-                for px in 0..w {
-                    let i = ((py * w + px) * 4) as usize;
-                    if fb[i] == 0 && fb[i + 1] == 0 && fb[i + 2] == 0 {
-                        continue;
+                let mut lit = 0usize;
+                for py in 0..h {
+                    for px in 0..w {
+                        let i = ((py * w + px) * 4) as usize;
+                        if fb[i] == 0 && fb[i + 1] == 0 && fb[i + 2] == 0 {
+                            continue;
+                        }
+                        lit += 1;
+                        let x = px as f32;
+                        assert!(
+                            x >= left_bound - 1.0 && x + 1.0 <= right_bound + 1.0,
+                            "glyph pixel ({px},{py}) of '{}' outside [{left_bound}, \
+                             {right_bound}] at alt {alt_ft} ft / ias {ias_kt} kt",
+                            run.text,
+                        );
+                        assert!(x + 1.0 <= PANEL_W, "glyph pixel outside the panel");
                     }
-                    lit += 1;
-                    let x = px as f32;
-                    assert!(
-                        x >= run.body_left - 1.0 && x + 1.0 <= run.body_right + 1.0,
-                        "glyph pixel ({px},{py}) of '{}' outside box body [{}, {}] \
-                         at alt {alt_ft} ft / ias {ias_kt} kt",
-                        run.text,
-                        run.body_left,
-                        run.body_right,
-                    );
-                    assert!(x + 1.0 <= PANEL_W, "glyph pixel outside the panel");
                 }
+                assert!(lit > 0, "run '{}' painted no pixels", run.text);
             }
-            assert!(lit > 0, "run '{}' painted no pixels", run.text);
         }
     }
 }

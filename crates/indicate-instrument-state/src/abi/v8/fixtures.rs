@@ -59,6 +59,7 @@ fn kinematics(pos_ned_m: [f32; 3], vel_ned_mps: [f32; 3], age_ms: f32) -> Stampe
 fn nav(course_rad: f32, cdi_dots: f32, to: &str, from: &str, age_ms: f32) -> Stamped<NavData> {
     stamped(
         NavData {
+            scale: crate::aircraft::NavScale::Terminal,
             source: NavSource::Gps,
             course_rad,
             cdi_dots,
@@ -98,16 +99,18 @@ fn dynamics(rate_rps: f32, basis: TurnBasis, lateral_mps2: f32, age_ms: f32) -> 
         DynSample {
             turn: Some(TurnSample { rate_rps, basis }),
             lateral_mps2: Some(lateral_mps2),
+            ias_trend_mps2: Some(0.35),
         },
         age_ms,
     )
 }
 
-fn air(ias_mps: f32, baro_setting_hpa: f32, age_ms: f32) -> Stamped<AirData> {
+fn air(ias_mps: f32, baro_setting_hpa: f32, tas_mps: Option<f32>, age_ms: f32) -> Stamped<AirData> {
     stamped(
         AirData {
             ias_mps: Some(ias_mps),
             baro_setting_hpa: Some(baro_setting_hpa),
+            tas_mps,
         },
         age_ms,
     )
@@ -123,6 +126,7 @@ fn all_valid() -> ValidFlags {
         heading: true,
         variation: true,
         turn: true,
+        ias_trend: true,
         slip: true,
     }
 }
@@ -145,15 +149,11 @@ fn baro_altitude(sample_m: f32, origin: u32) -> AltitudeDeclaration {
     }
 }
 
-/// Every group present, asymmetric on purpose.
-pub fn full() -> AircraftState {
-    let mut nav = nav(0.6, 0.7, "WPT-2", "KMRY", 80.0);
-    if let Some(data) = nav.data.as_mut() {
-        data.vdev_dots = Some(-0.4);
-        data.dist_nm = Some(12.4);
-    }
+/// The groups that describe equipment rather than the aircraft's
+/// motion: what is commanding, what each receiver reports, how the
+/// airframe is set, and what the automation holds.
+fn equipment() -> AircraftState {
     AircraftState {
-        attitude: attitude([0.5, 0.5, 0.5, 0.5], [0.02, -0.01, 0.05], 80.0),
         director: stamped(
             crate::director::FdSample {
                 pitch_cmd_rad: 0.08,
@@ -163,8 +163,84 @@ pub fn full() -> AircraftState {
             },
             80.0,
         ),
+        airframe: stamped(
+            crate::aircraft::AirframeConfig {
+                // Distinct on purpose: the group exists to keep sensed
+                // and selected apart, so a golden frame that gave both
+                // the same value would be byte-identical under a codec
+                // that swapped them.
+                flap_ratio: Some(0.25),
+                flap_selected_ratio: Some(1.0),
+                elevator_trim_ratio: Some(-0.2),
+                aileron_trim_ratio: Some(0.05),
+                rudder_trim_ratio: None,
+            },
+            80.0,
+        ),
+        bearings: stamped(
+            crate::aircraft::BearingPointers {
+                first: crate::aircraft::BearingPointer {
+                    source: crate::aircraft::NavSource::Nav1,
+                    bearing_rad: 1.2,
+                    reference: HeadingReference::SimLocalTrue,
+                    valid: true,
+                },
+                second: crate::aircraft::BearingPointer {
+                    source: crate::aircraft::NavSource::Nav2,
+                    bearing_rad: 4.1,
+                    reference: HeadingReference::SimLocalTrue,
+                    valid: true,
+                },
+            },
+            80.0,
+        ),
+        quality: EstimateQuality::Good,
+        valid: all_valid(),
+        snapshot: SnapshotMeta {
+            generation: 42,
+            coherence: SnapshotCoherence::Coherent,
+        },
+        altitude: baro_altitude(950.0, 7),
+        heading: heading(0.35, HeadingReference::SimLocalTrue, 90.0),
+        variation: variation(0.15, 3, 120.0),
+        dynamics: dynamics(0.05, TurnBasis::HeadingRate, 0.3, 85.0),
+        monitor_text: stamped(monitor(9, &["ENG 1 OK", "FUEL 82.5"]), 500.0),
+        // Five distinct wire bytes: a codec that read one mode slot
+        // where another lives would otherwise produce a byte-identical
+        // golden frame and annunciate the wrong axis or the wrong tense.
+        ap_modes: stamped(
+            crate::autopilot::ApModes {
+                engagement: crate::autopilot::ApEngagement::Autopilot,
+                lateral_active: crate::autopilot::LateralMode::Roll,
+                lateral_armed: crate::autopilot::LateralMode::Approach,
+                vertical_active: crate::autopilot::VerticalMode::GlideSlope,
+                vertical_armed: crate::autopilot::VerticalMode::AltitudeCapture,
+            },
+            80.0,
+        ),
+        ap_targets: crate::autopilot::ApTargets {
+            airspeed_mps: Some(61.0),
+            vertical_speed_mps: Some(2.5),
+            altitude_m: Some(1200.0),
+            altitude_class: AltitudeClass::LocalRelative,
+            altitude_origin: OriginId(7),
+            altitude_model: GeoidModelId::UNDECLARED,
+        },
+        ..AircraftState::default()
+    }
+}
+
+/// Every group present, asymmetric on purpose.
+pub fn full() -> AircraftState {
+    let mut nav = nav(0.6, 0.7, "WPT-2", "KMRY", 80.0);
+    if let Some(data) = nav.data.as_mut() {
+        data.vdev_dots = Some(-0.4);
+        data.dist_nm = Some(12.4);
+    }
+    AircraftState {
+        attitude: attitude([0.5, 0.5, 0.5, 0.5], [0.02, -0.01, 0.05], 80.0),
         kinematics: kinematics([1200.0, 340.0, -305.0], [52.0, 9.0, -2.0], 80.0),
-        air: air(53.0, 1013.2, 80.0),
+        air: air(53.0, 1013.2, Some(58.0), 80.0),
         nav,
         wind: stamped(
             Wind {
@@ -182,17 +258,7 @@ pub fn full() -> AircraftState {
             altitude_sel_model: GeoidModelId::UNDECLARED,
             baro_sel_hpa: Some(1013.2),
         },
-        quality: EstimateQuality::Good,
-        valid: all_valid(),
-        snapshot: SnapshotMeta {
-            generation: 42,
-            coherence: SnapshotCoherence::Coherent,
-        },
-        altitude: baro_altitude(950.0, 7),
-        heading: heading(0.35, HeadingReference::SimLocalTrue, 90.0),
-        variation: variation(0.15, 3, 120.0),
-        dynamics: dynamics(0.05, TurnBasis::HeadingRate, 0.3, 85.0),
-        monitor_text: stamped(monitor(9, &["ENG 1 OK", "FUEL 82.5"]), 500.0),
+        ..equipment()
     }
 }
 
@@ -236,7 +302,9 @@ pub fn flight_controller() -> AircraftState {
     AircraftState {
         attitude: attitude([1.0, 0.0, 0.0, 0.0], [0.01, 0.0, -0.02], 40.0),
         kinematics: kinematics([10.0, -20.0, -80.0], [21.0, 3.0, -0.5], 40.0),
-        air: air(39.0, 1020.5, 45.0),
+        // A flight controller without the density inputs supplies no
+        // true airspeed: the field stays absent, not derived.
+        air: air(39.0, 1020.5, None, 45.0),
         wind: stamped(
             Wind {
                 from_rad: 0.8,

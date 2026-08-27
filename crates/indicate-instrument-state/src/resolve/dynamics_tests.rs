@@ -15,12 +15,24 @@ fn with_dynamics(turn: Option<TurnSample>, lateral: Option<f32>) -> AircraftStat
     state.dynamics = Stamped {
         data: Some(DynSample {
             turn,
+            ias_trend_mps2: None,
             lateral_mps2: lateral,
         }),
         age_ms: Some(20.0),
     };
     state.valid.turn = true;
     state.valid.slip = true;
+    state
+}
+
+/// Declares an airspeed-trend rate on a state from [`with_dynamics`]:
+/// the sample and the bit that permits showing it, because a rate
+/// without its bit resolves Failed whatever else is true of it.
+fn with_trend(mut state: AircraftState, rate_mps2: f32) -> AircraftState {
+    if let Some(dynamics) = state.dynamics.data.as_mut() {
+        dynamics.ias_trend_mps2 = Some(rate_mps2);
+    }
+    state.valid.ias_trend = true;
     state
 }
 
@@ -131,13 +143,85 @@ fn coherence_skew_degrades_present_dynamics() {
     assert_eq!(p.slip_lat_mps2.status, SignalStatus::Degraded);
 }
 
+/// Every member of the dynamics group is gated, not only the two the
+/// group was first written around: a non-finite value anywhere in it
+/// faults the whole group with a typed reason, and that fault reaches
+/// every cue the group feeds. A rate nobody can trust must not leave
+/// the turn cue and the slip ball painting Valid beside it.
+///
+/// NaN is the wire's absent convention, so it is ±inf that decodes to
+/// `Some(non-finite)` and has to be refused here. Both are checked, for
+/// every member, because a gate written around one member is exactly
+/// what lets the next one through.
 #[test]
 fn non_finite_dynamics_fail_with_typed_reason() {
-    let state = with_dynamics(heading_turn(f32::NAN), Some(0.5));
-    let p = resolve(&state, &FreshnessPolicy::default());
-    assert_eq!(p.turn.rate_rps.status, SignalStatus::Failed);
-    assert_eq!(
-        p.integrity.dynamics,
-        Some(crate::validate::GroupFault::NonFinite)
+    fn every_cue_fails(state: &AircraftState, member: &str, bad: f32) {
+        let p = resolve(state, &FreshnessPolicy::default());
+        assert_eq!(
+            p.integrity.dynamics,
+            Some(crate::validate::GroupFault::NonFinite),
+            "{member} = {bad}"
+        );
+        assert_eq!(
+            p.turn.rate_rps.status,
+            SignalStatus::Failed,
+            "{member} = {bad}"
+        );
+        assert_eq!(
+            p.slip_lat_mps2.status,
+            SignalStatus::Failed,
+            "{member} = {bad}"
+        );
+        assert_eq!(
+            p.ias_trend_kt_s.status,
+            SignalStatus::Failed,
+            "{member} = {bad}"
+        );
+    }
+
+    for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+        every_cue_fails(
+            &with_trend(with_dynamics(heading_turn(bad), Some(0.5)), 0.4),
+            "turn rate",
+            bad,
+        );
+        every_cue_fails(
+            &with_trend(with_dynamics(heading_turn(0.05), Some(bad)), 0.4),
+            "lateral force",
+            bad,
+        );
+        every_cue_fails(
+            &with_trend(with_dynamics(heading_turn(0.05), Some(0.5)), bad),
+            "airspeed trend",
+            bad,
+        );
+    }
+}
+
+/// Trust bit 9 gates the trend in both directions: a source that
+/// supplies a rate without declaring it valid gets no trend, and one
+/// that declares it gets the rate it supplied.
+#[test]
+fn the_trust_bit_gates_the_airspeed_trend_both_ways() {
+    let mut state = with_dynamics(heading_turn(0.05), Some(-0.2));
+    if let Some(dynamics) = state.dynamics.data.as_mut() {
+        dynamics.ias_trend_mps2 = Some(1.0);
+    }
+
+    state.valid.ias_trend = false;
+    let data = resolve(&state, &FreshnessPolicy::default());
+    assert!(
+        !data.ias_trend_kt_s.status.shows_value(),
+        "an undeclared rate shows no trend: {:?}",
+        data.ias_trend_kt_s.status
+    );
+
+    state.valid.ias_trend = true;
+    let data = resolve(&state, &FreshnessPolicy::default());
+    assert_eq!(data.ias_trend_kt_s.status, SignalStatus::Valid);
+    assert!(
+        (data.ias_trend_kt_s.value - 1.0 * crate::units::MPS_TO_KT).abs() < 1e-3,
+        "the declared rate reaches the panel: {:?}",
+        data.ias_trend_kt_s.value
     );
 }

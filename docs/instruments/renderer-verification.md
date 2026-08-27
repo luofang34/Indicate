@@ -316,7 +316,7 @@ reference.
 | Backend failure | framebuffer-limit typed errors leave buffer untouched or spoil | a throwing Canvas op → `PAINT_FAILED`, contained to the back buffer |
 | Unsupported opcode | counted skip, `unknown_opcodes` reported | counted skip, `interpretScene` returns the same count |
 | Glyph corruption / uncovered text | `render` → `Glyph` error, no substitution | `interpretScene` throws, no font fallback (load-time hash checks already covered) |
-| Liveness / recovery | n/a (stateless) | `PanelHealth` latches on any fault, recovers only after sustained validated frames; `LIVENESS` on a stalled generation |
+| Liveness / recovery | n/a (stateless) | `PanelHealth` latches on any fault, recovers only after sustained validated frames; `LIVENESS` on a stalled render generation |
 
 Old imagery is covered on every backend error or timeout: the reference
 rasterizer spoils the whole frame (opaque black + red cross) so no stale frame

@@ -11,7 +11,7 @@ use std::vec::Vec;
 use indicate_instrument_descriptor::PanelDescriptor;
 use indicate_instrument_scene::{LAYER_COUNT, LayerId};
 
-use super::{BUILTIN_PANELS, layer_bit};
+use super::{ALL_SETS, layer_bit};
 
 const PROTOCOL_DOC: &str = include_str!("../../../../docs/instruments/scene-layer-protocol.md");
 
@@ -114,7 +114,7 @@ fn documented_rows() -> Vec<(String, String, String)> {
 /// A second table in the section could assert profiles nothing checks.
 #[test]
 fn the_profiles_section_holds_exactly_one_table() {
-    let expected = BUILTIN_PANELS.len() + 2;
+    let expected = shipped_panels().len() + 2;
     assert_eq!(
         table_lines().len(),
         expected,
@@ -123,11 +123,22 @@ fn the_profiles_section_holds_exactly_one_table() {
     );
 }
 
+/// Every panel this crate ships, in table order, taken from
+/// [`super::ALL_SETS`] rather than from a list written here.
+///
+/// A check that names the sets it walks cannot see a panel in a set it
+/// does not name, and the next set added is the one it will not name.
+/// Reading the registry instead makes the table's coverage follow what
+/// the crate ships.
+fn shipped_panels() -> Vec<&'static PanelDescriptor> {
+    ALL_SETS.iter().flat_map(|set| set.panels.iter()).collect()
+}
+
 #[test]
 fn every_shipped_panel_has_a_row_in_shell_order() {
     let documented: Vec<String> = documented_rows().into_iter().map(|row| row.0).collect();
-    let shipped: Vec<String> = BUILTIN_PANELS
-        .iter()
+    let shipped: Vec<String> = shipped_panels()
+        .into_iter()
         .map(|panel| String::from(panel.title))
         .collect();
     assert_eq!(
@@ -143,10 +154,10 @@ fn the_documented_profiles_are_the_descriptor_masks() {
     // missing its last panel would pass by describing nothing.
     assert_eq!(
         rows.len(),
-        BUILTIN_PANELS.len(),
+        shipped_panels().len(),
         "every shipped panel needs a row before its mask can be checked"
     );
-    for (panel, row) in BUILTIN_PANELS.iter().zip(rows) {
+    for (panel, row) in shipped_panels().into_iter().zip(rows) {
         let (required, optional) = cells_from_mask(panel);
         assert_eq!(
             row.1, required,
@@ -165,12 +176,11 @@ fn the_documented_profiles_are_the_descriptor_masks() {
 /// it compares, so drift cannot hide behind an unchanged string.
 #[test]
 fn a_changed_mask_changes_the_cell_the_guard_compares() {
-    let panel = BUILTIN_PANELS
-        .first()
-        .expect("the family ships at least one panel");
+    let panels = shipped_panels();
+    let panel = panels.first().expect("the family ships at least one panel");
     let rows = documented_rows();
     let row = rows.first().expect("that panel has a row");
-    let mut drifted = *panel;
+    let mut drifted = **panel;
     drifted.required_layers &= !layer_bit(LayerId::Annunciation);
     assert_eq!(
         cells_from_mask(panel).0,

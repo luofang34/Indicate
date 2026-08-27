@@ -57,9 +57,9 @@ evidence is pinned at are shapes the panel really declared.
 
 Note how far that reaches, and how far it does not: a valid range may
 still *contain* an in-range, on-grid frame that violates the aspect
-bounds. Choosing a frame inside the range, and clamping to what the
-panel supports, is the shell's job — nothing in the draw path re-checks
-the argument.
+bounds. Asking for a frame is the shell's job, and nothing in the draw
+path re-checks the argument — so the shell asks the panel which frame
+to use, with `choose_frame` below, rather than deriving one.
 
 **Do not re-derive the rule.** `PanelDescriptor::accepts(DesignFrame)`
 is the predicate over those fields, and it is the only copy of it. It
@@ -76,9 +76,40 @@ whether the step is measured from the minimum or from zero — and each
 will be locally green, because each only ever tests its own. The panel
 is the one thing that knows which frames it accepts, so ask the panel.
 
+Which frame to ask for has the same answer, for the same reason.
+`accepts` can only refuse a frame you already hold; it cannot give you
+one. A shell that had to produce a candidate would walk the step grid
+itself, which is the arithmetic above. So the panel answers this too:
+
+```rust
+let frame = descriptor.choose_frame(space)?;
+```
+
+`PanelDescriptor::choose_frame` gives the largest frame by area that
+fits inside `space` on both axes and that `accepts` admits. It walks
+one axis and computes the other, so its cost is the declared width grid
+and not the product of both. Read its documentation for the rule. Do
+not restate the rule in a shell.
+
+Three properties of it bind on you:
+
+- **The space is in logical units, the units a `DesignFrame` is in.**
+  It is not device pixels. A shell with a surface in physical pixels
+  divides by its own scale factor before it asks. Two shells that pass
+  different units for one window get different frames, which is what
+  this rule exists to prevent.
+- **A refusal is an answer.** A space too small for `frame_min` refuses
+  with `OutOfRange`. `frame_min` is the readability floor, so the panel
+  will not name a frame below it. What to do then is yours: scale the
+  frame you did get, letterbox it, or show a different panel.
+- **A shell under no constraint asks with `frame_max`** and gets it
+  back. There is no separate rule for the unconstrained case.
+
 Every shipped panel currently declares a degenerate range —
 `frame_min == frame_max == 480×360`, one canonical frame — so the only
 frame a conforming shell may ask any of them for is 480×360.
+`choose_frame` returns that one frame today. It exists so that when a
+panel ships a real range, every shell makes the same choice.
 
 - Every backend clips at the frame it asked for: ink outside it never
   reaches a pixel, on any backend.
@@ -273,6 +304,83 @@ exists; take it only with the set in hand.
    (REN-04's 1000 ms frame budget derives from it) assumes a repaint
    clock that keeps ticking when data stops.
 
+## A generation counts output made, not content
+
+Each producer makes one kind of output, and this section calls that its
+**unit of output**. An input validation and time/integrity gate admits a
+snapshot. A renderer makes a frame. A **generation** is a `u32` counter.
+A producer advances it when the producer completes one unit of output
+successfully.
+
+Generations appear at every shell boundary: the state snapshot, the
+render generation a liveness check watches, and the markers a consumer
+compares to see that a producer advances. This section states what a
+generation means, once, for every shell. The Rust, Swift, and JavaScript
+implementations must apply it identically.
+
+- **A generation counts the units a producer completes. It is not a
+  content identity.** It advances for each unit the producer completes
+  successfully, whatever that unit contains. Two units with identical
+  content advance the generation twice. A consumer that must know
+  whether the content changed compares the content. It does not compare
+  generations.
+- **Comparison across a wrap uses serial-number arithmetic** of the
+  RFC 1982 shape. Generation `a` is newer than generation `b` when
+  `0 < (a - b) mod 2^32 < 2^31`. Equal values name the same unit.
+  At a distance of exactly `2^31` the rule says neither value is newer,
+  in both directions. A consumer must therefore compare within `2^31`
+  steps of the producer. In that range the rule always names which value
+  is newer. Producers count with `wrapping_add(1)`, so the step from
+  `u32::MAX` to `0` is a
+  normal single advance, never a replay. `serial_is_newer` in
+  `indicate-instrument-feeder::stamp` already implements this rule for
+  stamp sequences; generation comparison is the same rule on every
+  shell.
+- **A generation and a freshness judgement answer different questions.**
+  A generation answers "has the producer advanced?". Telemetry
+  freshness answers "is the data inside recent?". Liveness keys on the
+  clock that makes the output: the 1000 ms deadline (REN-04) measures
+  how often a frame is made, never when data arrives. A frame made on
+  time from stale data is a live frame that carries stale data.
+  Freshness flags the data. The generation still advances. No shell may
+  substitute one notion for the other.
+
+Some counters in this repository are deliberately not generations under
+this rule. Each marks a change in its own output. A consumer must not
+read any of them as a count of a producer's output:
+
+- `SourceComparison::generation` in `indicate-instrument-state` advances
+  only when the selected source, the reversion, or the comparison state
+  changes.
+- `ActiveAlert::generation` in `indicate-alerts` advances only at the
+  alert's own state change. `AlertOutput::generation` reports the
+  manager's value after a step, so a manager stepped with no new alert
+  reports the same value again. A shell that reads that value as a
+  count of the manager's output raises a liveness fault on a healthy
+  manager.
+- `IngressSnapshot::generation` in `indicate-instrument-feeder` counts
+  publications that moved the admitted state. Admitting a group advances
+  it, and so does a publication that admitted nothing and only narrowed
+  the authorization, which is a content change.
+
+The wire generation a shell decodes is `SnapshotMeta::generation`. This
+rule governs that one, and the gate advances it once per snapshot the
+gate admits. A shell hosts the gate; it does not supply the counter, and
+a source never does — a source sits on the untrusted side of the
+boundary the snapshot describes.
+
+`IngressSnapshot::generation` above and `SnapshotMeta::generation` here
+are two counters, not one. The first is the feeder's own, and it
+advances on an authorization change as well, which this rule excludes.
+A shell must not forward it into the second.
+
+`FrameId::frame_generation` and `FrameId::render_generation` cross the
+raster boundary as data. The rasterizer is stateless: it carries both
+from input to report and advances neither. A shell owns them, and this
+rule governs how a shell advances them — a failed paint produces no
+frame, so it advances no render generation, and a frame generation is
+the snapshot's, so two paints of one snapshot carry one value.
+
 ## Conformance: what "correct" means
 
 An interpreter is correct only **relative to a corpus version**. The
@@ -291,7 +399,7 @@ once, with the reason recorded in the change.
 
 ## Feeding: sources declare, panels require
 
-A source declares the state groups it supplies (ABI v7 tagged groups —
+A source declares the state groups it supplies (ABI v8 tagged groups —
 presence is meaning); a panel descriptor declares the groups it
 requires. An unfed group renders `Missing` by construction, not because
 a producer remembered to flag it. Sources with different group sets — a

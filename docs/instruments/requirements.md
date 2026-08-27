@@ -169,6 +169,32 @@ revision; malformed content shall fail the channel visibly rather than
 display, and the channel shall never substitute for, obscure, or imply any
 flight-data function.
 
+<a id="air-in-015"></a>
+### AIR-IN-015 — Autoflight mode and target input
+
+Autoflight engagement, the active and armed mode of each axis, and the values
+the automation flies toward shall be received from the automation itself and
+shall declare source identity, source time, and quality. A mode value the
+display cannot name shall fail its group, and an engagement or mode shall
+never be inferred from guidance, deviation, or aircraft motion. A target
+altitude shall declare the same reference identity its class requires, and a
+target whose identity does not match the displayed datum shall not be
+presented as comparable to it.
+
+<a id="air-in-016"></a>
+### AIR-IN-016 — Airframe configuration input
+
+Sensed control-surface configuration — flap position, and trim on each axis
+the airframe declares — shall be received with source identity, source time,
+and quality, and shall declare the range each axis is defined over. A value
+outside its declared range shall fail its group rather than be clamped: a
+clamped indication shows a position the airframe never reached. A selected
+detent and a sensed position are separate quantities and shall not be
+substituted for one another. A detent shall be presented only beside the
+sensed position it is read against: a detent alone is a selection, not a
+configuration, and presenting it alone invites reading it as a position the
+airframe reached.
+
 ## Outputs and functions
 
 <a id="air-out-001"></a>

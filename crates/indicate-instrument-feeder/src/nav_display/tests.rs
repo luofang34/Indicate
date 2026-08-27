@@ -5,7 +5,7 @@
 
 use indicate_instrument_state::{IdentStr, NavFromTo};
 
-use super::{LATERAL_M_PER_DOT, M_PER_NM, VDEV_M_PER_DOT, nav_display_state};
+use super::{LATERAL_M_PER_DOT_TERMINAL, M_PER_NM, VDEV_M_PER_DOT, nav_display_state};
 use crate::nav_guidance::{Guidance, NavSnapshot};
 
 fn snapshot(guidance: Guidance) -> NavSnapshot {
@@ -47,7 +47,7 @@ fn fly_to_signs_and_units_convert_exactly() {
     // Ownship 25 m RIGHT of course: the course line is LEFT, so the
     // deflection is one dot NEGATIVE and flying toward the bar closes
     // the error.
-    assert!((nav.cdi_dots + 25.0 / LATERAL_M_PER_DOT).abs() < 1e-6);
+    assert!((nav.cdi_dots + 25.0 / LATERAL_M_PER_DOT_TERMINAL).abs() < 1e-6);
     // Ownship 8 m ABOVE profile: the profile is LOWER on the display,
     // one dot POSITIVE — the axes disagree on which way is up.
     assert!((nav.vdev_dots.expect("constrained") - 8.0 / VDEV_M_PER_DOT).abs() < 1e-6);

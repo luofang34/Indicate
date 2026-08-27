@@ -2,14 +2,14 @@
   "manifestVersion": 1,
   "generatedBy": "cargo xtask gen-release-manifest",
   "simOnly": "SIM / NOT FOR FLIGHT — simulation use only",
-  "stateAbi": { "module": "v7", "version": 7 },
+  "stateAbi": { "module": "v8", "version": 8 },
   "sceneFormatVersion": 1,
   "corpus": {
     "path": "crates/indicate-instrument-scene/corpus/scene-conformance-corpus.json",
-    "version": 4,
-    "sha256": "1fb8e6de2734ff7506843b05869f39d501f0926599636c6110a7e3b0c6e1625e"
+    "version": 8,
+    "sha256": "0b0c7ccb135bfc4107bc110e4b24dceffd84adf1b767fcd14d2c5ace7391f962"
   },
-  "compositionDigest": "f82d905643b48822de25665761ad3e29daa334d937f18b1e98a3e215353cb704",
+  "compositionDigest": "f6fb603bf2e1f7889ddc9b5d534f329a0379d34a8f00d954f366e9b270ddc273",
   "screenComposition": {
     "fixture": "tools/instrument-bench",
     "screen": { "width": 960, "height": 720 },
@@ -18,17 +18,19 @@
       { "panel": "hsi", "x": 480, "y": 0, "width": 480, "height": 360 },
       { "panel": "monitor", "x": 0, "y": 360, "width": 480, "height": 360 }
     ],
-    "digest": "367ce939789975e7f548eea1e1a6fc41e8453e75e45d3acc397163f2ab1dcb2c"
+    "digest": "47d862544850465b02cd2f9ff056f454331d82020ce5f8081b5f24bd1f630880"
   },
   "rasterBaselines": [
-    { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "sha256": "43b49bde6bbf7372d704d54214d4a3d0b9cd3ad09e86862a8ffc20fd6ae05ef1" },
-    { "panel": "hsi", "frame": { "width": 480, "height": 360 }, "sha256": "66653ce135e6f2163fa48d805a0ab1a8f3d0ac51d778f7b1eb2aa4ec05bfbb7c" },
+    { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "sha256": "1ffd3ff80047da054823de9cef9a5017b9c8b08d4b048b0db7db7ea1f827eea1" },
+    { "panel": "hsi", "frame": { "width": 480, "height": 360 }, "sha256": "cfe8fb5eba7a2947aa69138e934f7a90be07580be22532cda099eedf990ea8ae" },
+    { "panel": "autoflight", "frame": { "width": 480, "height": 360 }, "sha256": "fbc6d9448f9e73fc736a82059afe796d0853c31610c4d8360111a1d150976ead" },
     { "panel": "monitor", "frame": { "width": 480, "height": 360 }, "sha256": "40f44383f3ad46a0bbd65f04afc1d80fb9d94c11acff8dc66edbfcf7b8fa4c01" }
   ],
   "glyphPackHash": "281eef6229feee417c7090d8c8ea79489c017cd1c02fc7234876b2a64a532158",
   "criticalityBands": [
     { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "band": { "x": 6, "y": 38, "width": 468, "height": 314 } },
     { "panel": "hsi", "frame": { "width": 480, "height": 360 }, "band": { "x": 98, "y": 48, "width": 284, "height": 304 } },
+    { "panel": "autoflight", "frame": { "width": 480, "height": 360 }, "band": { "x": 100, "y": 276, "width": 90.857147, "height": 76 } },
     { "panel": "monitor", "frame": { "width": 480, "height": 360 }, "band": { "x": 100, "y": 276, "width": 90.857147, "height": 76 } }
   ]
 }
