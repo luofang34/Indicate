@@ -45,8 +45,8 @@ values so `git show <tag>` answers the question without a checkout.
 
 ## [0.6.3] — 2026-08-27
 
-Groundspeed and barometric-setting labels now shrink to fit their
-90-unit readout boxes. Hidden values keep the standard failure dashes.
+True-airspeed, groundspeed, and barometric-setting labels now shrink to
+fit their 90-unit readout boxes. Hidden values keep standard dashes.
 
 Admission now models centered text from its advance-anchored origin.
 It reports no frame overflows across 418 built-in cases.
