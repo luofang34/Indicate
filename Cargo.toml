@@ -11,6 +11,7 @@ members = [
     "crates/indicate-instrument-descriptor",
     "sets/indicate-instrument-panels",
     "sets/indicate-instrument-template",
+    "sets/indicate-instrument-hmd",
     "crates/indicate-instrument-raster",
     "crates/indicate-instrument-conformance",
     "crates/indicate-instrument-feeder",
