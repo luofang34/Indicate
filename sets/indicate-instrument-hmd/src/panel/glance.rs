@@ -9,7 +9,7 @@ pub const HMD_GLANCE_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     ..HMD_DESCRIPTOR
 };
 
-fn draw(
+pub(super) fn draw(
     data: &PanelData,
     config: &ConfigBlob<'_>,
     _alerts: Option<&AlertOutput>,
@@ -52,9 +52,21 @@ fn draw(
         17.0,
     )?;
     attitude::draw(data, scene)?;
-    scene.fill_color(HUD_GREEN)?;
-    scene.text(600.0, 521.0, 12.0, Anchor::CENTER, "AIRCRAFT ATTITUDE")?;
+    let label = if data.presentation.inverted {
+        "INVERTED"
+    } else if data.presentation.high_bank {
+        "BANK"
+    } else {
+        "AIRCRAFT ATTITUDE"
+    };
+    scene.fill_color(if data.presentation.high_bank {
+        palette::AMBER
+    } else {
+        HUD_GREEN
+    })?;
+    scene.text(600.0, 521.0, 12.0, Anchor::CENTER, label)?;
     heading::draw(data, scene)?;
     scene.end_layer(LayerId::Tapes)?;
+    navigation::draw(data, true, scene)?;
     annunciation::draw(data, scene)
 }

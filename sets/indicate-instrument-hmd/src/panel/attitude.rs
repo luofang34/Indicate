@@ -35,18 +35,7 @@ pub(super) fn draw(data: &PanelData, scene: &mut SceneWriter<'_>) -> Result<(), 
         [617.0, 405.0],
         [642.0, 405.0],
     ])?;
-    for degrees in [-60.0_f32, -30.0, 0.0, 30.0, 60.0] {
-        let angle = degrees.to_radians();
-        segment(
-            scene,
-            [libm::sinf(angle) * 77.0, -libm::cosf(angle) * 77.0],
-            [libm::sinf(angle) * 84.0, -libm::cosf(angle) * 84.0],
-        )?;
-    }
-    let bank = data.roll_rad.value;
-    let point = |x: f32, y: f32| rotated(x, y, -bank);
-    segment(scene, point(-4.0, -87.0), point(0.0, -78.0))?;
-    segment(scene, point(4.0, -87.0), point(0.0, -78.0))?;
+    bank_pointer(data, scene)?;
     scene.fill_color(HUD_GREEN)?;
     let pitch = fmt_label!(
         24,
@@ -66,6 +55,22 @@ pub(super) fn draw(data: &PanelData, scene: &mut SceneWriter<'_>) -> Result<(), 
         Anchor::CENTER,
         pitch.as_str(),
     )?;
+    recovery::draw(data, scene)
+}
+
+fn bank_pointer(data: &PanelData, scene: &mut SceneWriter<'_>) -> Result<(), PanelDrawError> {
+    for degrees in [-60.0_f32, -30.0, 0.0, 30.0, 60.0] {
+        let angle = degrees.to_radians();
+        segment(
+            scene,
+            [libm::sinf(angle) * 77.0, -libm::cosf(angle) * 77.0],
+            [libm::sinf(angle) * 84.0, -libm::cosf(angle) * 84.0],
+        )?;
+    }
+    let bank = data.roll_rad.value;
+    let point = |x: f32, y: f32| rotated(x, y, -bank);
+    segment(scene, point(-4.0, -87.0), point(0.0, -78.0))?;
+    segment(scene, point(4.0, -87.0), point(0.0, -78.0))?;
     Ok(())
 }
 

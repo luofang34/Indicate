@@ -12,6 +12,8 @@ pub(super) struct Case {
     pub background: &'static str,
 }
 
+mod guidance;
+
 fn nominal() -> PanelData {
     let mut data = resolve(&AircraftState::default(), &FreshnessPolicy::default());
     data.ias_kt = Sig::valid(125.0);
@@ -58,6 +60,7 @@ pub(super) fn all() -> Vec<Case> {
     availability_cases(&mut add);
     vertical_cases(&mut add);
     contrast_cases(&mut add);
+    guidance::all(&mut add);
     out
 }
 

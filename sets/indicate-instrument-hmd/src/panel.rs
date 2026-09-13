@@ -9,7 +9,9 @@ mod annunciation;
 mod attitude;
 mod glance;
 mod heading;
+mod navigation;
 mod readout;
+mod recovery;
 mod scale;
 mod vertical_speed;
 pub use glance::HMD_GLANCE_DESCRIPTOR;
@@ -37,6 +39,7 @@ pub const HMD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         GroupId::Trust,
         GroupId::Dynamics,
         GroupId::ApTargets,
+        GroupId::Nav,
     ]),
     frame_min: FRAME,
     frame_max: FRAME,
@@ -65,12 +68,16 @@ fn draw(
     _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
+    if data.presentation.unusual {
+        return glance::draw(data, config, _alerts, _frame, scene);
+    }
     config.require_schema(&[])?;
     scene.begin_layer(LayerId::Tapes)?;
     scale::draw(data, scene)?;
     vertical_speed::draw(data.vsi_fpm, scene)?;
     heading::draw(data, scene)?;
     scene.end_layer(LayerId::Tapes)?;
+    navigation::draw(data, false, scene)?;
     annunciation::draw(data, scene)
 }
 
