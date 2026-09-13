@@ -1,4 +1,5 @@
 //! Collimated directions in local east/north/up coordinates, without a viewer-dependent basis.
+use crate::panel::live;
 use indicate_instrument_state::{HeadingReference, PanelData};
 
 mod compass;
@@ -45,11 +46,11 @@ pub fn directions(data: &PanelData) -> AngularScene {
         length: 0,
         strokes: [AngularStroke::default(); 1024],
     };
-    if data.track_rad.status.shows_value() {
+    if live(data.track_rad) {
         compass::draw(&mut scene);
         compass::bug(&mut scene, data.track_rad.value, false);
     }
-    let true_heading = data.heading.value_rad.status.shows_value()
+    let true_heading = live(data.heading.value_rad)
         && matches!(
             data.heading.reference,
             HeadingReference::True | HeadingReference::SimLocalTrue
@@ -57,11 +58,7 @@ pub fn directions(data: &PanelData) -> AngularScene {
     if true_heading {
         compass::bug(&mut scene, data.heading.value_rad.value, true);
     }
-    if data.gs_kt.status.shows_value()
-        && data.vsi_fpm.status.shows_value()
-        && data.track_rad.status.shows_value()
-        && data.gs_kt.value > 2.0
-    {
+    if live(data.gs_kt) && live(data.vsi_fpm) && live(data.track_rad) && data.gs_kt.value > 2.0 {
         let horizontal = scale(
             direction(data.track_rad.value, 0.0),
             data.gs_kt.value * (1852.0 / 3600.0),
@@ -74,7 +71,7 @@ pub fn directions(data: &PanelData) -> AngularScene {
             marker(&mut scene, scale(velocity, -1.0), true);
         }
     }
-    if true_heading && data.roll_rad.status.shows_value() && data.pitch_rad.status.shows_value() {
+    if true_heading && live(data.roll_rad) && live(data.pitch_rad) {
         attitude(&mut scene, data);
     }
     scene

@@ -79,3 +79,16 @@ fn attitude_requires_true_heading_and_scene_remains_bounded() {
     assert!(scene.length > baseline && scene.length < 1024);
     assert_eq!(core::mem::size_of::<AngularScene>(), 24580);
 }
+
+#[test]
+fn stale_or_degraded_navigation_cannot_leave_green_world_cues() {
+    for status in [
+        indicate_instrument_state::SignalStatus::Stale,
+        indicate_instrument_state::SignalStatus::Degraded,
+    ] {
+        let mut data = data();
+        data.track_rad.status = status;
+        assert_eq!(directions(&data).length, 0);
+        assert_eq!(view_reference(&data).kind, 0);
+    }
+}
