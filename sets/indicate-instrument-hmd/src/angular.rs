@@ -106,7 +106,6 @@ fn marker(scene: &mut AngularScene, center: [f32; 3], retrograde: bool) {
 }
 
 fn attitude(scene: &mut AngularScene, data: &PanelData) {
-    let heading = data.heading.value_rad.value;
     let frame = view_reference(data);
     // The waterline denotes the fuselage, distinct from the circular velocity marker.
     let point = |x, y| {
@@ -125,6 +124,13 @@ fn attitude(scene: &mut AngularScene, data: &PanelData) {
     ] {
         scene.line(point(x, y), point(u, v));
     }
+    // The compact recovery attitude supplies pitch without cluttering its primary readouts.
+    if !data.presentation.unusual {
+        pitch_ladder(scene, data.heading.value_rad.value);
+    }
+}
+
+fn pitch_ladder(scene: &mut AngularScene, heading: f32) {
     for pitch in (-30_i32..=30).step_by(5).filter(|p| *p != 0) {
         for side in [-1.0, 1.0] {
             for x in (2..8).filter(|x| pitch > 0 || x % 2 == 0) {

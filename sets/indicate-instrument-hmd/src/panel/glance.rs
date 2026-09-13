@@ -31,7 +31,7 @@ fn draw(
         "GS KT",
         data.gs_kt,
         GroupId::Kinematics,
-        [378.0, 479.0],
+        [378.0, 491.0],
         17.0,
     )?;
     let label = fmt_label!(16, "{} FT", data.altitude.class.label());
@@ -48,7 +48,7 @@ fn draw(
         "VS FPM",
         data.vsi_fpm,
         GroupId::Kinematics,
-        [828.0, 479.0],
+        [828.0, 491.0],
         17.0,
     )?;
     attitude::draw(data, scene)?;
