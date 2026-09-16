@@ -5,8 +5,9 @@
 use indicate_alerts::AlertOutput;
 use indicate_instrument_descriptor::DesignFrame;
 use indicate_instrument_scene::{Anchor, LayerId, PaintMode, SceneError, SceneWriter};
-use indicate_instrument_state::{ChevronSense, FdEngagement, GroupId, PanelData, SignalStatus};
+use indicate_instrument_state::{ChevronSense, GroupId, PanelData, SignalStatus};
 
+use indicate_instrument_symbology::flight::{director, modes};
 use indicate_instrument_symbology::{annunciation, palette, safety, source_label, status_paint};
 
 mod drum;
@@ -153,68 +154,21 @@ pub fn draw_pfd(
     }
     scene.end_layer(LayerId::Tapes)?;
 
-    // Director command bars are guidance overlaying the attitude
-    // field: layers encode once each in ascending z-order, so the
-    // Guidance band paints over Attitude by the layer contract — an
-    // explicit decision, not an accident of band choice (#261). The
-    // band is always emitted so the layer contract holds under every
-    // degradation; its content disappears with the director.
     scene.begin_layer(LayerId::Guidance)?;
-    // The unusual-attitude tier strips everything that competes with
-    // the horizon and the recovery chevrons — command bars included:
-    // they overlay the exact chevron region from a higher band, and a
-    // recovery is flown to the horizon, not to an autopilot command.
-    if !declutter {
-        director_bars(scene, data, att_status)?;
-    }
+    director::draw(
+        scene,
+        data,
+        director::DirectorLayout {
+            center: [240.0, 180.0],
+            pixels_per_degree: [horizon::PX_PER_DEG_PITCH, 3.0],
+            travel: 90.0,
+            length: 90.0,
+            thickness: 5.0,
+        },
+    )?;
     scene.end_layer(LayerId::Guidance)?;
 
     annunciation_band(scene, data, alerts, att_status)?;
-    Ok(())
-}
-
-/// Dual-cue flight-director command bars, drawn only from a fully
-/// valid, ENGAGED director over a shown attitude: the bars mean "fly
-/// toward the command", so they need both the command and the current
-/// attitude, and under any degradation they disappear entirely — a
-/// frozen or dashed command is still a command (#261).
-fn director_bars(
-    scene: &mut SceneWriter<'_>,
-    data: &PanelData,
-    att_status: SignalStatus,
-) -> Result<(), SceneError> {
-    let fd = data.director;
-    if fd.engagement != FdEngagement::Engaged
-        || !fd.status.shows_value()
-        || !att_status.shows_value()
-    {
-        return Ok(());
-    }
-    const PX_PER_DEG_ROLL: f32 = 3.0;
-    use horizon::PX_PER_DEG_PITCH;
-    const RAD_TO_DEG: f32 = indicate_instrument_state::units::RAD_TO_DEG;
-    let pitch_err_px = ((fd.pitch_cmd_rad - data.pitch_rad.value) * RAD_TO_DEG * PX_PER_DEG_PITCH)
-        .clamp(-90.0, 90.0);
-    let roll_err_px =
-        ((fd.roll_cmd_rad - data.roll_rad.value) * RAD_TO_DEG * PX_PER_DEG_ROLL).clamp(-90.0, 90.0);
-    scene.fill_color(palette::MAGENTA)?;
-    // Fly-to bars: the pitch bar sits where the commanded pitch is
-    // (positive command error displaces it up), the roll bar likewise
-    // sideways; centering both on the aircraft symbol satisfies them.
-    scene.rect(
-        PaintMode::Fill,
-        240.0 - 45.0,
-        180.0 - pitch_err_px - 2.5,
-        90.0,
-        5.0,
-    )?;
-    scene.rect(
-        PaintMode::Fill,
-        240.0 + roll_err_px - 2.5,
-        180.0 - 45.0,
-        5.0,
-        90.0,
-    )?;
     Ok(())
 }
 
@@ -234,29 +188,20 @@ fn annunciation_band(
     } else {
         status_paint::draw_red_x(scene, 110.0, 50.0, 260.0, 240.0, "ATT")?;
     }
-    if data.ias_kt.status == SignalStatus::Failed {
+    if !data.flight.speed_present && data.ias_kt.status == SignalStatus::Failed {
         status_paint::draw_red_x(scene, 8.0, 60.0, 74.0, 200.0, "IAS")?;
     }
-    // The mode is part of the director feature, not a follow-up: a
-    // command bar without the mode that produced it is not
-    // interpretable. Annunciated when armed or engaged; claimed from
-    // the director group so the withholding matrix tests it.
-    if data.director.status.shows_value()
-        && matches!(
-            data.director.engagement,
-            FdEngagement::Armed | FdEngagement::Engaged
-        )
-    {
-        scene.fill_color(palette::MAGENTA)?;
-        scene.text_attributed(
-            GroupId::FlightDirector.to_u8(),
-            240.0,
-            44.0,
-            12.0,
-            Anchor::CENTER,
-            data.director.mode.label(),
-        )?;
-    }
+    modes::draw(
+        scene,
+        data,
+        modes::FmaLayout {
+            center: [240.0, 12.0],
+            column_step: 90.0,
+            row_step: 12.0,
+            text_size: 10.0,
+            attention_ms: 5000.0,
+        },
+    )?;
     if data.altitude.value_ft.status == SignalStatus::Failed {
         status_paint::draw_red_x(scene, 398.0, 60.0, 74.0, 200.0, "ALT")?;
     }

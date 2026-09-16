@@ -6,7 +6,26 @@ const HALF: f32 = 126.0;
 const STEP: f32 = 42.0;
 
 pub(super) fn draw(data: &PanelData, scene: &mut SceneWriter<'_>) -> Result<(), PanelDrawError> {
-    tape(scene, data.ias_kt, GroupId::Air, 280.0, 10.0, -1.0)?;
+    if data.flight.speed_present {
+        use indicate_instrument_symbology::flight::speed;
+        speed::draw(
+            scene,
+            data,
+            speed::SpeedLayout {
+                center: [280.0, CENTER],
+                half_height: HALF,
+                readout_x: 219.0,
+                text_size: 28.0,
+                label_size: 12.0,
+                readout_width: 118.0,
+                readout_background: None,
+                tick_step_pixels: STEP,
+                color: HUD_GREEN,
+            },
+        )?;
+    } else {
+        legacy_speed(data, scene)?;
+    }
     tape(
         scene,
         data.altitude.value_ft,
@@ -15,16 +34,7 @@ pub(super) fn draw(data: &PanelData, scene: &mut SceneWriter<'_>) -> Result<(), 
         200.0,
         1.0,
     )?;
-    pointer(scene, 280.0, -1.0, 108.0)?;
     pointer(scene, 920.0, 1.0, 146.0)?;
-    readout::value(
-        scene,
-        "IAS KT",
-        data.ias_kt,
-        GroupId::Air,
-        [219.0, CENTER],
-        28.0,
-    )?;
     let label = fmt_label!(16, "{} FT", data.altitude.class.label());
     readout::value(
         scene,
@@ -39,7 +49,14 @@ pub(super) fn draw(data: &PanelData, scene: &mut SceneWriter<'_>) -> Result<(), 
         "GS KT",
         data.gs_kt,
         GroupId::Kinematics,
-        [219.0, 485.0],
+        [
+            219.0,
+            if data.flight.speed_present {
+                505.0
+            } else {
+                485.0
+            },
+        ],
         18.0,
     )?;
     if data.baro_hpa.status.shows_value()
@@ -54,28 +71,51 @@ pub(super) fn draw(data: &PanelData, scene: &mut SceneWriter<'_>) -> Result<(), 
             18.0,
         )?;
     }
-    if let Some(delta) = speed_trend(data.ias_kt, data.ias_trend_kt_s) {
-        trend(scene, 295.0, delta / 10.0 * STEP)?;
-    }
     if live(data.altitude.value_ft) && live(data.vsi_fpm) {
         trend(scene, 905.0, data.vsi_fpm.value * 0.1 / 200.0 * STEP)?;
     }
     target(
         scene,
-        data.ias_kt,
-        data.ap_targets.airspeed_kt,
-        280.0,
-        10.0,
-        -1.0,
-    )?;
-    target(
-        scene,
         data.altitude.value_ft,
-        data.ap_targets.altitude_ft,
+        data.flight.ap_targets.altitude_ft,
         920.0,
         200.0,
         1.0,
     )?;
+    Ok(())
+}
+
+fn legacy_speed(data: &PanelData, scene: &mut SceneWriter<'_>) -> Result<(), PanelDrawError> {
+    tape(scene, data.ias_kt, GroupId::Air, 280.0, 10.0, -1.0)?;
+    pointer(scene, 280.0, -1.0, 108.0)?;
+    readout::value(
+        scene,
+        "IAS KT",
+        data.ias_kt,
+        GroupId::Air,
+        [219.0, CENTER],
+        28.0,
+    )?;
+    if let Some(delta) = speed_trend(data.ias_kt, data.ias_trend_kt_s) {
+        trend(scene, 295.0, delta / 10.0 * STEP)?;
+    }
+    use indicate_instrument_symbology::flight::speed;
+    speed::target_markers(
+        scene,
+        data,
+        speed::SpeedLayout {
+            center: [280.0, CENTER],
+            half_height: HALF,
+            readout_x: 219.0,
+            text_size: 28.0,
+            label_size: 12.0,
+            readout_width: 118.0,
+            readout_background: None,
+            tick_step_pixels: STEP,
+            color: HUD_GREEN,
+        },
+    )?;
+    speed::target_readouts(scene, data, [219.0, 126.0], 12.0, 140.0)?;
     Ok(())
 }
 
@@ -166,13 +206,13 @@ fn target(
     let offset = (target.value - current.value) / interval * STEP;
     // Clamped bugs retain their exact selection above the scale.
     let y = CENTER - offset.clamp(-HALF, HALF);
-    scene.stroke(palette::MAGENTA, 2.0)?;
+    scene.stroke(palette::CYAN, 2.0)?;
     scene.polyline(&[
         [x - side * 15.0, y - 6.0],
         [x - side * 5.0, y],
         [x - side * 15.0, y + 6.0],
     ])?;
-    scene.fill_color(palette::MAGENTA)?;
+    scene.fill_color(palette::CYAN)?;
     let label = fmt_label!(24, "SEL {:.0}", target.value);
     scene.text_attributed(
         GroupId::ApTargets.to_u8(),

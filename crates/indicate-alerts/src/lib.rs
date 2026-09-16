@@ -29,6 +29,7 @@
 #[cfg(test)]
 extern crate std;
 
+mod autoflight;
 mod class;
 mod condition;
 mod event;
@@ -36,6 +37,7 @@ mod manager;
 mod output;
 mod profile;
 
+pub use autoflight::{AutoflightFault, aural_of};
 pub use class::{AlertClass, AlertState, AuralToken};
 pub use condition::{
     AlertCondition, AlertId, AltFault, DisplayFault, DynFault, MiscompareFault, NavFault,

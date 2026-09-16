@@ -15,3 +15,8 @@ indicate-instrument-state.workspace = true
 indicate-instrument-glyphs.workspace = true
 thiserror.workspace = true
 indicate-frames.workspace = true
+indicate-alerts.workspace = true
+
+[dev-dependencies]
+indicate-instrument-panels.workspace = true
+indicate-instrument-raster.workspace = true

@@ -31,8 +31,7 @@ pub enum AlertClass {
 }
 
 impl AlertClass {
-    /// The static aural token this class owns. Status and maintenance are
-    /// silent.
+    /// Default aural token for this class. Specific conditions can override it through [`crate::aural_of`].
     pub const fn aural_token(self) -> AuralToken {
         match self {
             Self::Warning => AuralToken::ContinuousTone,
@@ -69,6 +68,8 @@ pub enum AuralToken {
     TripleChime,
     /// Continuous tone that sounds every step until acknowledged: warning.
     ContinuousTone,
+    /// Distinct AP disconnect warning, sustained until acknowledgement or condition clearance.
+    AutopilotDisconnect,
 }
 
 impl AuralToken {
@@ -76,7 +77,7 @@ impl AuralToken {
     /// the alert stays active and unacknowledged — rather than as a
     /// one-shot at onset.
     pub const fn is_continuous(self) -> bool {
-        matches!(self, Self::ContinuousTone)
+        matches!(self, Self::ContinuousTone | Self::AutopilotDisconnect)
     }
 }
 

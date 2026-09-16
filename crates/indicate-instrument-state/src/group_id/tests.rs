@@ -21,7 +21,7 @@ fn all_is_ascending_and_bijective_with_from_u8() {
 #[test]
 fn unassigned_tags_do_not_resolve() {
     assert_eq!(GroupId::from_u8(0x00), None);
-    for value in 0x16u8..=0xFF {
+    for value in 0x18u8..=0xFF {
         assert_eq!(GroupId::from_u8(value), None, "tag {value:#04x}");
     }
 }
@@ -45,17 +45,11 @@ fn index_is_dense_over_all() {
 
 #[test]
 fn index_is_not_wire_tag_arithmetic() {
-    // The sparse allocation has arrived: 0x0E to 0x11 have no variant,
-    // so the highest tag is 0x15 and its slot is one below COUNT.
-    // Arithmetic on the tag would answer 20 and index past the table,
-    // which is what the match exists to prevent — and this proves it
-    // rather than describing it.
-    assert_eq!(GroupId::ApTargets.to_u8(), 0x15);
-    assert_eq!(GroupId::ApTargets.index(), GroupId::COUNT - 1);
+    let highest = GroupId::ALL[GroupId::COUNT - 1];
     assert_ne!(
-        GroupId::ApTargets.index(),
-        usize::from(GroupId::ApTargets.to_u8()) - 1,
-        "the match and the arithmetic now disagree"
+        highest.index(),
+        usize::from(highest.to_u8()) - 1,
+        "sparse tags need explicit indices"
     );
 }
 
@@ -78,7 +72,7 @@ fn wire_tag_arithmetic_would_index_past_the_table() {
 
 #[test]
 fn withholding_a_stamped_group_resolves_missing() {
-    let full = fixtures::full();
+    let full = fixtures::extended();
     let policy = FreshnessPolicy::default();
     for group in GroupId::ALL {
         // Exhaustive on purpose: a group added to the registry cannot
@@ -99,6 +93,8 @@ fn withholding_a_stamped_group_resolves_missing() {
             | GroupId::AirframeConfig
             | GroupId::ApModes
             | GroupId::FlightDirector
+            | GroupId::Guidance
+            | GroupId::SpeedPresentation
             | GroupId::MonitorText => true,
             GroupId::Selections | GroupId::Trust | GroupId::Altitude | GroupId::ApTargets => false,
         };
@@ -141,7 +137,7 @@ fn withholding_declared_targets_returns_the_fail_closed_default() {
     );
     let data = crate::resolve(&withheld, &FreshnessPolicy::default());
     assert_eq!(
-        data.ap_targets.altitude_ft.status,
+        data.flight.ap_targets.altitude_ft.status,
         SignalStatus::Missing,
         "a withheld target readout must not show a value"
     );

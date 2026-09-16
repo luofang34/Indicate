@@ -92,10 +92,8 @@ pub struct PanelData {
     pub bearings_rose_rad: [Sig<f32>; 2],
     /// The bearing pointers as declared, with the group's status.
     pub bearings: Sig<crate::aircraft::BearingPointers>,
-    /// Flight-director command presentation: bars draw only from a
-    /// fully valid, engaged director — under any degradation they
-    /// disappear (a frozen or dashed command is still a command).
-    pub director: ResolvedDirector,
+    /// Shared guidance, selected targets, and speed-presentation state.
+    pub flight: crate::flight::FlightDisplayData,
     /// Typed turn indication; body rates never feed this.
     pub turn: ResolvedTurn,
     /// Lateral specific force (m/s², body +Y right) for the slip/skid
@@ -142,11 +140,6 @@ pub struct PanelData {
     /// when the caller resolves without source comparison;
     /// [`crate::resolve_with_sources`] populates it.
     pub sources: crate::source_monitor::SourceSelection,
-    /// Autoflight engagement and modes; `Missing` renders nothing, so
-    /// an annunciation never outlives the sample behind it.
-    pub ap_modes: Sig<crate::autopilot::ApModes>,
-    /// The values the automation is flying toward, in display units.
-    pub ap_targets: ApTargetsResolved,
     /// Machine-monitoring text channel (AIR-IN-014), advisory only; a
     /// hidden status leaves the default empty channel behind it.
     pub monitor_text: Sig<crate::monitor_text::MonitorText>,
@@ -279,12 +272,12 @@ pub fn resolve_stateful(
     PanelData {
         bearings_rose_rad: equipment.bearings_rose_rad,
         bearings: equipment.bearings,
-        ap_modes: equipment.ap_modes,
-        ap_targets: equipment.ap_targets,
+        flight: flight_signal::flight_resolved(
+            state, policy, &trust, &integrity, &groups, &equipment,
+        ),
         roll_rad: finite(Sig::with_status(presentation.bank_rad, att_status)),
         pitch_rad: finite(Sig::with_status(presentation.pitch_rad, att_status)),
         heading,
-        director: director_resolved(state, policy, &trust, &integrity),
         rose_basis: basis,
         heading_bug_rose_rad: finite(bug),
         turn: turn_resolved(state, policy, &trust, &integrity),
@@ -470,6 +463,7 @@ mod autoflight_signal;
 mod bearings_signal;
 mod dynamics_signal;
 mod equipment_signal;
+mod flight_signal;
 mod group_status;
 mod kinematics_signal;
 mod wind_signal;
@@ -481,7 +475,6 @@ mod heading_signal;
 pub use heading_signal::{ResolvedHeading, RoseBasis};
 mod director_signal;
 pub use director_signal::ResolvedDirector;
-use director_signal::director_resolved;
 use heading_signal::heading_bug_presented;
 use heading_signal::rose_basis;
 use heading_signal::{heading_resolved, presented_angle, presented_true, presented_wind};

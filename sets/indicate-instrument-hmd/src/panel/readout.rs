@@ -35,7 +35,7 @@ pub(super) fn color(status: SignalStatus) -> Rgba8 {
     match status {
         SignalStatus::Valid => HUD_GREEN,
         SignalStatus::Failed => safety::FAILURE_RED,
-        _ => palette::AMBER,
+        _ => safety::CAUTION_AMBER,
     }
 }
 

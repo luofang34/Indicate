@@ -8,6 +8,7 @@ use indicate_instrument_scene::{Anchor, LayerId, PaintMode, Rgba8, SceneWriter};
 mod annunciation;
 mod attitude;
 mod glance;
+mod guidance;
 mod heading;
 mod navigation;
 mod readout;
@@ -40,6 +41,10 @@ pub const HMD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         GroupId::Dynamics,
         GroupId::ApTargets,
         GroupId::Nav,
+        GroupId::FlightDirector,
+        GroupId::ApModes,
+        GroupId::Guidance,
+        GroupId::SpeedPresentation,
     ]),
     frame_min: FRAME,
     frame_max: FRAME,
@@ -50,7 +55,10 @@ pub const HMD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     background: BackgroundCapability::NotUsed,
     config_schema: &[],
     group_regions: &[],
-    extreme_states: &[],
+    extreme_states: &[indicate_instrument_descriptor::ExtremeState {
+        id: "extended-flight-guidance",
+        build: indicate_instrument_state::abi::v8::fixtures::extended,
+    }],
     raster_baselines: &[],
     draw,
 };
@@ -64,12 +72,12 @@ pub const HMD_SET: PanelSet = PanelSet {
 fn draw(
     data: &PanelData,
     config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
+    alerts: Option<&AlertOutput>,
     _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     if data.presentation.unusual {
-        return glance::draw(data, config, _alerts, _frame, scene);
+        return glance::draw(data, config, alerts, _frame, scene);
     }
     config.require_schema(&[])?;
     scene.begin_layer(LayerId::Tapes)?;
@@ -77,8 +85,8 @@ fn draw(
     vertical_speed::draw(data.vsi_fpm, scene)?;
     heading::draw(data, scene)?;
     scene.end_layer(LayerId::Tapes)?;
-    navigation::draw(data, false, scene)?;
-    annunciation::draw(data, scene)
+    guidance::draw(data, false, scene)?;
+    annunciation::draw(data, alerts, scene)
 }
 
 pub(crate) fn live(signal: Sig<f32>) -> bool {

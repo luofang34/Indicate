@@ -53,8 +53,8 @@ fn main() -> Result<(), Error> {
 }
 
 fn encode_case(case: &cases::Case) -> Result<String, Error> {
-    let forward = scene::encode(&case.data, &HMD_DESCRIPTOR)?;
-    let compact = scene::encode(&case.data, &HMD_GLANCE_DESCRIPTOR)?;
+    let forward = scene::encode(&case.data, case.alerts.as_ref(), &HMD_DESCRIPTOR)?;
+    let compact = scene::encode(&case.data, case.alerts.as_ref(), &HMD_GLANCE_DESCRIPTOR)?;
     let frame = view_reference(&case.data);
     let angular = directions(&case.data);
     let lines = angular.strokes[..angular.length as usize]
@@ -76,5 +76,7 @@ fn encode_case(case: &cases::Case) -> Result<String, Error> {
     ))
 }
 
+#[cfg(test)]
+mod cross_set_tests;
 #[cfg(test)]
 mod tests;

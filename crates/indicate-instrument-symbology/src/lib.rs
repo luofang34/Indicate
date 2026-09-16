@@ -18,6 +18,7 @@
 
 pub mod annunciation;
 pub mod fixed_str;
+pub mod flight;
 pub mod palette;
 pub mod safety;
 pub mod source_label;

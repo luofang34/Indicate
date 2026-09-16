@@ -65,6 +65,7 @@ pub fn nothing_fed() -> AircraftState {
 /// renormalization divides by exactly 1.0 and changes nothing.
 pub fn typical() -> AircraftState {
     AircraftState {
+        flight: Default::default(),
         attitude: Stamped {
             data: Some(Attitude {
                 quat: Quat {

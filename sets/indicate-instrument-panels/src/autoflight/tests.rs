@@ -258,7 +258,7 @@ fn every_mode_label_is_in_the_panel_vocabulary() {
 fn a_stale_group_annunciates_nothing_even_though_it_carries_modes() {
     let data = panel(Some(engaged()), Some(5_000.0), full_targets());
     assert!(
-        !data.ap_modes.status.shows_value(),
+        !data.flight.ap_modes.status.shows_value(),
         "the fixture must be refused by the policy, or this proves nothing"
     );
     let t = texts(&data);

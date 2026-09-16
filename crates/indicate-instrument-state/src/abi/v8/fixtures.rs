@@ -20,6 +20,9 @@ use crate::ident::IdentStr;
 use crate::monitor_text::{MonitorText, TextLine};
 use indicate_frames::Quat;
 
+mod flight;
+pub use flight::extended;
+
 fn ident(text: &str) -> IdentStr {
     IdentStr::new(text).unwrap_or(IdentStr::EMPTY)
 }

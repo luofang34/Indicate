@@ -22,8 +22,9 @@ type FixtureBuilder = fn() -> AircraftState;
 /// file stem is derived from the compiled ABI version rather than
 /// written out, so a version bump cannot leave the generator
 /// overwriting a file whose name still says the version before it.
-const FIXTURES: [(&str, FixtureBuilder); 3] = [
+const FIXTURES: [(&str, FixtureBuilder); 4] = [
     ("full", fixtures::full),
+    ("extended-flight", fixtures::extended),
     ("data-gateway", fixtures::data_gateway),
     ("flight-controller", fixtures::flight_controller),
 ];

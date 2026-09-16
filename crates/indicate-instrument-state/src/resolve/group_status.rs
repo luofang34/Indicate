@@ -128,6 +128,9 @@ fn group_status(
     id: GroupId,
 ) -> SignalStatus {
     match id {
+        GroupId::Guidance | GroupId::SpeedPresentation => {
+            flight_status(state, policy, trust, integrity, id)
+        }
         GroupId::Attitude => attitude_status(state, policy, trust, integrity),
         GroupId::Kinematics => kinematics_status(state, policy, trust, integrity),
         GroupId::Air => fold(&Ctx::of(policy, trust, &state.air), integrity.air, true),
@@ -191,12 +194,38 @@ fn group_status(
         ),
         // Advisory machine text folds no flight-source trust and runs
         // its own slow freshness policy, mirroring wind's independence.
-        GroupId::MonitorText => group_freshness(
-            &TEXT_FRESHNESS,
-            state.monitor_text.data.is_some(),
-            state.monitor_text.age_ms,
+        GroupId::MonitorText => monitor_status(state, integrity),
+    }
+}
+
+fn monitor_status(state: &AircraftState, integrity: &StateIntegrity) -> SignalStatus {
+    group_freshness(
+        &TEXT_FRESHNESS,
+        state.monitor_text.data.is_some(),
+        state.monitor_text.age_ms,
+    )
+    .worst(fault_status(integrity.monitor_text))
+}
+
+fn flight_status(
+    state: &AircraftState,
+    policy: &FreshnessPolicy,
+    trust: &Trust,
+    integrity: &StateIntegrity,
+    id: GroupId,
+) -> SignalStatus {
+    if id == GroupId::Guidance {
+        fold(
+            &Ctx::of(policy, trust, &state.flight.guidance),
+            integrity.guidance,
+            true,
         )
-        .worst(fault_status(integrity.monitor_text)),
+    } else {
+        fold(
+            &Ctx::of(policy, trust, &state.flight.speed),
+            integrity.speed,
+            true,
+        )
     }
 }
 

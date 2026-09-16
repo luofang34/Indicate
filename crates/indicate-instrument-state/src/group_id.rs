@@ -25,7 +25,9 @@
 //! | 0x13 | airframe configuration (stamped) |
 //! | 0x14 | autopilot/flight-director modes (stamped) |
 //! | 0x15 | autopilot targets (declared) |
-//! | 0x16–0xDF | future standard groups |
+//! | 0x16 | coherent flight guidance (stamped) |
+//! | 0x17 | speed presentation and conditional envelope (stamped) |
+//! | 0x18–0xDF | future standard groups |
 //! | 0xE0–0xEF | experimentation; never in committed fixtures |
 //! | 0xF0–0xFF | never assigned |
 //!
@@ -103,11 +105,15 @@ pub enum GroupId {
     ApModes = 0x14,
     /// The values the automation is flying toward.
     ApTargets = 0x15,
+    /// Independent engagements, modes, and effective guidance.
+    Guidance = 0x16,
+    /// Typed speed values and source-supplied target and envelope projections.
+    SpeedPresentation = 0x17,
 }
 
 impl GroupId {
     /// Number of defined groups.
-    pub const COUNT: usize = 17;
+    pub const COUNT: usize = 19;
 
     /// Every defined group in ascending id order — the canonical wire
     /// order and the index order of [`GroupStatuses`].
@@ -129,6 +135,8 @@ impl GroupId {
         GroupId::AirframeConfig,
         GroupId::ApModes,
         GroupId::ApTargets,
+        GroupId::Guidance,
+        GroupId::SpeedPresentation,
     ];
 
     /// The wire tag.
@@ -157,6 +165,8 @@ impl GroupId {
             0x13 => Some(GroupId::AirframeConfig),
             0x14 => Some(GroupId::ApModes),
             0x15 => Some(GroupId::ApTargets),
+            0x16 => Some(GroupId::Guidance),
+            0x17 => Some(GroupId::SpeedPresentation),
             _ => None,
         }
     }
@@ -187,6 +197,8 @@ impl GroupId {
             GroupId::AirframeConfig => 14,
             GroupId::ApModes => 15,
             GroupId::ApTargets => 16,
+            GroupId::Guidance => 17,
+            GroupId::SpeedPresentation => 18,
         }
     }
 }
@@ -257,6 +269,8 @@ pub fn withhold_group(state: &AircraftState, group: GroupId) -> AircraftState {
         GroupId::FlightDirector => out.director = Default::default(),
         GroupId::ApModes => out.ap_modes = Default::default(),
         GroupId::ApTargets => out.ap_targets = Default::default(),
+        GroupId::Guidance => out.flight.guidance = Default::default(),
+        GroupId::SpeedPresentation => out.flight.speed = Default::default(),
     }
     out
 }

@@ -39,17 +39,8 @@ pub(super) const PANEL_FRAME: DesignFrame = DesignFrame {
     height: 360.0,
 };
 
-/// The inset and overlay both occupy this rect on the PFD: the strip
-/// above the PFD's measured criticality band, which begins at y 38 and
-/// runs to the bottom of the alert stack at y 352. That leaves the top
-/// band of the frame, clear also of the VSI readout strip at x 440.
-///
-/// The rect is deliberately small. Once a panel's warnings are measured
-/// with alerts fed, a PFD-sized panel has very little surface a slot
-/// may sit on at all, and that is the floor working rather than a
-/// fixture inconvenience. `validate_composition` proves the reading
-/// rather than this comment — see
-/// [`the_fixtures_are_admissible_compositions`].
+/// Raster-only overlap fixtures occupy the mode-annunciation region.
+/// Composition admission rejects this placement because it would obscure flight guidance status.
 const INSET_RECT: Region = Region {
     x: 140.0,
     y: 4.0,
@@ -159,9 +150,9 @@ const PFD_BAND: PanelCriticality = PanelCriticality {
     frame: PANEL_FRAME,
     band: Some(Region {
         x: 6.0,
-        y: 38.0,
+        y: 5.4,
         width: 468.0,
-        height: 314.0,
+        height: 346.6,
     }),
 };
 
@@ -303,19 +294,22 @@ fn the_fixture_band_matches_the_pin() {
     assert_eq!(*pinned, PFD_BAND);
 }
 
-/// Every fixture below is a composition the registry admits. The inset
-/// and overlay clear the PFD's criticality band and every readout
-/// region it declares, so neither needs an `occludes` entry — and that
-/// is asserted here rather than reasoned about in a comment.
+/// Mode annunciations remain protected from both opaque and transparent overlapping slots.
 #[test]
-fn the_fixtures_are_admissible_compositions() {
+fn mode_annunciations_prevent_overlapping_slot_admission() {
     validate_composition(&builtin(), &SIDE_BY_SIDE, &BUILTIN_CRITICALITY_BANDS)
         .expect("side by side");
     validate_composition(&builtin(), &PFD_ALONE, &BUILTIN_CRITICALITY_BANDS).expect("pfd alone");
     let inset = Registry::new(&PFD_AND_INSET).expect("composes");
-    validate_composition(&inset, &OPAQUE_INSET, &INSET_BANDS).expect("opaque inset");
+    assert!(matches!(
+        validate_composition(&inset, &OPAQUE_INSET, &INSET_BANDS),
+        Err(indicate_instrument_registry::CompositionError::CriticalityObscured { .. })
+    ));
     let overlay = Registry::new(&PFD_AND_OVERLAY).expect("composes");
-    validate_composition(&overlay, &OVERLAY, &OVERLAY_BANDS).expect("notused overlay");
+    assert!(matches!(
+        validate_composition(&overlay, &OVERLAY, &OVERLAY_BANDS),
+        Err(indicate_instrument_registry::CompositionError::CriticalityObscured { .. })
+    ));
 }
 
 #[test]

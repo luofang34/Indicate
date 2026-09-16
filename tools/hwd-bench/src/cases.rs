@@ -10,8 +10,10 @@ pub(super) struct Case {
     pub data: PanelData,
     pub head: [f32; 3],
     pub background: &'static str,
+    pub alerts: Option<indicate_alerts::AlertOutput>,
 }
 
+pub(super) mod flight;
 mod guidance;
 
 fn nominal() -> PanelData {
@@ -52,6 +54,7 @@ pub(super) fn all() -> Vec<Case> {
             data,
             head,
             background,
+            alerts: None,
         });
     };
     flight_cases(&mut add);
@@ -61,6 +64,7 @@ pub(super) fn all() -> Vec<Case> {
     vertical_cases(&mut add);
     contrast_cases(&mut add);
     guidance::all(&mut add);
+    flight::append(&mut out);
     out
 }
 
@@ -289,8 +293,8 @@ fn vertical_cases(add: &mut AddCase<'_>) {
         |d| {
             d.altitude.class = AltitudeClass::Pressure;
             d.altitude.value_ft = Sig::valid(35000.0);
-            d.ap_targets.altitude_ft = Sig::valid(37000.0);
-            d.ap_targets.airspeed_kt = Sig::valid(140.0);
+            d.flight.ap_targets.altitude_ft = Sig::valid(37000.0);
+            d.flight.ap_targets.airspeed_kt = Sig::valid(140.0);
         },
         [90.0, 0.0, 0.0],
         "terrain",

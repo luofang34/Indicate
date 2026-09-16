@@ -45,6 +45,12 @@ pub enum GroupFault {
 /// not a fault).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct StateIntegrity {
+    /// Extended guidance identity, mode, or command fault.
+    pub guidance: Option<GroupFault>,
+    /// Extended measured speed fault.
+    pub speed: Option<GroupFault>,
+    /// Conditional envelope fault, independent of measured speed.
+    pub envelope: Option<GroupFault>,
     /// Attitude quaternion fault.
     pub attitude: Option<GroupFault>,
     /// Body-rates fault.
@@ -239,9 +245,29 @@ fn validate_state_estimates(state: &AircraftState, integrity: &mut StateIntegrit
 /// deterministic worst-of combination in `resolve` folds these faults
 /// into each signal's status.
 pub fn validate_state(state: &AircraftState) -> StateIntegrity {
-    let mut integrity = StateIntegrity::default();
-
+    let mut integrity = StateIntegrity {
+        guidance: state
+            .flight
+            .guidance
+            .data
+            .as_ref()
+            .and_then(crate::flight::guidance_fault),
+        speed: state
+            .flight
+            .speed
+            .data
+            .as_ref()
+            .and_then(crate::flight::speed_fault),
+        envelope: state
+            .flight
+            .speed
+            .data
+            .as_ref()
+            .and_then(crate::flight::speed_envelope_fault),
+        ..StateIntegrity::default()
+    };
     validate_state_estimates(state, &mut integrity);
+
     if let Some(air) = &state.air.data
         && !(opt_finite(air.ias_mps) && opt_finite(air.baro_setting_hpa) && opt_finite(air.tas_mps))
     {

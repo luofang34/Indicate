@@ -22,6 +22,10 @@ pub fn speed_tape(
     v: Option<&VSpeeds>,
     declutter: bool,
 ) -> Result<(), SceneError> {
+    if data.flight.speed_present {
+        extended_speed(scene, data)?;
+        return gs_box(scene, data);
+    }
     let ias = data.ias_kt;
     scene.fill_color(palette::TAPE_BG)?;
     scene.rect(
@@ -78,8 +82,61 @@ pub fn speed_tape(
         trend_bar(scene, data)?;
     }
 
-    tas_box(scene, data)?;
+    legacy_targets_or_tas(scene, data)?;
     gs_box(scene, data)?;
+    Ok(())
+}
+
+fn legacy_targets_or_tas(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneError> {
+    use indicate_instrument_state::flight::presentation;
+    use indicate_instrument_symbology::flight::speed;
+    if presentation::selected_speed(data).is_none() && presentation::effective_speed(data).is_none()
+    {
+        return tas_box(scene, data);
+    }
+    speed::target_markers(
+        scene,
+        data,
+        speed::SpeedLayout {
+            center: [90.0, CENTER_Y],
+            half_height: 155.0,
+            readout_x: 45.0,
+            text_size: 24.0,
+            label_size: 8.0,
+            readout_width: 86.0,
+            readout_background: None,
+            tick_step_pixels: PX_PER_KT * 10.0,
+            color: palette::WHITE,
+        },
+    )?;
+    speed::target_readouts(scene, data, [45.0, 8.0], 8.0, 86.0)
+}
+
+fn extended_speed(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneError> {
+    use indicate_instrument_symbology::flight::speed;
+    scene.fill_color(palette::TAPE_BG)?;
+    scene.rect(
+        PaintMode::Fill,
+        0.0,
+        SPEED_TAPE_TOP,
+        90.0,
+        TAPE_BOTTOM - SPEED_TAPE_TOP,
+    )?;
+    speed::draw(
+        scene,
+        data,
+        speed::SpeedLayout {
+            center: [90.0, CENTER_Y],
+            half_height: 105.0,
+            readout_x: 45.0,
+            text_size: 24.0,
+            label_size: 8.0,
+            readout_width: 86.0,
+            readout_background: Some(palette::BOX_BG),
+            tick_step_pixels: 55.0,
+            color: palette::WHITE,
+        },
+    )?;
     Ok(())
 }
 

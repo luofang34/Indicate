@@ -12,7 +12,6 @@ pub(super) fn draw(
     if data.presentation.unusual || data.nav.data.source == NavSource::None {
         return Ok(());
     }
-    scene.begin_layer(LayerId::Guidance)?;
     let center = if compact {
         [200.0, 405.0]
     } else {
@@ -47,7 +46,7 @@ pub(super) fn draw(
     } else {
         scene.fill_color(readout::color(data.nav.status))?;
         if data.nav.status == SignalStatus::Valid {
-            scene.fill_color(palette::AMBER)?;
+            scene.fill_color(safety::CAUTION_AMBER)?;
         }
         let label = fmt_label!(
             24,
@@ -60,7 +59,6 @@ pub(super) fn draw(
         );
         scene.text(center[0], center[1], 12.0, Anchor::CENTER, label.as_str())?;
     }
-    scene.end_layer(LayerId::Guidance)?;
     Ok(())
 }
 

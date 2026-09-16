@@ -12,20 +12,16 @@ pub const HMD_GLANCE_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
 pub(super) fn draw(
     data: &PanelData,
     config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
+    alerts: Option<&AlertOutput>,
     _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     config.require_schema(&[])?;
     scene.begin_layer(LayerId::Tapes)?;
-    readout::value(
-        scene,
-        "IAS KT",
-        data.ias_kt,
-        GroupId::Air,
-        [378.0, 405.0],
-        27.0,
-    )?;
+    use indicate_instrument_symbology::flight::speed;
+    speed::readout(scene, data, [378.0, 405.0], 27.0, 12.0, 150.0, HUD_GREEN)?;
+    speed::target_readouts(scene, data, [378.0, 322.0], 12.0, 180.0)?;
+    speed::envelope_summary(scene, data, [378.0, 269.0], 12.0)?;
     readout::value(
         scene,
         "GS KT",
@@ -60,13 +56,13 @@ pub(super) fn draw(
         "AIRCRAFT ATTITUDE"
     };
     scene.fill_color(if data.presentation.high_bank {
-        palette::AMBER
+        safety::CAUTION_AMBER
     } else {
         HUD_GREEN
     })?;
     scene.text(600.0, 521.0, 12.0, Anchor::CENTER, label)?;
     heading::draw(data, scene)?;
     scene.end_layer(LayerId::Tapes)?;
-    navigation::draw(data, true, scene)?;
-    annunciation::draw(data, scene)
+    guidance::draw(data, true, scene)?;
+    annunciation::draw(data, alerts, scene)
 }

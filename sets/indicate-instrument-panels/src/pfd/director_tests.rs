@@ -1,6 +1,5 @@
-//! Director command-bar behavior (#261): bars from a fully valid,
-//! engaged director only; disappearance under every degradation; mode
-//! annunciation as part of the feature.
+//! Director command bars require valid guidance and measured attitude.
+//! Tests cover engagement, degraded inputs, and mode annunciation.
 #![allow(clippy::expect_used, clippy::panic)]
 
 use std::string::String;
@@ -96,14 +95,14 @@ fn texts(scene: &[u8]) -> Vec<String> {
 fn an_engaged_director_draws_both_bars_and_its_mode() {
     let scene = render(&with_director(FdEngagement::Engaged, Some(60.0)));
     assert_eq!(guidance_fills(&scene), 2, "dual-cue bars");
-    assert!(texts(&scene).iter().any(|t| t == "FD NAV"));
+    assert!(texts(&scene).iter().any(|t| t == "FD ON NAV"));
 }
 
 #[test]
 fn an_armed_director_annunciates_but_commands_nothing() {
     let scene = render(&with_director(FdEngagement::Armed, Some(60.0)));
     assert_eq!(guidance_fills(&scene), 0, "armed must not command");
-    assert!(texts(&scene).iter().any(|t| t == "FD NAV"));
+    assert!(texts(&scene).iter().any(|t| t == "FD ARM NAV"));
 }
 
 #[test]
@@ -124,7 +123,7 @@ fn a_stale_command_disappears_rather_than_freezing() {
     // arrives (freshness, trust, integrity), the bars must vanish —
     // not dash, not freeze.
     let mut data = with_director(FdEngagement::Engaged, Some(60.0));
-    data.director.status = indicate_instrument_state::SignalStatus::Failed;
+    data.flight.director.status = indicate_instrument_state::SignalStatus::Failed;
     let scene = render(&data);
     assert_eq!(guidance_fills(&scene), 0);
 }

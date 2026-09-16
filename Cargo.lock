@@ -128,10 +128,13 @@ dependencies = [
 name = "hwd-bench"
 version = "0.1.0"
 dependencies = [
+ "indicate-alerts",
  "indicate-frames",
  "indicate-instrument-descriptor",
  "indicate-instrument-glyphs",
  "indicate-instrument-hmd",
+ "indicate-instrument-panels",
+ "indicate-instrument-raster",
  "indicate-instrument-scene",
  "indicate-instrument-state",
  "thiserror",

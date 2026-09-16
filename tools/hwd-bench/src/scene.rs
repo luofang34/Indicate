@@ -5,11 +5,15 @@ use indicate_instrument_glyphs::{ADVANCE, CELL_H, CELL_W, PANEL_GLYPHS};
 use indicate_instrument_scene::{Anchor, Cmd, HAlign, Rgba8, SceneCmds, SceneWriter, VAlign};
 use indicate_instrument_state::PanelData;
 
-pub(super) fn encode(data: &PanelData, panel: &PanelDescriptor) -> Result<String, Error> {
+pub(super) fn encode(
+    data: &PanelData,
+    alerts: Option<&indicate_alerts::AlertOutput>,
+    panel: &PanelDescriptor,
+) -> Result<String, Error> {
     let mut storage = [0; 8192];
     let mut writer = SceneWriter::new(&mut storage)
         .map_err(indicate_instrument_descriptor::PanelDrawError::from)?;
-    (panel.draw)(data, &EMPTY_CONFIG, None, panel.frame_min, &mut writer)?;
+    (panel.draw)(data, &EMPTY_CONFIG, alerts, panel.frame_min, &mut writer)?;
     let length = writer.finish();
     let mut shapes = Vec::new();
     let mut fill = Rgba8::rgba(255, 255, 255, 255);
@@ -38,6 +42,15 @@ pub(super) fn encode(data: &PanelData, panel: &PanelDescriptor) -> Result<String
                 width,
                 false,
             )),
+            Cmd::Rect { mode, x, y, w, h } => {
+                let points = [[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]];
+                if mode != indicate_instrument_scene::PaintMode::Stroke {
+                    shapes.push(shape(&points, fill, 0.0, true));
+                }
+                if mode != indicate_instrument_scene::PaintMode::Fill {
+                    shapes.push(shape(&points, stroke, width, false));
+                }
+            }
             Cmd::Circle {
                 mode: indicate_instrument_scene::PaintMode::Stroke,
                 cx,
