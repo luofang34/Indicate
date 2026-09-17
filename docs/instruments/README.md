@@ -25,6 +25,19 @@ request is admitted by device identity, sequence, clock, and bounds,
 and is confirmed only when the source echoes it through the selections
 group. The display never paints a requested value.
 
+## Reference host
+
+The [backend contract](backend-contract.md) states what every shell
+owes: one snapshot generation per admission, a repaint on the display
+clock rather than on data arrival, one resolve and one alert step per
+frame, a liveness watchdog on the renderer's own progress
+([`AIR-IN-013`](requirements.md#air-in-013)), and a failure page in
+place of a frame it could not make
+([`AIR-UNAV-007`](requirements.md#air-unav-007)). `tools/indicate-host`
+is that loop once, `no_std` and sans-IO, with the intent gate and echo
+monitor routed through it, so a simulator shell embeds it instead of
+rewriting it.
+
 ## Identifier registry
 
 Code and documents cite identifiers from several families:

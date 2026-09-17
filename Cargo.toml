@@ -20,6 +20,7 @@ members = [
     "crates/indicate-evidence",
     "tools/instrument-bench",
     "tools/hwd-bench",
+    "tools/indicate-host",
     "tools/xtask",
 ]
 
@@ -47,6 +48,7 @@ indicate-instrument-raster = { path = "crates/indicate-instrument-raster" }
 indicate-instrument-conformance = { path = "crates/indicate-instrument-conformance" }
 indicate-instrument-feeder = { path = "crates/indicate-instrument-feeder" }
 indicate-intent = { path = "crates/indicate-intent" }
+indicate-host = { path = "tools/indicate-host" }
 indicate-instrument-registry = { path = "crates/indicate-instrument-registry" }
 
 [workspace.lints.rust]

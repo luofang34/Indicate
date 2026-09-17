@@ -1,0 +1,25 @@
+[package]
+name = "indicate-host"
+description = "Reference host: the paint clock, single resolve, alert step, liveness watchdog, failure page, and intent routing the backend contract describes (HOST-01)"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+# A shell, not a library tier: the host is what a simulator user links
+# to get the fail-safe loop without rewriting it. It reaches the kernel
+# only, so a shell that embeds it stays downstream-agnostic.
+[dependencies]
+indicate-alerts = { workspace = true }
+indicate-instrument-descriptor = { workspace = true }
+indicate-instrument-feeder = { workspace = true }
+indicate-instrument-scene = { workspace = true }
+indicate-instrument-state = { workspace = true }
+indicate-instrument-symbology = { workspace = true }
+indicate-intent = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+indicate-instrument-template = { workspace = true }
