@@ -113,6 +113,16 @@ jobs:
           bash scripts/test-set-docs.sh
           bash scripts/check-set-docs.sh
 
+      - name: every identifier cited from code is defined
+        # A comment that cites a work package (ALR-01, REN-03, ...) or a
+        # decision record (ADR-0029) names a definition. The registry
+        # under docs/instruments/ is the one place those definitions
+        # live in this repository, and a citation without a row there
+        # is a reference a clone cannot resolve.
+        run: |
+          bash scripts/test-identifier-registry.sh
+          bash scripts/check-identifier-registry.sh
+
       - name: instrument trace inventory (AIR-03)
         # Emit a requirement/test/review/configuration inventory to the log.
         # This is an inventory, not a compliance trace, and fabricates nothing.

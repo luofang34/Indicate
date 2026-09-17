@@ -17,6 +17,18 @@ The baseline is split into four controlled artifacts:
 - [Review record](review-record.md) records the approvals required before the
   baseline can be treated as reviewed.
 
+## Identifier registry
+
+Code and documents cite identifiers from several families:
+requirements, failure conditions, standards rows, evidence-plan items,
+work packages, and architecture decisions. The
+[identifier registry](identifier-registry.md) names each family, where
+its members are defined, and what every work-package and decision
+identifier cited from Rust code means; it also states plainly that the
+architecture decision records live in the Pilotage repository.
+`scripts/check-identifier-registry.sh` fails CI on a citation in a
+`.rs` file that has no row.
+
 ## Set documents
 
 Each set crate under `sets/` has one document here that states its
