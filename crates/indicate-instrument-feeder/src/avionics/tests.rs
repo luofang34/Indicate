@@ -7,7 +7,7 @@ use super::{
     AttitudeGroup, AvionicsIngress, AvionicsSample, Coherence, IncarnationPolicy, IngressConfig,
     KinematicsGroup,
 };
-use crate::stamp::{CLOCK_SIMULATION, ROLE_OPERATIONAL_ESTIMATE, RawStamp};
+use crate::stamp::{CLOCK_SIMULATION, ROLE_OPERATIONAL_ESTIMATE, ROLE_SIMULATION_TRUTH, RawStamp};
 
 const VEHICLE: u64 = 42;
 const SKEW_BUDGET_NS: u64 = 5_000_000;
@@ -15,6 +15,7 @@ const SKEW_BUDGET_NS: u64 = 5_000_000;
 fn config(policy: IncarnationPolicy) -> IngressConfig {
     IngressConfig {
         vehicle_id: VEHICLE,
+        role: ROLE_OPERATIONAL_ESTIMATE,
         source_id: None,
         incarnation: None,
         incarnation_policy: policy,
@@ -327,4 +328,46 @@ fn a_snapshot_on_an_untrusted_clock_ages_every_group_nan() {
     }
     let snapshot = ingress.snapshot(110.0);
     assert_eq!(snapshot.attitude.expect("admitted").age_ms, 10.0);
+}
+
+#[test]
+fn a_truth_gate_admits_truth_stamps_and_refuses_estimates() {
+    let mut truth = AvionicsIngress::new(IngressConfig {
+        role: ROLE_SIMULATION_TRUTH,
+        ..config(IncarnationPolicy::SimAcceptUnseen)
+    });
+    // An estimate-role stamp is the wrong role for this lane.
+    assert!(!truth.ingest(&sample(1, 1_000_000), 0.0));
+    let (counters, fault) = truth.diagnostics();
+    assert_eq!(counters.invalid_stamps, 3);
+    assert_eq!(fault, Some(crate::stamp::StampFault::RoleMismatch));
+
+    let mut truth_sample = sample(1, 1_000_000);
+    let stamp = RawStamp {
+        role: ROLE_SIMULATION_TRUTH,
+        ..stamp(1, 1, 1, 1_000_000)
+    };
+    truth_sample.attitude_stamp = Some(stamp);
+    truth_sample.kinematics_stamp = Some(stamp);
+    truth_sample.estimator_status_stamp = Some(stamp);
+    assert!(truth.ingest(&truth_sample, 0.0));
+    let snapshot = truth.snapshot(10.0);
+    assert_eq!(snapshot.role, ROLE_SIMULATION_TRUTH);
+    assert_eq!(snapshot.clock, Some(CLOCK_SIMULATION));
+    assert_eq!(snapshot.integrity, Some(2));
+    assert!(truth.provenance().is_simulation());
+}
+
+#[test]
+fn provenance_names_the_stream_only_once_something_is_admitted() {
+    let mut ingress = AvionicsIngress::new(config(IncarnationPolicy::PinFirst));
+    let before = ingress.provenance();
+    assert_eq!(before.role, ROLE_OPERATIONAL_ESTIMATE);
+    assert_eq!(before.clock, None);
+    assert_eq!(before.integrity, None);
+    // An estimate lane on the simulation clock is still simulation data.
+    assert!(ingress.ingest(&sample(1, 1_000_000), 0.0));
+    let after = ingress.provenance();
+    assert_eq!(after.clock, Some(CLOCK_SIMULATION));
+    assert!(after.is_simulation());
 }

@@ -20,6 +20,7 @@ const VEHICLE: u64 = 42;
 fn ingress() -> AvionicsIngress {
     AvionicsIngress::new(IngressConfig {
         vehicle_id: VEHICLE,
+        role: ROLE_OPERATIONAL_ESTIMATE,
         source_id: None,
         incarnation: None,
         incarnation_policy: IncarnationPolicy::PinFirst,
