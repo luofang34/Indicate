@@ -93,3 +93,31 @@ fn epoch_advances_restart_and_replays_are_refused() {
     let (counters, _) = tracker.diagnostics();
     assert_eq!(counters.duplicates, 1);
 }
+
+#[test]
+fn an_untrusted_clock_accepts_nothing_and_snapshots_nan() {
+    let mut tracker = NavGuidanceTracker::new();
+    assert!(
+        tracker
+            .observe(Some(&(stamp(1, 1), guidance(1.0))), f64::NAN)
+            .is_none()
+    );
+    let (counters, last) = tracker.diagnostics();
+    assert_eq!(counters.invalid_clock, 1);
+    assert_eq!(last, Some(NavReject::InvalidClock));
+
+    tracker
+        .observe(Some(&(stamp(1, 1), guidance(1.0))), 100.0)
+        .expect("accepted");
+    // Behind the last reading: the newer sample is refused and the
+    // standing snapshot ages NaN rather than negative.
+    let snapshot = tracker
+        .observe(Some(&(stamp(1, 2), guidance(2.0))), 50.0)
+        .expect("snapshot stands");
+    assert_eq!(snapshot.guidance.course_rad, 1.0);
+    assert!(snapshot.age_ms.is_nan());
+    for now_ms in [f64::NAN, -1.0, f64::INFINITY] {
+        assert!(tracker.snapshot(now_ms).expect("stands").age_ms.is_nan());
+    }
+    assert_eq!(tracker.snapshot(150.0).expect("stands").age_ms, 50.0);
+}

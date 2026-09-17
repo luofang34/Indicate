@@ -70,6 +70,10 @@ pub struct IngressCounters {
     pub time_regressions: u32,
     /// Clock-domain changes observed within a pinned stream.
     pub clock_changes: u32,
+    /// Publications refused whole because the caller's clock reading
+    /// could not be trusted: not a number, negative, or behind the
+    /// last reading the gate acted on.
+    pub invalid_clock: u32,
 }
 
 /// Attitude estimate group as the wire delivers it.
@@ -123,7 +127,10 @@ pub struct GroupSnapshot<T> {
     pub data: T,
     /// The stamp that admitted it.
     pub stamp: RawStamp,
-    /// Milliseconds since acceptance on the caller's clock.
+    /// Milliseconds since acceptance on the caller's clock. NaN when
+    /// the clock supplied for this snapshot could not be trusted: not a
+    /// number, negative, or behind the last reading the gate ingested
+    /// under. A NaN age resolves `Missing` downstream, never fresh.
     pub age_ms: f64,
 }
 

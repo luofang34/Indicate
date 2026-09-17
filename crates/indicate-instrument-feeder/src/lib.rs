@@ -23,6 +23,7 @@
 extern crate std;
 
 pub mod avionics;
+mod clock;
 pub mod fc_state;
 pub mod flight;
 pub mod nav_display;

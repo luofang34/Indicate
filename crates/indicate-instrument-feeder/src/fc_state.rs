@@ -9,6 +9,7 @@
 //! Heartbeat loss surfaces as stale instead of a forever-fresh arm
 //! state.
 
+use crate::clock::{age_ms, clock_ok};
 use crate::stamp::{ROLE_FC_STATE, RawStamp, serial_is_newer, stamp_fault_for_role};
 
 /// The FC's arm/disarm COMMAND_ACK verdict riding the fc-state lane.
@@ -42,8 +43,12 @@ pub struct FcView {
     /// The last command verdict, if any.
     pub last_command: Option<FcCommand>,
     /// Milliseconds since the newest report, on the caller's clock.
+    /// NaN when the clock supplied for this view could not be trusted:
+    /// not a number, negative, or behind the last reading the tracker
+    /// acted on. A NaN age is never fresh.
     pub age_ms: f64,
-    /// The age exceeds the staleness threshold.
+    /// The age exceeds the staleness threshold, or could not be
+    /// measured at all.
     pub stale: bool,
 }
 
@@ -63,6 +68,7 @@ struct Last {
 pub struct FcStateTracker {
     stale_after_ms: f64,
     last: Option<Last>,
+    observed_ms: Option<f64>,
 }
 
 impl Default for FcStateTracker {
@@ -77,14 +83,21 @@ impl FcStateTracker {
         Self {
             stale_after_ms,
             last: None,
+            observed_ms: None,
         }
     }
 
     /// Feeds one decoded fc-state report (or `None`) and returns the
     /// current view. Only a NEW report — pinned identity, epoch
     /// advanced, or same epoch with the sequence strictly newer in
-    /// wrapping order — restarts the age clock.
+    /// wrapping order — restarts the age clock. A caller clock the
+    /// tracker may not act on accepts nothing and returns a view whose
+    /// age is NaN and which is stale.
     pub fn observe(&mut self, report: Option<&FcReport>, now_ms: f64) -> Option<FcView> {
+        if !clock_ok(now_ms, self.observed_ms) {
+            return self.view(now_ms);
+        }
+        self.observed_ms = Some(now_ms);
         if let Some(report) = report
             && self.accepts(report)
         {
@@ -129,15 +142,16 @@ impl FcStateTracker {
     }
 
     /// The display view: `None` before any report; stale once the
-    /// newest report's age exceeds the threshold.
+    /// newest report's age exceeds the threshold, and stale with a NaN
+    /// age when the caller's clock could not be trusted.
     pub fn view(&self, now_ms: f64) -> Option<FcView> {
         self.last.as_ref().map(|last| {
-            let age_ms = now_ms - last.first_seen_ms;
+            let age_ms = age_ms(now_ms, last.first_seen_ms, self.observed_ms);
             FcView {
                 arm_state: last.arm_state,
                 last_command: last.last_command,
                 age_ms,
-                stale: age_ms > self.stale_after_ms,
+                stale: age_ms.is_nan() || age_ms > self.stale_after_ms,
             }
         })
     }

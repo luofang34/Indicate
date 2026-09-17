@@ -8,6 +8,7 @@
 //! everything unpairable fails closed to no-valid-flags and unusable
 //! quality.
 
+use crate::clock::{age_ms, clock_ok};
 use crate::stamp::{
     ROLE_OPERATIONAL_ESTIMATE, RawStamp, StampFault, serial_distance, serial_is_newer, skew_ns,
     stamp_fault_for_role,
@@ -81,6 +82,9 @@ pub struct AvionicsIngress {
     generation: u32,
     last_coherence: Coherence,
     last_reject: Option<StampFault>,
+    /// The newest caller-clock reading acted on; a later reading
+    /// behind it is a clock fault, never a negative age.
+    observed_ms: Option<f64>,
     counters: IngressCounters,
 }
 
@@ -109,12 +113,23 @@ impl AvionicsIngress {
             generation: 0,
             last_coherence: Coherence::Insufficient,
             last_reject: None,
+            observed_ms: None,
             counters: IngressCounters::default(),
         }
     }
 
     /// Ingests one publication; returns whether admitted state changed.
+    ///
+    /// A caller clock that is not a number, negative, or behind the
+    /// last reading this gate acted on refuses the whole publication:
+    /// nothing acquired under it could be aged, so nothing under it is
+    /// admitted, and `invalid_clock` counts the refusal.
     pub fn ingest(&mut self, sample: &AvionicsSample, now_ms: f64) -> bool {
+        if !clock_ok(now_ms, self.observed_ms) {
+            self.counters.invalid_clock = self.counters.invalid_clock.wrapping_add(1);
+            return false;
+        }
+        self.observed_ms = Some(now_ms);
         if sample.vehicle_id != self.config.vehicle_id {
             self.counters.wrong_vehicle = self.counters.wrong_vehicle.wrapping_add(1);
             return false;
@@ -378,8 +393,13 @@ impl AvionicsIngress {
     }
 
     /// The current admitted state; ages against the caller's clock.
+    ///
+    /// A reading the gate may not act on (not a number, negative, or
+    /// behind the last reading it ingested under) ages every group as
+    /// NaN, which the instrument model's freshness policy resolves as
+    /// `Missing`: a broken clock reads as no data, never as fresh data.
     pub fn snapshot(&self, now_ms: f64) -> IngressSnapshot {
-        let age = |accepted_at_ms: f64| (now_ms - accepted_at_ms).max(0.0);
+        let age = |accepted_at_ms: f64| age_ms(now_ms, accepted_at_ms, self.observed_ms);
         IngressSnapshot {
             generation: self.generation,
             source_id: self.source_id,

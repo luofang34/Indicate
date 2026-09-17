@@ -12,6 +12,7 @@
 
 use indicate_instrument_state::IdentStr;
 
+use crate::clock::{age_ms, clock_ok};
 use crate::stamp::{ROLE_NAVIGATION_SOLUTION, RawStamp, serial_is_newer, stamp_fault_for_role};
 
 /// One decoded guidance sample in wire-canonical units.
@@ -63,6 +64,9 @@ pub enum NavReject {
     Duplicate,
     /// The sample's own values are uninterpretable.
     MalformedGuidance,
+    /// The caller's clock reading could not be trusted: not a number,
+    /// negative, or behind the last reading the tracker acted on.
+    InvalidClock,
 }
 
 /// Wrap-counted acceptance and refusal counters.
@@ -78,6 +82,9 @@ pub struct NavCounters {
     pub duplicates: u32,
     /// Samples refused for uninterpretable guidance values.
     pub malformed_guidance: u32,
+    /// Publications refused because the caller's clock could not be
+    /// trusted.
+    pub invalid_clock: u32,
 }
 
 /// The newest accepted sample with its caller-clock age.
@@ -85,7 +92,10 @@ pub struct NavCounters {
 pub struct NavSnapshot {
     /// The accepted guidance sample.
     pub guidance: Guidance,
-    /// Milliseconds since acceptance, on the caller's clock.
+    /// Milliseconds since acceptance, on the caller's clock. NaN when
+    /// the clock supplied for this snapshot could not be trusted; a NaN
+    /// age is never fresh, and the display profile shows no guidance
+    /// for it.
     pub age_ms: f64,
 }
 
@@ -105,6 +115,7 @@ pub struct NavGuidanceTracker {
     last: Option<Last>,
     last_reject: Option<NavReject>,
     counters: NavCounters,
+    observed_ms: Option<f64>,
 }
 
 impl NavGuidanceTracker {
@@ -114,12 +125,19 @@ impl NavGuidanceTracker {
     }
 
     /// Feeds one decoded guidance sample (or `None`) and returns the
-    /// current snapshot. Only a NEW sample restarts the age clock.
+    /// current snapshot. Only a NEW sample restarts the age clock. A
+    /// caller clock the tracker may not act on accepts nothing, counts
+    /// the refusal, and returns a snapshot whose age is NaN.
     pub fn observe(
         &mut self,
         sample: Option<&(RawStamp, Guidance)>,
         now_ms: f64,
     ) -> Option<NavSnapshot> {
+        if !clock_ok(now_ms, self.observed_ms) {
+            self.reject(NavReject::InvalidClock);
+            return self.snapshot(now_ms);
+        }
+        self.observed_ms = Some(now_ms);
         if let Some((stamp, guidance)) = sample
             && self.accepts(stamp, guidance)
         {
@@ -164,11 +182,12 @@ impl NavGuidanceTracker {
         serial_is_newer(stamp.epoch, last.epoch) || self.reject(NavReject::Duplicate)
     }
 
-    /// The display view: `None` before any accepted sample.
+    /// The display view: `None` before any accepted sample; a NaN age
+    /// when the caller's clock could not be trusted.
     pub fn snapshot(&self, now_ms: f64) -> Option<NavSnapshot> {
         self.last.as_ref().map(|last| NavSnapshot {
             guidance: last.guidance,
-            age_ms: now_ms - last.first_seen_ms,
+            age_ms: age_ms(now_ms, last.first_seen_ms, self.observed_ms),
         })
     }
 
@@ -184,6 +203,7 @@ impl NavGuidanceTracker {
             NavReject::WrongSource => &mut self.counters.wrong_source,
             NavReject::Duplicate => &mut self.counters.duplicates,
             NavReject::MalformedGuidance => &mut self.counters.malformed_guidance,
+            NavReject::InvalidClock => &mut self.counters.invalid_clock,
         };
         *counter = counter.wrapping_add(1);
         false

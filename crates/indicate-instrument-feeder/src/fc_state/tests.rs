@@ -84,3 +84,31 @@ fn staleness_and_out_of_range_arm_values_fail_closed() {
         .expect("view stands");
     assert_eq!(view.arm_state, 1);
 }
+
+#[test]
+fn an_untrusted_clock_accepts_nothing_and_views_stale() {
+    let mut tracker = FcStateTracker::new(3000.0);
+    // Nothing accepted under a clock that is not a number.
+    assert!(tracker.observe(Some(&report(1, 1, 1)), f64::NAN).is_none());
+    let view = tracker
+        .observe(Some(&report(1, 1, 1)), 100.0)
+        .expect("accepted");
+    assert!(!view.stale);
+    // A reading behind the last one the tracker acted on is refused:
+    // the newer report is not accepted and the view is stale with a
+    // NaN age, never a negative one.
+    let view = tracker
+        .observe(Some(&report(1, 2, 2)), 50.0)
+        .expect("view stands");
+    assert_eq!(view.arm_state, 1);
+    assert!(view.age_ms.is_nan());
+    assert!(view.stale);
+    for now_ms in [f64::NAN, -1.0, f64::INFINITY] {
+        let view = tracker.view(now_ms).expect("view stands");
+        assert!(view.age_ms.is_nan());
+        assert!(view.stale);
+    }
+    let view = tracker.view(200.0).expect("view stands");
+    assert_eq!(view.age_ms, 100.0);
+    assert!(!view.stale);
+}
