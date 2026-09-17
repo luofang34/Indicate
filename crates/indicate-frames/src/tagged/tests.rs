@@ -202,3 +202,60 @@ fn fixed_point_boundary_fixtures_stay_exact() {
         assert_eq!(t.rotation(), q, "no drift for exact-norm input");
     }
 }
+
+#[test]
+fn an_attitude_that_is_not_a_rotation_is_refused_rather_than_composed() {
+    let transform = FrameTransform::new(FrameId::Body, FrameId::Ned, epoch(1), yaw(0.0), [0.0; 3])
+        .expect("identity transform");
+    for value in [
+        Quat {
+            w: f32::NAN,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        Quat {
+            w: 0.0,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        Quat {
+            w: 2.0,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+    ] {
+        let attitude: Attitude<()> = Tagged {
+            frame: FrameId::Body,
+            epoch: epoch(1),
+            meta: (),
+            value,
+        };
+        assert_eq!(
+            transform_attitude(&attitude, &transform),
+            Err(FrameError::InvalidAttitude)
+        );
+    }
+}
+
+#[test]
+fn an_attitude_within_norm_tolerance_is_renormalized_on_the_way_through() {
+    let transform = FrameTransform::new(FrameId::Body, FrameId::Ned, epoch(1), yaw(0.0), [0.0; 3])
+        .expect("identity transform");
+    let attitude: Attitude<()> = Tagged {
+        frame: FrameId::Body,
+        epoch: epoch(1),
+        meta: (),
+        value: Quat {
+            w: 1.01,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+    };
+    let out = transform_attitude(&attitude, &transform).expect("drift within tolerance");
+    assert!((out.value.w - 1.0).abs() < 1e-6);
+    assert_eq!(out.frame, FrameId::Ned);
+}

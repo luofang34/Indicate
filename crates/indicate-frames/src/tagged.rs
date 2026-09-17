@@ -5,7 +5,7 @@ use crate::error::FrameError;
 use crate::frame::FrameId;
 use crate::rotation::Quat;
 use crate::time::Epoch;
-use crate::transform::{FrameTransform, check_epochs};
+use crate::transform::{FrameTransform, ROTATION_NORM_TOLERANCE, check_epochs};
 
 /// A value expressed in an explicit frame at an explicit epoch, with
 /// caller-supplied metadata (source identity, acquisition time,
@@ -117,17 +117,26 @@ pub fn transform_vector<M: Copy>(
 ///
 /// # Errors
 ///
-/// Typed refusals for frame or epoch disagreement ([`FrameError`]).
+/// Typed refusals for frame or epoch disagreement, and
+/// [`FrameError::InvalidAttitude`] when the attitude's quaternion is not
+/// a rotation. `Tagged` has public fields, so a non-unit or non-finite
+/// quaternion can be built; it is refused here rather than composed,
+/// because a transform that accepted it would relabel garbage as an
+/// orientation in the target frame.
 pub fn transform_attitude<M: Copy>(
     attitude: &Attitude<M>,
     transform: &FrameTransform,
 ) -> Result<Attitude<M>, FrameError> {
     check_input(attitude, transform)?;
+    let value = attitude
+        .value
+        .renormalized(ROTATION_NORM_TOLERANCE)
+        .map_err(|_| FrameError::InvalidAttitude)?;
     Ok(Tagged {
         frame: transform.to_frame(),
         epoch: attitude.epoch,
         meta: attitude.meta,
-        value: transform.rotation().compose(attitude.value),
+        value: transform.rotation().compose(value),
     })
 }
 
