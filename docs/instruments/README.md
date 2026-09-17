@@ -1,5 +1,13 @@
 # Instrument intended-function baseline
 
+New here? Read the [architecture overview](architecture.md) first: it
+shows the data flow from a source to a display and back, the three
+published surfaces, and the tiers. Then pick a cookbook:
+[see pixels](cookbook-run.md), [feed a simulator](cookbook-feeder.md),
+[write a backend](cookbook-backend.md), or
+[write a set](cookbook-set.md). The [assurance profiles](assurance-profiles.md)
+page says which gates a change must pass.
+
 The files in this directory define what Indicate instrument displays may do,
 where their responsibility ends, and which assumptions must be made explicit.
 They are engineering inputs for later safety assessment and implementation.
