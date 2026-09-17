@@ -144,6 +144,7 @@ jobs:
                  indicate-instrument-panels indicate-instrument-template \
                  indicate-instrument-hmd indicate-instrument-raster \
                  indicate-instrument-conformance indicate-instrument-feeder \
+                 indicate-intent \
                  indicate-instrument-descriptor indicate-instrument-registry \
                  indicate-evidence instrument-bench"
           fail=0
@@ -200,6 +201,7 @@ jobs:
           -p indicate-instrument-hmd
           -p indicate-instrument-raster
           -p indicate-instrument-feeder
+          -p indicate-intent
           -p indicate-instrument-registry
           --target thumbv7em-none-eabihf
 

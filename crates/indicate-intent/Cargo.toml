@@ -1,0 +1,18 @@
+[package]
+name = "indicate-intent"
+description = "Typed operator intents: the return path from a human controller to the system, admitted by identity, sequence, clock, and bounds, confirmed only by echo (INT-01)"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+# Kernel only: the selection vocabulary the intents name, the alert
+# identity an acknowledgement names, and the one clock and serial rule
+# every lane shares.
+[dependencies]
+indicate-alerts = { workspace = true }
+indicate-instrument-feeder = { workspace = true }
+indicate-instrument-state = { workspace = true }
+thiserror = { workspace = true }

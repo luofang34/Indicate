@@ -17,6 +17,14 @@ The baseline is split into four controlled artifacts:
 - [Review record](review-record.md) records the approvals required before the
   baseline can be treated as reviewed.
 
+## Operator intent
+
+The display family is fed from a source; the
+[intent contract](intent-contract.md) is the return path. An operator
+request is admitted by device identity, sequence, clock, and bounds,
+and is confirmed only when the source echoes it through the selections
+group. The display never paints a requested value.
+
 ## Identifier registry
 
 Code and documents cite identifiers from several families:

@@ -68,6 +68,7 @@ kernel only.
 | `indicate-instrument-symbology` | Shared symbology: palette, never-skinnable safety constants, status paint, annunciations. |
 | `indicate-instrument-descriptor` | The vocabulary a set is written against: panel identity, group sets, config blobs and their key schema, canonical states, and the `PanelSet` a provider exports. |
 | `indicate-instrument-feeder` | Source admission ladder shared by every feeding shell. |
+| `indicate-intent` | Typed operator intents: the return path from a human controller to the system, admitted by device identity, sequence, clock, and bounds, and confirmed only by echo through the state. |
 
 ### Verification and registry — `crates/`
 

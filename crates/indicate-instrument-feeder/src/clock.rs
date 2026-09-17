@@ -10,7 +10,7 @@
 
 /// Whether `now_ms` is a reading a tracker may act on: finite,
 /// non-negative, and not behind the last reading the tracker acted on.
-pub(crate) fn clock_ok(now_ms: f64, observed_ms: Option<f64>) -> bool {
+pub fn clock_ok(now_ms: f64, observed_ms: Option<f64>) -> bool {
     now_ms.is_finite() && now_ms >= 0.0 && observed_ms.is_none_or(|last| now_ms >= last)
 }
 
@@ -20,7 +20,7 @@ pub(crate) fn clock_ok(now_ms: f64, observed_ms: Option<f64>) -> bool {
 /// NaN is the fail-closed age: the instrument model's freshness policy
 /// resolves a NaN age as `Missing`, and no consumer may read it as
 /// fresh or as any finite number.
-pub(crate) fn age_ms(now_ms: f64, since_ms: f64, observed_ms: Option<f64>) -> f64 {
+pub fn age_ms(now_ms: f64, since_ms: f64, observed_ms: Option<f64>) -> f64 {
     if clock_ok(now_ms, observed_ms) {
         (now_ms - since_ms).max(0.0)
     } else {

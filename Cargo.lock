@@ -309,6 +309,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "indicate-intent"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-instrument-feeder",
+ "indicate-instrument-state",
+ "thiserror",
+]
+
+[[package]]
 name = "indicate-sha256"
 version = "0.1.0"
 dependencies = [
