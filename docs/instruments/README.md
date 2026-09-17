@@ -17,6 +17,23 @@ The baseline is split into four controlled artifacts:
 - [Review record](review-record.md) records the approvals required before the
   baseline can be treated as reviewed.
 
+## Set documents
+
+Each set crate under `sets/` has one document here that states its
+intended function, inputs, failure presentation, verification, and
+requirements, followed by a block of descriptor facts that
+`cargo xtask gen-set-docs` writes from the code.
+`scripts/check-set-docs.sh` fails CI on a set crate without a document,
+a document without the generated block or an intended function or a
+cited requirement, and a block that no longer matches the descriptors.
+
+- [Shipped flight panels](set-panels.md): the flight set and the
+  configuration set of `indicate-instrument-panels`.
+- [Head-worn instruments](set-hmd.md): the `indicate-instrument-hmd`
+  set.
+- [The template set](set-template.md): the smallest set that passes
+  admission, written to be copied.
+
 ## Preliminary safety assessment
 
 Seeded from the intended-function baseline, the preliminary functional hazard

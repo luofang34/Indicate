@@ -86,4 +86,21 @@ pub enum XtaskError {
         #[source]
         source: indicate_instrument_registry::CompositionError,
     },
+    /// A set document has no generated-block markers, or has them in the
+    /// wrong order, so the generator cannot tell the author's prose from
+    /// the block it owns.
+    #[error(
+        "{path} has no descriptor-facts markers in order; the generator writes only between them"
+    )]
+    SetDocMarkers {
+        /// The document involved.
+        path: String,
+    },
+    /// Under `--check`, a set document's generated block differs from
+    /// what the descriptors declare now.
+    #[error("set documents are stale: {documents}; run `cargo xtask gen-set-docs`")]
+    SetDocStale {
+        /// The documents that differ.
+        documents: String,
+    },
 }

@@ -7,6 +7,7 @@ mod error;
 mod fixture;
 mod manifest;
 mod output;
+mod setdoc;
 mod workspace;
 
 use output::print_line;
@@ -23,6 +24,10 @@ Commands:
       Regenerate release-manifest.json — every value this revision
       pins, read from the definitions that own them. Writes elsewhere
       with --out, which is how the CI guard diffs without overwriting.
+  gen-set-docs [--check]
+      Regenerate the descriptor block of every set document under
+      docs/instruments/ from the descriptors that own the facts. With
+      --check, compare only and fail on a difference.
   help
       Show this message.";
 
@@ -53,13 +58,14 @@ fn run(args: &[String]) -> Result<(), error::XtaskError> {
             fixture::run()
         }
         "gen-release-manifest" => manifest::run(manifest::parse_args(rest)?),
+        "gen-set-docs" => setdoc::run(setdoc::parse_args(rest)?),
         "help" | "--help" | "-h" => {
             print_line(USAGE);
             Ok(())
         }
         other => Err(error::XtaskError::Usage {
             message: format!(
-                "unknown command {other:?} (expected gen-state-fixture, gen-release-manifest, or help)"
+                "unknown command {other:?} (expected gen-state-fixture, gen-release-manifest, gen-set-docs, or help)"
             ),
         }),
     }

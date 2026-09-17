@@ -27,6 +27,8 @@ bash scripts/trace-report.sh
 bash scripts/detect-target.sh
 bash scripts/test-ci-closure.sh
 bash scripts/check-ci-closure.sh
+bash scripts/test-set-docs.sh
+bash scripts/check-set-docs.sh
 cargo check --locked -p indicate-frames -p indicate-alerts -p indicate-sha256 \
   -p indicate-instrument-state -p indicate-instrument-scene \
   -p indicate-instrument-glyphs -p indicate-instrument-symbology \

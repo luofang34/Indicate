@@ -747,10 +747,12 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "indicate-instrument-glyphs",
+ "indicate-instrument-hmd",
  "indicate-instrument-panels",
  "indicate-instrument-registry",
  "indicate-instrument-scene",
  "indicate-instrument-state",
+ "indicate-instrument-template",
  "instrument-bench",
  "thiserror",
  "tracing",
