@@ -21,6 +21,7 @@ members = [
     "tools/instrument-bench",
     "tools/hwd-bench",
     "tools/indicate-host",
+    "tools/indicate-source-xplane",
     "tools/xtask",
 ]
 

@@ -144,7 +144,7 @@ jobs:
                  indicate-instrument-panels indicate-instrument-template \
                  indicate-instrument-hmd indicate-instrument-raster \
                  indicate-instrument-conformance indicate-instrument-feeder \
-                 indicate-intent indicate-host \
+                 indicate-intent indicate-host indicate-source-xplane \
                  indicate-instrument-descriptor indicate-instrument-registry \
                  indicate-evidence instrument-bench"
           fail=0

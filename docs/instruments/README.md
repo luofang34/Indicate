@@ -38,6 +38,16 @@ is that loop once, `no_std` and sans-IO, with the intent gate and echo
 monitor routed through it, so a simulator shell embeds it instead of
 rewriting it.
 
+## Simulator sources
+
+A simulator is an untrusted source like any other. The
+[X-Plane source adapter](source-xplane.md) decodes the simulator's UDP
+data interface without a socket, admits attitude and kinematics through
+the feeder's simulation-truth lane on the simulation clock, ages every
+other group from its own receipt, drives the reference host on a paint
+clock, and writes admitted operator intents back as datarefs. It is the
+first end-to-end path from a simulator to pixels in this repository.
+
 ## Identifier registry
 
 Code and documents cite identifiers from several families:

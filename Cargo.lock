@@ -341,6 +341,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "indicate-source-xplane"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-host",
+ "indicate-instrument-descriptor",
+ "indicate-instrument-feeder",
+ "indicate-instrument-panels",
+ "indicate-instrument-raster",
+ "indicate-instrument-state",
+ "indicate-intent",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "instrument-bench"
 version = "0.1.0"
 dependencies = [

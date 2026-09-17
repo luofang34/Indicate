@@ -1,0 +1,25 @@
+[package]
+name = "indicate-source-xplane"
+description = "X-Plane source adapter: the simulator's UDP data interface into the feeder's truth lane, and operator intents back out as datarefs (XPLANE-01)"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+# A shell, not a library tier. The library half is sans-IO and reaches
+# the kernel and the reference host only; the binary owns the socket,
+# the clock, and the files.
+[dependencies]
+indicate-alerts = { workspace = true }
+indicate-host = { workspace = true }
+indicate-instrument-descriptor = { workspace = true }
+indicate-instrument-feeder = { workspace = true }
+indicate-instrument-panels = { workspace = true }
+indicate-instrument-raster = { workspace = true }
+indicate-instrument-state = { workspace = true }
+indicate-intent = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

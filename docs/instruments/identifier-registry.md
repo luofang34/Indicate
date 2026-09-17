@@ -43,6 +43,7 @@ clone.
 | `REN-04` | Target timing and conformance: the per-class work budget, the provisional target timing model, and the conformance corpus every backend replays. | `indicate-instrument-raster::timing`, `report`, [renderer-verification.md](renderer-verification.md) |
 | `SRC-01` | Per-function source comparison and reversion: dual-source agree, miscompare, and return-to-primary with hysteresis, and the typed alert on each edge. | `indicate-instrument-state::source_compare`, `source_monitor` |
 | `VAL-01` | Fail-safe decoding and resolution: trust is declared, unknown wire values fail rather than map to benign ones, and no non-finite value reaches scene generation. | `indicate-instrument-state::abi`, `validate`, `resolve` |
+| `XPLANE-01` | The X-Plane source adapter: the simulator's UDP data interface decoded sans-IO, attitude and kinematics admitted through the truth-role gate on the simulation clock, the remaining groups aged from receipt, and operator intents written back as datarefs. | `tools/indicate-source-xplane`, [source-xplane.md](source-xplane.md) |
 
 ## Architecture decisions cited from code
 
