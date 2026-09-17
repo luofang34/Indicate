@@ -96,8 +96,8 @@ consumers red at their next advance instead of drifting silently.
 
 ## Gates
 
-`cargo test --all-targets` plus, in CI: the eleven-crate `no_std`
-closure compiled standalone for `thumbv7em-none-eabihf`, REN-03 frame
+`cargo test --all-targets` plus, in CI: the `no_std` closure compiled
+standalone for `thumbv7em-none-eabihf`, REN-03 frame
 hashes, REN-04 target timing, REN-02 glyph-pack integrity, the
 admission/digest bench smoke, the AIR-* requirement registry check, the
 standards-registry drift guard, the certification-claim guard, and the

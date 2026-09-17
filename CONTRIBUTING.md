@@ -25,10 +25,13 @@ bash scripts/check-certification-claims.sh
 bash scripts/check-standards-registry.sh
 bash scripts/trace-report.sh
 bash scripts/detect-target.sh
+bash scripts/test-ci-closure.sh
+bash scripts/check-ci-closure.sh
 cargo check --locked -p indicate-frames -p indicate-alerts -p indicate-sha256 \
   -p indicate-instrument-state -p indicate-instrument-scene \
   -p indicate-instrument-glyphs -p indicate-instrument-symbology \
   -p indicate-instrument-descriptor -p indicate-instrument-panels \
+  -p indicate-instrument-template -p indicate-instrument-hmd \
   -p indicate-instrument-raster -p indicate-instrument-feeder \
   -p indicate-instrument-registry \
   --target thumbv7em-none-eabihf
