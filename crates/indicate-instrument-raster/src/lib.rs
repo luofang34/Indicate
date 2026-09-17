@@ -37,9 +37,10 @@
 //! - Filled polygons use the non-zero winding rule, computed in integer
 //!   arithmetic. Strokes are centered with round joins and caps, evaluated as
 //!   capsule distance to the path; circles and arcs use exact center
-//!   distance. Text renders as a deterministic placeholder box derived only
-//!   from the run's size, anchor, and byte length until REN-02's glyph pack
-//!   replaces it.
+//!   distance. Text renders through the controlled glyph pack (REN-02): each
+//!   set cell pixel of a character becomes a logical quad scaled by the run
+//!   size and transformed like any other geometry, and a character without
+//!   a glyph is a typed failure rather than a substitution.
 //!
 //! # Fail-safe behavior and bounds
 //! - Non-finite coordinates or transforms, out-of-range coordinates,

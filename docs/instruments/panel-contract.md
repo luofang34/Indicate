@@ -320,7 +320,7 @@ Three limits worth knowing, because they bound what a green run means:
 
 - **A green run does not mean your failure cues are painted.** The
   canonical corpus does drive the degraded branches — `nothing-fed` and
-  `source-unusable` are two of the four states every panel meets, so
+  `source-unusable` are two of the states every panel meets, so
   your dash-out path really is drawn and its output really is policed
   for untagged numerals, glyphs, layers, and background. What no check
   asserts is that anything appears there at all: delete the contents of
@@ -347,9 +347,9 @@ Text is equally constrained: the glyph pack is a controlled vocabulary,
 and a character outside it fails admission as `GlyphCoverage` rather
 than falling back to a substitute. It is `PANEL_VOCABULARY` in
 `indicate-instrument-glyphs`, and it is smaller than it looks — space,
-`-`, `.`, `°`, the digits, the uppercase letters, and of the lowercase
-only `k` and `t`. A label reading `kts`, `fpm`, `%`, or `/` fails; check
-the vocabulary before inventing one.
+`-`, `.`, `/`, `°`, the digits, the uppercase letters, and of the
+lowercase only `k` and `t`. A label reading `kts`, `fpm`, or `%` fails;
+check the vocabulary before inventing one.
 
 ## Digests, baselines, and who re-pins them
 
