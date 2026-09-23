@@ -5,7 +5,11 @@ const CENTER: f32 = 286.0;
 const HALF: f32 = 126.0;
 const STEP: f32 = 42.0;
 
-pub(super) fn draw(data: &PanelData, scene: &mut SceneWriter<'_>) -> Result<(), PanelDrawError> {
+pub(super) fn draw(
+    data: &PanelData,
+    detailed: bool,
+    scene: &mut SceneWriter<'_>,
+) -> Result<(), PanelDrawError> {
     if data.flight.speed_present {
         use indicate_instrument_symbology::flight::speed;
         speed::draw(
@@ -13,7 +17,7 @@ pub(super) fn draw(data: &PanelData, scene: &mut SceneWriter<'_>) -> Result<(), 
             data,
             speed::SpeedLayout {
                 center: [280.0, CENTER],
-                half_height: HALF,
+                half_height: 120.0,
                 readout_x: 219.0,
                 text_size: 28.0,
                 label_size: 12.0,
@@ -44,33 +48,10 @@ pub(super) fn draw(data: &PanelData, scene: &mut SceneWriter<'_>) -> Result<(), 
         [1000.0, CENTER],
         28.0,
     )?;
-    readout::value(
-        scene,
-        "GS KT",
-        data.gs_kt,
-        GroupId::Kinematics,
-        [
-            219.0,
-            if data.flight.speed_present {
-                505.0
-            } else {
-                485.0
-            },
-        ],
-        18.0,
-    )?;
-    if data.baro_hpa.status.shows_value()
-        && data.altitude.class == indicate_instrument_state::AltitudeClass::BaroIndicated
-    {
-        readout::value(
-            scene,
-            "BARO HPA",
-            data.baro_hpa,
-            GroupId::Air,
-            [1000.0, 485.0],
-            18.0,
-        )?;
+    if detailed {
+        readout::groundspeed(data, [219.0, 490.0], scene)?;
     }
+    readout::baro(data, [1000.0, 444.0], 14.0, scene)?;
     if live(data.altitude.value_ft) && live(data.vsi_fpm) {
         trend(scene, 905.0, data.vsi_fpm.value * 0.1 / 200.0 * STEP)?;
     }
@@ -140,7 +121,7 @@ fn tape(
         let n = base + index;
         let value = n as f32 * minor;
         let offset = (value - signal.value) / interval * STEP;
-        if offset.abs() > HALF || offset.abs() < 26.0 || (side < 0.0 && value < 0.0) {
+        if offset.abs() > HALF || (-45.0..50.0).contains(&offset) || (side < 0.0 && value < 0.0) {
             continue;
         }
         let y = CENTER - offset;

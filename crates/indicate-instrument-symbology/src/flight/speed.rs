@@ -181,7 +181,11 @@ pub fn draw(
         data,
         [
             layout.readout_x,
-            layout.center[1] - layout.half_height - 34.0,
+            layout.center[1]
+                - layout.half_height
+                - 34.0_f32.max(
+                    layout.label_size * 2.1 + layout.text_size * 0.25 + text_margin(layout) * 2.0,
+                ),
         ],
         layout.label_size,
         layout.readout_width,
@@ -191,7 +195,11 @@ pub fn draw(
         data,
         [
             layout.readout_x,
-            layout.center[1] + layout.half_height + 15.0,
+            layout.center[1]
+                + layout.half_height
+                + 15.0_f32.max(
+                    layout.label_size * 0.5 + layout.text_size * 0.25 + text_margin(layout) * 2.0,
+                ),
         ],
         layout.label_size,
     )
@@ -250,11 +258,12 @@ fn ladder(
         x,
         center + layout.half_height,
     )?;
+    let window = (layout.text_size * 1.6)
+        .max(layout.text_size * 1.25 + layout.label_size * 0.5 + text_margin(layout) * 2.0);
     for index in -6..=6 {
         let value = (base + index as f32) * step;
         let offset = (value - current) / step * layout.tick_step_pixels;
-        if value < 0.0 || offset.abs() > layout.half_height || offset.abs() < layout.text_size * 1.6
-        {
+        if value < 0.0 || offset.abs() > layout.half_height || offset.abs() < window {
             continue;
         }
         let y = center - offset;
@@ -332,5 +341,14 @@ fn fitted_size(text: &str, size: f32, width: f32) -> f32 {
         size * width / advance
     } else {
         size
+    }
+}
+
+// Transparent readouts need space for their contrast halos; an opaque box masks underlying ticks.
+fn text_margin(layout: SpeedLayout) -> f32 {
+    if layout.readout_background.is_none() {
+        2.0
+    } else {
+        0.0
     }
 }

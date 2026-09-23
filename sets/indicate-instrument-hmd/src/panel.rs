@@ -76,17 +76,36 @@ fn draw(
     _frame: DesignFrame,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
-    if data.presentation.unusual {
-        return glance::draw(data, config, alerts, _frame, scene);
-    }
     config.require_schema(&[])?;
+    draw_hwd(data, crate::DisplayContext::default(), false, alerts, scene)
+}
+
+/// Draws the HWD with explicit display context and host-selected off-axis layout.
+/// Hosts apply [`crate::layer_reference`] to each layer when projecting this scene.
+/// The descriptor entry points use the primary flight role with normal detail.
+pub fn draw_hwd(
+    data: &PanelData,
+    context: crate::DisplayContext,
+    compact: bool,
+    alerts: Option<&AlertOutput>,
+    scene: &mut SceneWriter<'_>,
+) -> Result<(), PanelDrawError> {
+    let plan = crate::presentation_plan(data, context, alerts);
+    let compact = compact || plan.recovery;
     scene.begin_layer(LayerId::Tapes)?;
-    scale::draw(data, scene)?;
-    vertical_speed::draw(data.vsi_fpm, scene)?;
-    heading::draw(data, scene)?;
+    if !plan.blank_flight {
+        if compact {
+            glance::instruments(data, plan.detailed, scene)?;
+        } else {
+            scale::draw(data, plan.detailed, scene)?;
+            vertical_speed::draw(data.vsi_fpm, scene)?;
+        }
+    }
     scene.end_layer(LayerId::Tapes)?;
-    guidance::draw(data, false, scene)?;
-    annunciation::draw(data, alerts, scene)
+    if !plan.blank_flight {
+        guidance::draw(data, compact, !plan.mission, scene)?;
+    }
+    annunciation::draw(data, context, plan, alerts, scene)
 }
 
 pub(crate) fn live(signal: Sig<f32>) -> bool {

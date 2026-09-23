@@ -15,6 +15,7 @@ pub(super) struct Case {
 
 pub(super) mod flight;
 mod guidance;
+mod recovery;
 
 fn nominal() -> PanelData {
     let mut data = resolve(&AircraftState::default(), &FreshnessPolicy::default());
@@ -65,6 +66,7 @@ pub(super) fn all() -> Vec<Case> {
     contrast_cases(&mut add);
     guidance::all(&mut add);
     flight::append(&mut out);
+    recovery::append(&mut out);
     out
 }
 

@@ -1,12 +1,15 @@
 //! Generates an offline, interactive HWD gallery from the production instrument scene.
 mod cases;
+mod clearance;
+mod review;
 mod scene;
 
-use indicate_instrument_hmd::{HMD_DESCRIPTOR, HMD_GLANCE_DESCRIPTOR, directions, view_reference};
 use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
+    #[error("HWD text clearance: {detail}")]
+    Clearance { detail: String },
     #[error("drawing HWD case: {0}")]
     Draw(#[from] indicate_instrument_descriptor::PanelDrawError),
     #[error("decoding HWD scene: {0}")]
@@ -28,13 +31,18 @@ fn main() -> Result<(), Error> {
         .nth(1)
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("target/hwd-gallery.html"));
+    let mut gallery = review::Gallery::default();
     let json = cases::all()
         .iter()
-        .map(encode_case)
+        .map(|case| gallery.encode_case(case))
         .collect::<Result<Vec<_>, _>>()?
         .join(",");
     let page = include_str!("gallery.html")
+        .replace("__SCRIPT__", include_str!("gallery.js"))
         .replace("__CASES__", &json)
+        .replace("__SHAPES__", &gallery.shapes.join(","))
+        .replace("__PROFILES__", &review::profile_names())
+        .replace("__ZONES__", &review::zones())
         .replace(
             "__ENTRY__",
             &indicate_instrument_hmd::COMPACT_ENTRY_DEGREES.to_string(),
@@ -50,30 +58,6 @@ fn main() -> Result<(), Error> {
         })?;
     }
     std::fs::write(&path, page).map_err(|source| Error::Write { path, source })
-}
-
-fn encode_case(case: &cases::Case) -> Result<String, Error> {
-    let forward = scene::encode(&case.data, case.alerts.as_ref(), &HMD_DESCRIPTOR)?;
-    let compact = scene::encode(&case.data, case.alerts.as_ref(), &HMD_GLANCE_DESCRIPTOR)?;
-    let frame = view_reference(&case.data);
-    let angular = directions(&case.data);
-    let lines = angular.strokes[..angular.length as usize]
-        .iter()
-        .map(|line| format!("[{:?},{:?}]", line.a, line.b))
-        .collect::<Vec<_>>()
-        .join(",");
-    Ok(format!(
-        "{{\"name\":{:?},\"note\":{:?},\"head\":{:?},\"background\":{:?},\"forward\":{forward},\"compact\":{compact},\"basis\":[{:?},{:?},{:?}],\"kind\":{},\"recovery\":{},\"world\":[{lines}]}}",
-        case.name,
-        case.note,
-        case.head,
-        case.background,
-        frame.right,
-        frame.up,
-        frame.forward,
-        frame.kind,
-        case.data.presentation.unusual
-    ))
 }
 
 #[cfg(test)]

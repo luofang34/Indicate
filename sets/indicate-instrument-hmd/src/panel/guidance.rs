@@ -6,10 +6,13 @@ use indicate_instrument_symbology::flight::director::{self, DirectorLayout};
 pub(super) fn draw(
     data: &PanelData,
     compact: bool,
+    navigation_visible: bool,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     scene.begin_layer(LayerId::Guidance)?;
-    navigation::draw(data, compact, scene)?;
+    if navigation_visible {
+        navigation::draw(data, compact, scene)?;
+    }
     if !compact && indicate_instrument_state::flight::presentation::attitude_error(data).is_some() {
         scene.stroke(HUD_GREEN, 1.3)?;
         scene.rect(PaintMode::Stroke, 548.0, 353.0, 104.0, 104.0)?;

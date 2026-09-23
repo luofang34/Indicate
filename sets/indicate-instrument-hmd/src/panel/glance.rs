@@ -17,19 +17,28 @@ pub(super) fn draw(
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
     config.require_schema(&[])?;
-    scene.begin_layer(LayerId::Tapes)?;
+    super::draw_hwd(data, crate::DisplayContext::default(), true, alerts, scene)
+}
+
+pub(super) fn instruments(
+    data: &PanelData,
+    detailed: bool,
+    scene: &mut SceneWriter<'_>,
+) -> Result<(), PanelDrawError> {
     use indicate_instrument_symbology::flight::speed;
     speed::readout(scene, data, [378.0, 405.0], 27.0, 12.0, 150.0, HUD_GREEN)?;
     speed::target_readouts(scene, data, [378.0, 322.0], 12.0, 180.0)?;
-    speed::envelope_summary(scene, data, [378.0, 269.0], 12.0)?;
-    readout::value(
-        scene,
-        "GS KT",
-        data.gs_kt,
-        GroupId::Kinematics,
-        [378.0, 491.0],
-        17.0,
-    )?;
+    speed::envelope_summary(scene, data, [378.0, 265.0], 12.0)?;
+    if detailed {
+        readout::value(
+            scene,
+            "GS KT",
+            data.gs_kt,
+            GroupId::Kinematics,
+            [378.0, 491.0],
+            17.0,
+        )?;
+    }
     let label = fmt_label!(16, "{} FT", data.altitude.class.label());
     readout::value(
         scene,
@@ -47,22 +56,28 @@ pub(super) fn draw(
         [828.0, 491.0],
         17.0,
     )?;
+    readout::baro(data, [828.0, 550.0], 12.0, scene)?;
     attitude::draw(data, scene)?;
+    if data.presentation.unusual {
+        scene.fill_color(safety::CAUTION_AMBER)?;
+        scene.text(600.0, 281.0, 17.0, Anchor::CENTER, "UNUSUAL ATTITUDE")?;
+    }
     let label = if data.presentation.inverted {
         "INVERTED"
+    } else if data.presentation.nose_high {
+        "NOSE HIGH"
+    } else if data.presentation.nose_low {
+        "NOSE LOW"
     } else if data.presentation.high_bank {
-        "BANK"
+        "HIGH BANK"
     } else {
         "AIRCRAFT ATTITUDE"
     };
-    scene.fill_color(if data.presentation.high_bank {
+    scene.fill_color(if data.presentation.unusual {
         safety::CAUTION_AMBER
     } else {
         HUD_GREEN
     })?;
     scene.text(600.0, 521.0, 12.0, Anchor::CENTER, label)?;
-    heading::draw(data, scene)?;
-    scene.end_layer(LayerId::Tapes)?;
-    guidance::draw(data, true, scene)?;
-    annunciation::draw(data, alerts, scene)
+    Ok(())
 }
