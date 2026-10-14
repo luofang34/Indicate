@@ -195,6 +195,17 @@ sensed position it is read against: a detent alone is a selection, not a
 configuration, and presenting it alone invites reading it as a position the
 airframe reached.
 
+<a id="air-in-017"></a>
+### AIR-IN-017 — Simulated contact input
+
+A screen head-up display may accept contacts that a simulator declares. Each
+contact shall carry its position and velocity relative to the aircraft in local
+north, east, and down axes, a declared identity, and a status. Contacts shall
+come only from a simulator source and shall stay outside the aircraft state
+groups. Because no state group gives them provenance, the display shall draw
+no contact quantity as a numeral. A contact shall be placed in the world only
+with a valid attitude and a true heading reference.
+
 ## Outputs and functions
 
 <a id="air-out-001"></a>
@@ -304,6 +315,18 @@ and shall not suppress, delay, or alter any other panel's output.
 Composition is placement only: no panel's emitted geometry is reinterpreted,
 rewritten, or rescaled to fit its region. The single uniform mapping from the
 logical screen to the physical surface is unaffected by this.
+
+<a id="air-out-012"></a>
+### AIR-OUT-012 — Screen head-up output
+
+A screen head-up display may draw flight symbology over a world that the host
+renders through the declared camera. It may also draw the simulated contacts
+of [`AIR-IN-017`](#air-in-017) and simulated weapon cues. The surface shall
+remain labelled **SIM / NOT FOR FLIGHT** and shall make no **HUD-SIM** claim.
+It conveys no HUD, sensor, or weapon credit. When the camera declaration is
+invalid, the surface shall remove conformal, contact, and weapon cues and
+identify the loss. A world shown from camera video shall meet
+[`AIR-OUT-006`](#air-out-006) or [`AIR-OUT-007`](#air-out-007) instead.
 
 ## Modes
 
