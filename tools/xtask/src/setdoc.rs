@@ -56,6 +56,14 @@ const DOCUMENTED: &[Documented] = &[
         package: "indicate-instrument-hmd",
         sets: &[&indicate_instrument_hmd::HMD_SET],
     },
+    Documented {
+        document: "set-hud.md",
+        package: "indicate-instrument-hud",
+        sets: &[
+            &indicate_instrument_hud::HUD_SCREEN_SET,
+            &indicate_instrument_hud::HUD_COMBINER_SET,
+        ],
+    },
 ];
 
 /// Parses `gen-set-docs [--check]`.

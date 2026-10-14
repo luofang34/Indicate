@@ -36,6 +36,7 @@ cargo check --locked -p indicate-frames -p indicate-alerts -p indicate-sha256 \
   -p indicate-instrument-glyphs -p indicate-instrument-symbology \
   -p indicate-instrument-descriptor -p indicate-instrument-panels \
   -p indicate-instrument-template -p indicate-instrument-hmd \
+  -p indicate-instrument-hud \
   -p indicate-instrument-raster -p indicate-instrument-feeder \
   -p indicate-intent -p indicate-instrument-registry \
   --target thumbv7em-none-eabihf

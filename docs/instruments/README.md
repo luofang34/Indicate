@@ -82,6 +82,8 @@ cited requirement, and a block that no longer matches the descriptors.
   configuration set of `indicate-instrument-panels`.
 - [Head-worn instruments](set-hmd.md): the `indicate-instrument-hmd`
   set.
+- [Head-up instruments](set-hud.md): the screen and combiner sets of
+  `indicate-instrument-hud`.
 - [The template set](set-template.md): the smallest set that passes
   admission, written to be copied.
 

@@ -142,7 +142,8 @@ jobs:
                  indicate-instrument-scene indicate-instrument-state \
                  indicate-instrument-glyphs indicate-instrument-symbology \
                  indicate-instrument-panels indicate-instrument-template \
-                 indicate-instrument-hmd indicate-instrument-raster \
+                 indicate-instrument-hmd indicate-instrument-hud \
+                 indicate-instrument-raster \
                  indicate-instrument-conformance indicate-instrument-feeder \
                  indicate-intent indicate-host indicate-source-xplane \
                  indicate-instrument-descriptor indicate-instrument-registry \
@@ -199,6 +200,7 @@ jobs:
           -p indicate-instrument-panels
           -p indicate-instrument-template
           -p indicate-instrument-hmd
+          -p indicate-instrument-hud
           -p indicate-instrument-raster
           -p indicate-instrument-feeder
           -p indicate-intent

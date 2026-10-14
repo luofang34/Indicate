@@ -15,6 +15,7 @@ indicate-instrument-template = { workspace = true }
 # The head-worn set has no workspace-level dependency entry; the bench
 # that reviews it names the same path.
 indicate-instrument-hmd = { path = "../../sets/indicate-instrument-hmd" }
+indicate-instrument-hud = { path = "../../sets/indicate-instrument-hud" }
 indicate-instrument-registry = { workspace = true }
 indicate-instrument-scene = { workspace = true }
 indicate-instrument-state = { workspace = true }
