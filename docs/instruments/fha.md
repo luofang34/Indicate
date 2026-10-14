@@ -141,6 +141,7 @@ spacecraft operation changes the analysis, it is stated in the entry.
 | FC-HUD-02 | Video / state time skew (overlay lags imagery) | **Approach.** Symbology misregisters against video under motion | Capture-time and state-time alignment within a latency budget | Hazardous / No Safety Effect | [`AIR-IN-010`](requirements.md#air-in-010), [`AIR-TIM-002`](requirements.md#air-tim-002), [`AIR-HAZ-011`](requirements.md#air-haz-011) |
 | FC-HUD-03 | Repeater mistaken for conformal HUD (missing NON-CONFORMAL identity) | **All phases.** Non-conformal repeater read as registered outside-world guidance | Persistent **NON-CONFORMAL / NOT A HUD** identity rendered by the surface itself | Hazardous / No Safety Effect | [`AIR-OUT-007`](requirements.md#air-out-007), [`AIR-MODE-006`](requirements.md#air-mode-006), [`AIR-FLAG-007`](requirements.md#air-flag-007) |
 | FC-HUD-04 | Failed conformal reversion (calibration invalid, conformal cues retained) | **Approach.** Stale or invalid conformal cues persist after calibration loss | Loss of calibration removes cues or enters non-conformal mode with annunciation | Hazardous–Catastrophic / No Safety Effect | [`AIR-UNAV-006`](requirements.md#air-unav-006), [`AIR-MODE-005`](requirements.md#air-mode-005), [`AIR-HAZ-005`](requirements.md#air-haz-005) |
+| FC-HUD-05 | Simulated contact read as real (screen head-up display) | **All phases.** A simulated contact or weapon cue is taken as sensor or weapon information; a crew manoeuvres against a phantom or discounts a real aircraft | Contacts come only from a simulator source; **SIM / NOT FOR FLIGHT** stays on the surface; cues go when the camera declaration is invalid | Major–Hazardous / No Safety Effect | [`AIR-IN-017`](requirements.md#air-in-017), [`AIR-OUT-012`](requirements.md#air-out-012), [`AIR-FLAG-007`](requirements.md#air-flag-007) |
 
 ### Vehicle frame and six-degree-of-freedom state (FRAME-01)
 
@@ -197,7 +198,7 @@ crate. The [PSSA](pssa.md) develops the common-cause boundaries.
 | Heading / navigation / HSI | 5 |
 | Conventional instruments | 2 |
 | Synthetic vision | 6 |
-| HUD-SIM / repeater | 4 |
+| HUD-SIM / repeater | 5 |
 | Vehicle frame / six-DoF (FRAME-01) | 5 |
 | Timebase | 2 |
 | Source selection | 2 |
@@ -205,7 +206,7 @@ crate. The [PSSA](pssa.md) develops the common-cause boundaries.
 | Renderer / output | 3 |
 | Monitor | 3 |
 | Common-cause combinations | 4 |
-| **Total** | **52** |
+| **Total** | **53** |
 
 ## Derived safety requirements
 
