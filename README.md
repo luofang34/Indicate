@@ -18,6 +18,21 @@ bit-exact pinned frame hashes, a shared conformance corpus, a panel
 admission harness, and the instrument requirement registry with its
 evidence graph.
 
+## Start here
+
+[`docs/instruments/architecture.md`](docs/instruments/architecture.md)
+shows the data flow and the tiers. To see pixels in one command:
+
+```sh
+cargo run --locked -p instrument-bench -- --out target/frames
+```
+
+To run the live loop against X-Plane, or without one attached:
+
+```sh
+cargo run -p indicate-source-xplane -- --xplane 127.0.0.1:49000 --out target/xp
+```
+
 ## HWD review bench
 
 The independent HWD set provides forward scales and compact off-axis aircraft instruments.

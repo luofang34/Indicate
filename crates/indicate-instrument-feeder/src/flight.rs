@@ -1,5 +1,6 @@
 //! Transport-independent flight report admission with source pinning and acquisition age preservation.
 
+use crate::clock::clock_ok;
 use crate::serial_is_newer;
 use indicate_instrument_state::{
     Stamped,
@@ -50,8 +51,7 @@ impl FlightIngress {
 
     /// Stores a newer publication without changing the supplied acquisition ages.
     pub fn observe(&mut self, report: FlightReport, now_ms: f64) -> FlightAdmission {
-        if !now_ms.is_finite() || now_ms < 0.0 || self.observed_ms.is_some_and(|last| now_ms < last)
-        {
+        if !clock_ok(now_ms, self.observed_ms) {
             return FlightAdmission::InvalidClock;
         }
         self.observed_ms = Some(now_ms);
@@ -81,12 +81,8 @@ impl FlightIngress {
         let Some(report) = self.last else {
             return FlightInputs::default();
         };
-        let elapsed =
-            if now_ms.is_finite() && now_ms >= self.observed_ms.unwrap_or(self.received_ms) {
-                Some(now_ms - self.received_ms)
-            } else {
-                None
-            };
+        let elapsed = clock_ok(now_ms, Some(self.observed_ms.unwrap_or(self.received_ms)))
+            .then_some(now_ms - self.received_ms);
         FlightInputs {
             guidance: aged(report.inputs.guidance, elapsed),
             speed: aged(report.inputs.speed, elapsed),

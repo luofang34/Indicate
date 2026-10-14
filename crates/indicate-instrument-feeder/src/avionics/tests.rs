@@ -7,7 +7,7 @@ use super::{
     AttitudeGroup, AvionicsIngress, AvionicsSample, Coherence, IncarnationPolicy, IngressConfig,
     KinematicsGroup,
 };
-use crate::stamp::{CLOCK_SIMULATION, ROLE_OPERATIONAL_ESTIMATE, RawStamp};
+use crate::stamp::{CLOCK_SIMULATION, ROLE_OPERATIONAL_ESTIMATE, ROLE_SIMULATION_TRUTH, RawStamp};
 
 const VEHICLE: u64 = 42;
 const SKEW_BUDGET_NS: u64 = 5_000_000;
@@ -15,6 +15,7 @@ const SKEW_BUDGET_NS: u64 = 5_000_000;
 fn config(policy: IncarnationPolicy) -> IngressConfig {
     IngressConfig {
         vehicle_id: VEHICLE,
+        role: ROLE_OPERATIONAL_ESTIMATE,
         source_id: None,
         incarnation: None,
         incarnation_policy: policy,
@@ -293,4 +294,80 @@ fn identical_payloads_on_distinct_sequences_advance_the_generation_twice() {
         1,
         "identical content is still a production"
     );
+}
+
+#[test]
+fn a_clock_the_gate_cannot_trust_refuses_the_publication_whole() {
+    let mut ingress = AvionicsIngress::new(config(IncarnationPolicy::PinFirst));
+    assert!(!ingress.ingest(&sample(1, 1_000_000), f64::NAN));
+    assert!(!ingress.ingest(&sample(1, 1_000_000), -1.0));
+    assert!(!ingress.ingest(&sample(1, 1_000_000), f64::INFINITY));
+    let (counters, _) = ingress.diagnostics();
+    assert_eq!(counters.invalid_clock, 3);
+    assert!(ingress.snapshot(0.0).attitude.is_none());
+
+    assert!(ingress.ingest(&sample(1, 1_000_000), 100.0));
+    // A reading behind the one the gate acted on is a clock fault, and
+    // the publication under it is refused rather than aged negatively.
+    assert!(!ingress.ingest(&sample(2, 2_000_000), 90.0));
+    let (counters, _) = ingress.diagnostics();
+    assert_eq!(counters.invalid_clock, 4);
+    let snapshot = ingress.snapshot(100.0);
+    assert_eq!(snapshot.attitude.expect("admitted").stamp.sequence, 1);
+}
+
+#[test]
+fn a_snapshot_on_an_untrusted_clock_ages_every_group_nan() {
+    let mut ingress = AvionicsIngress::new(config(IncarnationPolicy::PinFirst));
+    assert!(ingress.ingest(&sample(1, 1_000_000), 100.0));
+    for now_ms in [f64::NAN, -1.0, 90.0, f64::NEG_INFINITY] {
+        let snapshot = ingress.snapshot(now_ms);
+        assert!(snapshot.attitude.expect("admitted").age_ms.is_nan());
+        assert!(snapshot.kinematics.expect("admitted").age_ms.is_nan());
+        assert!(snapshot.estimator_status.expect("admitted").age_ms.is_nan());
+    }
+    let snapshot = ingress.snapshot(110.0);
+    assert_eq!(snapshot.attitude.expect("admitted").age_ms, 10.0);
+}
+
+#[test]
+fn a_truth_gate_admits_truth_stamps_and_refuses_estimates() {
+    let mut truth = AvionicsIngress::new(IngressConfig {
+        role: ROLE_SIMULATION_TRUTH,
+        ..config(IncarnationPolicy::SimAcceptUnseen)
+    });
+    // An estimate-role stamp is the wrong role for this lane.
+    assert!(!truth.ingest(&sample(1, 1_000_000), 0.0));
+    let (counters, fault) = truth.diagnostics();
+    assert_eq!(counters.invalid_stamps, 3);
+    assert_eq!(fault, Some(crate::stamp::StampFault::RoleMismatch));
+
+    let mut truth_sample = sample(1, 1_000_000);
+    let stamp = RawStamp {
+        role: ROLE_SIMULATION_TRUTH,
+        ..stamp(1, 1, 1, 1_000_000)
+    };
+    truth_sample.attitude_stamp = Some(stamp);
+    truth_sample.kinematics_stamp = Some(stamp);
+    truth_sample.estimator_status_stamp = Some(stamp);
+    assert!(truth.ingest(&truth_sample, 0.0));
+    let snapshot = truth.snapshot(10.0);
+    assert_eq!(snapshot.role, ROLE_SIMULATION_TRUTH);
+    assert_eq!(snapshot.clock, Some(CLOCK_SIMULATION));
+    assert_eq!(snapshot.integrity, Some(2));
+    assert!(truth.provenance().is_simulation());
+}
+
+#[test]
+fn provenance_names_the_stream_only_once_something_is_admitted() {
+    let mut ingress = AvionicsIngress::new(config(IncarnationPolicy::PinFirst));
+    let before = ingress.provenance();
+    assert_eq!(before.role, ROLE_OPERATIONAL_ESTIMATE);
+    assert_eq!(before.clock, None);
+    assert_eq!(before.integrity, None);
+    // An estimate lane on the simulation clock is still simulation data.
+    assert!(ingress.ingest(&sample(1, 1_000_000), 0.0));
+    let after = ingress.provenance();
+    assert_eq!(after.clock, Some(CLOCK_SIMULATION));
+    assert!(after.is_simulation());
 }

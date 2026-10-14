@@ -70,6 +70,10 @@ pub struct IngressCounters {
     pub time_regressions: u32,
     /// Clock-domain changes observed within a pinned stream.
     pub clock_changes: u32,
+    /// Publications refused whole because the caller's clock reading
+    /// could not be trusted: not a number, negative, or behind the
+    /// last reading the gate acted on.
+    pub invalid_clock: u32,
 }
 
 /// Attitude estimate group as the wire delivers it.
@@ -123,7 +127,10 @@ pub struct GroupSnapshot<T> {
     pub data: T,
     /// The stamp that admitted it.
     pub stamp: RawStamp,
-    /// Milliseconds since acceptance on the caller's clock.
+    /// Milliseconds since acceptance on the caller's clock. NaN when
+    /// the clock supplied for this snapshot could not be trusted: not a
+    /// number, negative, or behind the last reading the gate ingested
+    /// under. A NaN age resolves `Missing` downstream, never fresh.
     pub age_ms: f64,
 }
 
@@ -132,6 +139,13 @@ pub struct GroupSnapshot<T> {
 pub struct IngressConfig {
     /// The vehicle whose publications this ingress accepts.
     pub vehicle_id: u64,
+    /// The stamp role this gate admits: [`crate::ROLE_OPERATIONAL_ESTIMATE`]
+    /// for a vehicle's estimate lanes, [`crate::ROLE_SIMULATION_TRUTH`]
+    /// for a simulator's truth. Every stamp must carry exactly this
+    /// role, and the role fixes which clock domains are legal, so a
+    /// truth lane cannot pass for an estimate and the snapshot's
+    /// provenance says which it was.
+    pub role: u8,
     /// Pre-pinned source id, or `None` to pin the first seen.
     pub source_id: Option<u64>,
     /// Pre-pinned incarnation, or `None` to pin the first seen.
@@ -160,6 +174,15 @@ pub struct IngressSnapshot {
     /// decodes is `SnapshotMeta::generation`, which the gate advances
     /// per snapshot it admits. This one is never forwarded into it.
     pub generation: u32,
+    /// The stamp role this gate was configured to admit.
+    pub role: u8,
+    /// The clock domain of the newest admitted stamp, once one is
+    /// admitted; every stamp in the pinned stream shares it.
+    pub clock: Option<u8>,
+    /// The integrity classification of the newest admitted stamp, once
+    /// one is admitted. Carried so a shell can label the path; the gate
+    /// validates the code and does not weigh it.
+    pub integrity: Option<u8>,
     /// The pinned source id, once seen.
     pub source_id: Option<u64>,
     /// The pinned incarnation, once seen.
@@ -178,4 +201,27 @@ pub struct IngressSnapshot {
     pub quality: u32,
     /// Attitude/kinematics acquisition coherence.
     pub coherence: CoherenceReport,
+}
+
+/// Where an ingress's admitted state came from, for the labels a shell
+/// owes: the role it admits, and the clock and integrity of the pinned
+/// stream once one is admitted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Provenance {
+    /// The stamp role the gate admits.
+    pub role: u8,
+    /// The clock domain of the pinned stream, once admitted.
+    pub clock: Option<u8>,
+    /// The integrity classification of the pinned stream, once admitted.
+    pub integrity: Option<u8>,
+}
+
+impl Provenance {
+    /// Whether the admitted state is simulation data: a truth role, or
+    /// any stream on the simulation clock. A shell paints its
+    /// simulation label from this, never from convention.
+    pub const fn is_simulation(&self) -> bool {
+        self.role == crate::stamp::ROLE_SIMULATION_TRUTH
+            || matches!(self.clock, Some(crate::stamp::CLOCK_SIMULATION))
+    }
 }

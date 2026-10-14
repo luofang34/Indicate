@@ -27,13 +27,17 @@ bash scripts/trace-report.sh
 bash scripts/detect-target.sh
 bash scripts/test-ci-closure.sh
 bash scripts/check-ci-closure.sh
+bash scripts/test-set-docs.sh
+bash scripts/check-set-docs.sh
+bash scripts/test-identifier-registry.sh
+bash scripts/check-identifier-registry.sh
 cargo check --locked -p indicate-frames -p indicate-alerts -p indicate-sha256 \
   -p indicate-instrument-state -p indicate-instrument-scene \
   -p indicate-instrument-glyphs -p indicate-instrument-symbology \
   -p indicate-instrument-descriptor -p indicate-instrument-panels \
   -p indicate-instrument-template -p indicate-instrument-hmd \
   -p indicate-instrument-raster -p indicate-instrument-feeder \
-  -p indicate-instrument-registry \
+  -p indicate-intent -p indicate-instrument-registry \
   --target thumbv7em-none-eabihf
 cargo run --locked -q -p instrument-bench
 cargo run --locked -q -p indicate-evidence --bin evidence-gate -- \
@@ -71,7 +75,11 @@ and compares. The re-record procedure is four steps, written once in
   first.
 - `ADR-NNNN` identifiers cited in code, scripts, and docs are
   architecture decision records living in the Pilotage repository's
-  `docs/adr/`.
+  `docs/adr/`. Work-package identifiers such as `ALR-01` and every
+  cited decision are defined in
+  `docs/instruments/identifier-registry.md`, and
+  `scripts/check-identifier-registry.sh` fails the build on a citation
+  without a row; add the row with the citation.
 
 ## Cutting a release
 

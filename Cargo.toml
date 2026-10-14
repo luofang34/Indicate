@@ -15,10 +15,13 @@ members = [
     "crates/indicate-instrument-raster",
     "crates/indicate-instrument-conformance",
     "crates/indicate-instrument-feeder",
+    "crates/indicate-intent",
     "crates/indicate-instrument-registry",
     "crates/indicate-evidence",
     "tools/instrument-bench",
     "tools/hwd-bench",
+    "tools/indicate-host",
+    "tools/indicate-source-xplane",
     "tools/xtask",
 ]
 
@@ -45,6 +48,8 @@ indicate-instrument-template = { path = "sets/indicate-instrument-template" }
 indicate-instrument-raster = { path = "crates/indicate-instrument-raster" }
 indicate-instrument-conformance = { path = "crates/indicate-instrument-conformance" }
 indicate-instrument-feeder = { path = "crates/indicate-instrument-feeder" }
+indicate-intent = { path = "crates/indicate-intent" }
+indicate-host = { path = "tools/indicate-host" }
 indicate-instrument-registry = { path = "crates/indicate-instrument-registry" }
 
 [workspace.lints.rust]

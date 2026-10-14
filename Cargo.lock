@@ -173,6 +173,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "indicate-host"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-instrument-descriptor",
+ "indicate-instrument-feeder",
+ "indicate-instrument-scene",
+ "indicate-instrument-state",
+ "indicate-instrument-symbology",
+ "indicate-instrument-template",
+ "indicate-intent",
+ "thiserror",
+]
+
+[[package]]
 name = "indicate-instrument-conformance"
 version = "0.1.0"
 dependencies = [
@@ -309,10 +324,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "indicate-intent"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-instrument-feeder",
+ "indicate-instrument-state",
+ "thiserror",
+]
+
+[[package]]
 name = "indicate-sha256"
 version = "0.1.0"
 dependencies = [
  "sha2",
+]
+
+[[package]]
+name = "indicate-source-xplane"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-host",
+ "indicate-instrument-descriptor",
+ "indicate-instrument-feeder",
+ "indicate-instrument-panels",
+ "indicate-instrument-raster",
+ "indicate-instrument-state",
+ "indicate-intent",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -747,10 +789,12 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "indicate-instrument-glyphs",
+ "indicate-instrument-hmd",
  "indicate-instrument-panels",
  "indicate-instrument-registry",
  "indicate-instrument-scene",
  "indicate-instrument-state",
+ "indicate-instrument-template",
  "instrument-bench",
  "thiserror",
  "tracing",

@@ -108,6 +108,11 @@ pub struct DecodeReport {
     pub unknown_groups: u8,
     /// Known groups whose payload carried an ignored appended tail.
     pub extended_groups: u8,
+    /// Bytes after the last announced group, counted and never read.
+    /// A frame is self-delimiting, so a producer that wrote more than
+    /// it announced is reporting a defect of its own, not extra state;
+    /// the count is what lets a shell see it. Saturates at `u16::MAX`.
+    pub trailing_bytes: u16,
 }
 
 /// Minimum payload bytes for each group this build knows.
@@ -204,6 +209,7 @@ pub fn decode_state(buf: &[u8]) -> Result<DecodeReport, AbiError> {
         state: AircraftState::default(),
         unknown_groups: 0,
         extended_groups: 0,
+        trailing_bytes: 0,
     };
     let mut offset = 2usize;
     let mut prev_tag = 0u8;
@@ -234,6 +240,7 @@ pub fn decode_state(buf: &[u8]) -> Result<DecodeReport, AbiError> {
         }
         offset += 3 + len;
     }
+    report.trailing_bytes = u16::try_from(buf.len().saturating_sub(offset)).unwrap_or(u16::MAX);
     Ok(report)
 }
 

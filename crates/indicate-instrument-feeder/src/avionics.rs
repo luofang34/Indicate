@@ -1,4 +1,4 @@
-//! Reorder-safe avionics ingestion for the operational-estimate lanes.
+//! Reorder-safe avionics ingestion for the estimate and simulation-truth lanes.
 //!
 //! Publication/receipt time is transport metadata: freshness advances
 //! only when a source group presents a new epoch/sequence. Each accepted
@@ -8,16 +8,16 @@
 //! everything unpairable fails closed to no-valid-flags and unusable
 //! quality.
 
+use crate::clock::{age_ms, clock_ok};
 use crate::stamp::{
-    ROLE_OPERATIONAL_ESTIMATE, RawStamp, StampFault, serial_distance, serial_is_newer, skew_ns,
-    stamp_fault_for_role,
+    RawStamp, StampFault, serial_distance, serial_is_newer, skew_ns, stamp_fault_for_role,
 };
 
 mod types;
 
 pub use types::{
     AttitudeGroup, AvionicsSample, Coherence, CoherenceReport, GroupSnapshot, IncarnationPolicy,
-    IngressConfig, IngressCounters, IngressSnapshot, KinematicsGroup,
+    IngressConfig, IngressCounters, IngressSnapshot, KinematicsGroup, Provenance,
 };
 
 const QUALITY_UNUSABLE: u32 = 2;
@@ -81,6 +81,9 @@ pub struct AvionicsIngress {
     generation: u32,
     last_coherence: Coherence,
     last_reject: Option<StampFault>,
+    /// The newest caller-clock reading acted on; a later reading
+    /// behind it is a clock fault, never a negative age.
+    observed_ms: Option<f64>,
     counters: IngressCounters,
 }
 
@@ -109,12 +112,23 @@ impl AvionicsIngress {
             generation: 0,
             last_coherence: Coherence::Insufficient,
             last_reject: None,
+            observed_ms: None,
             counters: IngressCounters::default(),
         }
     }
 
     /// Ingests one publication; returns whether admitted state changed.
+    ///
+    /// A caller clock that is not a number, negative, or behind the
+    /// last reading this gate acted on refuses the whole publication:
+    /// nothing acquired under it could be aged, so nothing under it is
+    /// admitted, and `invalid_clock` counts the refusal.
     pub fn ingest(&mut self, sample: &AvionicsSample, now_ms: f64) -> bool {
+        if !clock_ok(now_ms, self.observed_ms) {
+            self.counters.invalid_clock = self.counters.invalid_clock.wrapping_add(1);
+            return false;
+        }
+        self.observed_ms = Some(now_ms);
         if sample.vehicle_id != self.config.vehicle_id {
             self.counters.wrong_vehicle = self.counters.wrong_vehicle.wrapping_add(1);
             return false;
@@ -214,7 +228,7 @@ impl AvionicsIngress {
     /// Stamp validity and source/incarnation/epoch identity admission,
     /// shared by every group stream.
     fn admit_identity(&mut self, stamp: &RawStamp) -> bool {
-        if let Some(fault) = stamp_fault_for_role(stamp, ROLE_OPERATIONAL_ESTIMATE) {
+        if let Some(fault) = stamp_fault_for_role(stamp, self.config.role) {
             self.counters.invalid_stamps = self.counters.invalid_stamps.wrapping_add(1);
             self.last_reject = Some(fault);
             return false;
@@ -378,10 +392,19 @@ impl AvionicsIngress {
     }
 
     /// The current admitted state; ages against the caller's clock.
+    ///
+    /// A reading the gate may not act on (not a number, negative, or
+    /// behind the last reading it ingested under) ages every group as
+    /// NaN, which the instrument model's freshness policy resolves as
+    /// `Missing`: a broken clock reads as no data, never as fresh data.
     pub fn snapshot(&self, now_ms: f64) -> IngressSnapshot {
-        let age = |accepted_at_ms: f64| (now_ms - accepted_at_ms).max(0.0);
+        let age = |accepted_at_ms: f64| age_ms(now_ms, accepted_at_ms, self.observed_ms);
+        let provenance = self.provenance();
         IngressSnapshot {
             generation: self.generation,
+            role: provenance.role,
+            clock: provenance.clock,
+            integrity: provenance.integrity,
             source_id: self.source_id,
             incarnation: self.incarnation,
             epoch: self.epoch,
@@ -409,6 +432,23 @@ impl AvionicsIngress {
     /// Refusal counters plus the last stamp fault.
     pub fn diagnostics(&self) -> (IngressCounters, Option<StampFault>) {
         (self.counters, self.last_reject)
+    }
+
+    /// Where the admitted state came from: the configured role, and the
+    /// clock and integrity of the newest admitted stamp. The three
+    /// group streams share one pinned identity, so any admitted stamp
+    /// answers for the stream.
+    pub fn provenance(&self) -> Provenance {
+        let newest = self
+            .estimator_status
+            .map(|group| group.stamp)
+            .or(self.attitude.map(|group| group.stamp))
+            .or(self.kinematics.map(|group| group.stamp));
+        Provenance {
+            role: self.config.role,
+            clock: newest.map(|stamp| stamp.clock),
+            integrity: newest.map(|stamp| stamp.integrity),
+        }
     }
 }
 

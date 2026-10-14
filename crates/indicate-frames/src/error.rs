@@ -35,4 +35,8 @@ pub enum FrameError {
     /// The offered rotation is not one (zero, gross, or non-finite
     /// norm), or a translation component is non-finite.
     InvalidTransform,
+    /// The attitude offered for re-referencing is not a rotation (zero,
+    /// gross, or non-finite norm); composing it would relabel garbage
+    /// as an orientation in the target frame.
+    InvalidAttitude,
 }

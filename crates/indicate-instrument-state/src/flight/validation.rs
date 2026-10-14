@@ -107,15 +107,21 @@ pub(crate) fn envelope_fault(envelope: &ProjectedEnvelope) -> Option<GroupFault>
         {
             return Some(GroupFault::UnknownEnum);
         }
+        // A kind this table has no slot for is treated as unknown rather
+        // than indexed: a variant added past the table must fail closed,
+        // never trap.
+        let Some(slot) = upper.get_mut(interval.kind as usize) else {
+            return Some(GroupFault::UnknownEnum);
+        };
         if !interval.lower.is_finite()
             || !interval.upper.is_finite()
             || interval.lower < 0.0
             || interval.lower > interval.upper
-            || upper[interval.kind as usize].is_some_and(|v| interval.lower <= v)
+            || slot.is_some_and(|v| interval.lower <= v)
         {
             return Some(GroupFault::NonFinite);
         }
-        upper[interval.kind as usize] = Some(interval.upper);
+        *slot = Some(interval.upper);
     }
     None
 }

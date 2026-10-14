@@ -199,12 +199,14 @@ pub const TEMPLATE_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     // strictly ascending order, and decodes them in `draw`.
     config_schema: &[],
     // Where a consumed group paints its readout, in design-frame units.
-    // The admission harness does not read this — honest status is proven
-    // by the provenance claims on the runs, wherever the ink lands — but
-    // the registry validates the geometry at init, and a shell that
-    // presents readout ownership or a dash-out declaration reads it.
-    // `Trust` gets no region: it qualifies a readout rather than owning
-    // one, and the map is allowed to be partial.
+    // The registry validates the geometry at init, admission asserts
+    // that somewhere in the case matrix a visible run claiming the
+    // group lands inside the region (a region over blank space fails as
+    // `GroupRegionEmpty`), and screen composition plans obscuration
+    // around it. Honest status itself is proven by the provenance
+    // claims on the runs, wherever the ink lands. `Trust` gets no
+    // region: it qualifies a readout rather than owning one, and the
+    // map is allowed to be partial.
     group_regions: &[(
         GroupId::Air,
         Region {
@@ -214,8 +216,8 @@ pub const TEMPLATE_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
             height: 28.0,
         },
     )],
-    // Stress fixtures beyond the four shared canonical states, which
-    // every panel meets regardless. A panel whose geometry can leave the
+    // Stress fixtures beyond the shared canonical states, which every
+    // panel meets regardless. A panel whose geometry can leave the
     // frame, or whose readouts have a widest case no shared fixture
     // reaches, contributes its own here. This one has nothing to add.
     extreme_states: &[],

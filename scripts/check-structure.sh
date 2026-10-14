@@ -339,7 +339,7 @@ check_crate_naming() {
 KERNEL_CRATES="indicate-frames indicate-alerts indicate-sha256 \
 indicate-instrument-state indicate-instrument-scene indicate-instrument-glyphs \
 indicate-instrument-symbology indicate-instrument-descriptor \
-indicate-instrument-feeder"
+indicate-instrument-feeder indicate-intent"
 VERIFICATION_CRATES="indicate-instrument-raster indicate-instrument-conformance \
 indicate-instrument-registry indicate-evidence"
 

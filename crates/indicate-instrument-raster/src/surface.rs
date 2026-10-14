@@ -176,7 +176,6 @@ impl<'a> Surface<'a> {
 
     /// Composites one straight-alpha sRGB pixel with source-over.
     pub(crate) fn composite(&mut self, x: i32, y: i32, color: [u8; 4]) {
-        self.composites = self.composites.wrapping_add(1);
         let sa = color[3] as u32;
         if sa == 0 {
             return;
@@ -187,6 +186,10 @@ impl<'a> Surface<'a> {
         let Some(px) = self.pixels.get_mut(idx..idx + 4) else {
             return;
         };
+        // Counted only once a pixel is really written: the counter prices
+        // the composite class of the work budget, and a fully transparent
+        // or off-surface sample writes nothing.
+        self.composites = self.composites.wrapping_add(1);
         if sa == 255 {
             px.copy_from_slice(&color);
             return;

@@ -1,5 +1,13 @@
 # Instrument intended-function baseline
 
+New here? Read the [architecture overview](architecture.md) first: it
+shows the data flow from a source to a display and back, the three
+published surfaces, and the tiers. Then pick a cookbook:
+[see pixels](cookbook-run.md), [feed a simulator](cookbook-feeder.md),
+[write a backend](cookbook-backend.md), or
+[write a set](cookbook-set.md). The [assurance profiles](assurance-profiles.md)
+page says which gates a change must pass.
+
 The files in this directory define what Indicate instrument displays may do,
 where their responsibility ends, and which assumptions must be made explicit.
 They are engineering inputs for later safety assessment and implementation.
@@ -16,6 +24,66 @@ The baseline is split into four controlled artifacts:
   requirement identifiers.
 - [Review record](review-record.md) records the approvals required before the
   baseline can be treated as reviewed.
+
+## Operator intent
+
+The display family is fed from a source; the
+[intent contract](intent-contract.md) is the return path. An operator
+request is admitted by device identity, sequence, clock, and bounds,
+and is confirmed only when the source echoes it through the selections
+group. The display never paints a requested value.
+
+## Reference host
+
+The [backend contract](backend-contract.md) states what every shell
+owes: one snapshot generation per admission, a repaint on the display
+clock rather than on data arrival, one resolve and one alert step per
+frame, a liveness watchdog on the renderer's own progress
+([`AIR-IN-013`](requirements.md#air-in-013)), and a failure page in
+place of a frame it could not make
+([`AIR-UNAV-007`](requirements.md#air-unav-007)). `tools/indicate-host`
+is that loop once, `no_std` and sans-IO, with the intent gate and echo
+monitor routed through it, so a simulator shell embeds it instead of
+rewriting it.
+
+## Simulator sources
+
+A simulator is an untrusted source like any other. The
+[X-Plane source adapter](source-xplane.md) decodes the simulator's UDP
+data interface without a socket, admits attitude and kinematics through
+the feeder's simulation-truth lane on the simulation clock, ages every
+other group from its own receipt, drives the reference host on a paint
+clock, and writes admitted operator intents back as datarefs. It is the
+first end-to-end path from a simulator to pixels in this repository.
+
+## Identifier registry
+
+Code and documents cite identifiers from several families:
+requirements, failure conditions, standards rows, evidence-plan items,
+work packages, and architecture decisions. The
+[identifier registry](identifier-registry.md) names each family, where
+its members are defined, and what every work-package and decision
+identifier cited from Rust code means; it also states plainly that the
+architecture decision records live in the Pilotage repository.
+`scripts/check-identifier-registry.sh` fails CI on a citation in a
+`.rs` file that has no row.
+
+## Set documents
+
+Each set crate under `sets/` has one document here that states its
+intended function, inputs, failure presentation, verification, and
+requirements, followed by a block of descriptor facts that
+`cargo xtask gen-set-docs` writes from the code.
+`scripts/check-set-docs.sh` fails CI on a set crate without a document,
+a document without the generated block or an intended function or a
+cited requirement, and a block that no longer matches the descriptors.
+
+- [Shipped flight panels](set-panels.md): the flight set and the
+  configuration set of `indicate-instrument-panels`.
+- [Head-worn instruments](set-hmd.md): the `indicate-instrument-hmd`
+  set.
+- [The template set](set-template.md): the smallest set that passes
+  admission, written to be copied.
 
 ## Preliminary safety assessment
 

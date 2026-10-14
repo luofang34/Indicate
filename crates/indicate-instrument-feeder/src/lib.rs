@@ -22,7 +22,9 @@
 #[cfg(test)]
 extern crate std;
 
+pub mod aircraft_state;
 pub mod avionics;
+pub mod clock;
 pub mod fc_state;
 pub mod flight;
 pub mod nav_display;

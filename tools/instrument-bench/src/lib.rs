@@ -10,3 +10,6 @@
 mod screen;
 
 pub use screen::{BENCH_COMPOSITION, BENCH_COMPOSITION_DIGEST, BENCH_SCREEN};
+
+#[cfg(test)]
+mod tests;

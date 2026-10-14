@@ -72,3 +72,6 @@ pub fn run() -> Result<(), XtaskError> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
