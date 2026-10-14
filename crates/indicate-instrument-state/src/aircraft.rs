@@ -362,6 +362,8 @@ pub struct SnapshotMeta {
 /// The unified input state every instrument reads (ADR-0017).
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct AircraftState {
+    /// Optional shared guidance and speed-presentation reports.
+    pub flight: crate::flight::FlightInputs,
     /// Attitude group.
     pub attitude: Stamped<Attitude>,
     /// Kinematics group.

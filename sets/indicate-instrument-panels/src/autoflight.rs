@@ -15,8 +15,8 @@
 use indicate_alerts::AlertOutput;
 use indicate_instrument_descriptor::DesignFrame;
 use indicate_instrument_scene::{Anchor, LayerId, PaintMode, SceneError, SceneWriter};
-use indicate_instrument_state::{ApModes, GroupId, PanelData, Sig, SignalStatus};
-use indicate_instrument_symbology::{annunciation, fmt_label, palette, safety, status_paint};
+use indicate_instrument_state::{GroupId, PanelData, Sig};
+use indicate_instrument_symbology::{annunciation, fmt_label, palette, safety};
 
 /// Left margin every row shares.
 const TEXT_X: f32 = 24.0;
@@ -24,10 +24,6 @@ const TEXT_X: f32 = 24.0;
 const LATERAL_X: f32 = 150.0;
 /// Where the vertical column starts.
 const VERTICAL_X: f32 = 300.0;
-/// Baseline of the active-mode row.
-const ACTIVE_Y: f32 = 76.0;
-/// Baseline of the armed-mode row.
-const ARMED_Y: f32 = 112.0;
 /// Baseline of the first target row.
 const FIRST_TARGET_Y: f32 = 190.0;
 /// Distance between target rows.
@@ -52,22 +48,23 @@ pub fn draw_autoflight(
 
     scene.begin_layer(LayerId::Tapes)?;
     column_headings(scene)?;
-    if data.ap_modes.status.shows_value() {
-        mode_rows(scene, &data.ap_modes.value)?;
-    }
     target_rows(scene, data)?;
     scene.end_layer(LayerId::Tapes)?;
 
     scene.begin_layer(LayerId::Annunciation)?;
-    match data.ap_modes.status {
-        SignalStatus::Failed => {
-            status_paint::draw_red_x(scene, 0.0, 0.0, frame.width, frame.height, "AFCS")?;
-        }
-        SignalStatus::Stale | SignalStatus::Degraded => {
-            status_paint::draw_flag(scene, frame.width - 60.0, 36.0, "AFCS")?;
-        }
-        SignalStatus::Missing | SignalStatus::Valid => {}
-    }
+    use indicate_instrument_symbology::flight::modes;
+    modes::draw(
+        scene,
+        data,
+        modes::FmaLayout {
+            center: [240.0, 70.0],
+            column_step: 125.0,
+            row_step: 28.0,
+            text_size: 20.0,
+            attention_ms: 5000.0,
+        },
+    )?;
+
     if let Some(alerts) = alerts {
         annunciation::draw_alert_stack(scene, alerts)?;
     }
@@ -80,49 +77,30 @@ pub fn draw_autoflight(
 /// rather than as a panel that failed to load.
 fn column_headings(scene: &mut SceneWriter<'_>) -> Result<(), SceneError> {
     scene.fill_color(palette::GREY)?;
-    scene.text(TEXT_X, 36.0, 16.0, Anchor::MIDDLE_LEFT, "AFCS")?;
-    scene.text(LATERAL_X, 36.0, 16.0, Anchor::MIDDLE_LEFT, "LATERAL")?;
-    scene.text(VERTICAL_X, 36.0, 16.0, Anchor::MIDDLE_LEFT, "VERTICAL")?;
+    scene.text(240.0, 14.0, 16.0, Anchor::CENTER, "AFCS")?;
+    scene.text(115.0, 36.0, 14.0, Anchor::CENTER, "LATERAL")?;
+    scene.text(240.0, 36.0, 14.0, Anchor::CENTER, "VERTICAL")?;
+    scene.text(365.0, 36.0, 14.0, Anchor::CENTER, "THRUST")?;
     scene.text(TEXT_X, 154.0, 16.0, Anchor::MIDDLE_LEFT, "TARGETS")
-}
-
-/// Engagement and the four mode slots.
-///
-/// A slot with no mode to name draws nothing. Dashes would be wrong
-/// here: a dash says a value is missing, and an axis holding nothing is
-/// not an axis whose mode went missing.
-fn mode_rows(scene: &mut SceneWriter<'_>, modes: &ApModes) -> Result<(), SceneError> {
-    let group = GroupId::ApModes.to_u8();
-    if let Some(label) = modes.engagement.label() {
-        scene.fill_color(palette::MODE_ACTIVE)?;
-        scene.text_attributed(group, TEXT_X, ACTIVE_Y, 28.0, Anchor::MIDDLE_LEFT, label)?;
-    }
-    let slots = [
-        (LATERAL_X, ACTIVE_Y, modes.lateral_active.label(), true),
-        (LATERAL_X, ARMED_Y, modes.lateral_armed.label(), false),
-        (VERTICAL_X, ACTIVE_Y, modes.vertical_active.label(), true),
-        (VERTICAL_X, ARMED_Y, modes.vertical_armed.label(), false),
-    ];
-    for (x, y, label, active) in slots {
-        let Some(label) = label else { continue };
-        scene.fill_color(if active {
-            palette::MODE_ACTIVE
-        } else {
-            safety::ANNUNCIATION_WHITE
-        })?;
-        let size = if active { 26.0 } else { 20.0 };
-        scene.text_attributed(group, x, y, size, Anchor::MIDDLE_LEFT, label)?;
-    }
-    Ok(())
 }
 
 /// The three target readouts, each gated by its own signal.
 fn target_rows(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneError> {
-    let targets = &data.ap_targets;
+    let targets = &data.flight.ap_targets;
     // The row names carry the SEL prefix so no row name is also a mode
     // label: "ALT" beside "ALT" would leave the reader deciding which
     // one is the mode the automation is in.
-    target_row(scene, 0, "SEL IAS", targets.airspeed_kt, "kt")?;
+    if data.flight.speed_present || data.flight.guidance_present {
+        indicate_instrument_symbology::flight::speed::target_readouts(
+            scene,
+            data,
+            [240.0, 175.0],
+            16.0,
+            400.0,
+        )?;
+    } else {
+        target_row(scene, 0, "SEL IAS", targets.airspeed_kt, "kt")?;
+    }
     target_row(scene, 1, "SEL ALT", targets.altitude_ft, "FT")?;
     target_row(scene, 2, "SEL VS", targets.vertical_speed_fpm, "FPM")
 }

@@ -32,6 +32,7 @@ mod altitude;
 mod autopilot;
 mod director;
 mod dynamics;
+pub mod flight;
 mod group_id;
 mod heading;
 mod ident;

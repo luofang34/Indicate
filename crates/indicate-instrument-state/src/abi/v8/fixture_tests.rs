@@ -74,6 +74,18 @@ fn flight_controller_frame_is_pinned() {
     assert_pinned(&fixtures::flight_controller(), FC_HEX, "flight-controller");
 }
 
+#[test]
+fn extended_flight_frame_is_pinned() {
+    assert_pinned(
+        &fixtures::extended(),
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/fixtures/state-abi-v8.extended-flight.hex"
+        )),
+        "extended-flight",
+    );
+}
+
 /// The fixture file names must name the version whose encoding they
 /// hold. Nothing else ties them together: the names are string literals
 /// here and in `cargo xtask gen-state-fixture`, so a version bump that

@@ -37,9 +37,9 @@ pub const BUILTIN_CRITICALITY_BANDS: CriticalityBands = CriticalityBands {
             frame: BUILTIN_FRAME,
             band: Some(Region {
                 x: 6.0,
-                y: 38.0,
+                y: 5.4,
                 width: 468.0,
-                height: 314.0,
+                height: 346.6,
             }),
         },
         PanelCriticality {
@@ -56,10 +56,10 @@ pub const BUILTIN_CRITICALITY_BANDS: CriticalityBands = CriticalityBands {
             panel: "autoflight",
             frame: BUILTIN_FRAME,
             band: Some(Region {
-                x: 100.0,
-                y: 276.0,
-                width: 90.85715,
-                height: 76.0,
+                x: 51.9,
+                y: 55.4,
+                width: 378.8143,
+                height: 296.6,
             }),
         },
         PanelCriticality {

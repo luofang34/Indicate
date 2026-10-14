@@ -45,6 +45,18 @@ fn class_color(class: AlertClass) -> Rgba8 {
 /// diverge from it.
 pub(crate) fn alert_label(id: AlertId) -> &'static str {
     use AlertCondition as C;
+    use indicate_alerts::AutoflightFault as A;
+    for (fault, label) in [
+        (A::AutopilotDisconnect, "AP DISC"),
+        (A::AutothrustDisconnect, "A/THR DISC"),
+        (A::LowSpeedProtection, "LOW SPD PROT"),
+        (A::HighSpeedProtection, "HIGH SPD PROT"),
+        (A::ModeReversion, "MODE REVERSION"),
+    ] {
+        if C::Autoflight(fault).id() == id {
+            return label;
+        }
+    }
     let table: [(AlertId, &'static str); 20] = [
         (C::Altitude(AltFault::ReferenceLost).id(), "ALT REF"),
         (C::Altitude(AltFault::DatumMiscompare).id(), "BARO CMP"),
@@ -99,12 +111,23 @@ pub fn draw_alert_stack(
     scene: &mut SceneWriter<'_>,
     alerts: &AlertOutput,
 ) -> Result<(), SceneError> {
+    draw_alert_stack_at(scene, alerts, [STACK_X, STACK_BASE_Y], ROW_STEP, 12.0)
+}
+
+/// Draws the central alert snapshot at instrument-supplied geometry.
+pub fn draw_alert_stack_at(
+    scene: &mut SceneWriter<'_>,
+    alerts: &AlertOutput,
+    origin: [f32; 2],
+    row_step: f32,
+    text_size: f32,
+) -> Result<(), SceneError> {
     if alerts.health() == ManagerHealth::Faulted {
         scene.fill_color(safety::CAUTION_AMBER)?;
         scene.text(
-            STACK_X,
-            STACK_BASE_Y - 4.0 * ROW_STEP,
-            12.0,
+            origin[0],
+            origin[1] - 4.0 * row_step,
+            text_size,
             Anchor::BASELINE_LEFT,
             "ALRT FAIL",
         )?;
@@ -121,9 +144,9 @@ pub fn draw_alert_stack(
         }
         scene.fill_color(class_color(alert.class))?;
         scene.text(
-            STACK_X,
-            STACK_BASE_Y - row as f32 * ROW_STEP,
-            12.0,
+            origin[0],
+            origin[1] - row as f32 * row_step,
+            text_size,
             Anchor::BASELINE_LEFT,
             alert_label(alert.id),
         )?;
@@ -132,9 +155,9 @@ pub fn draw_alert_stack(
     if truncated {
         scene.fill_color(safety::CAUTION_AMBER)?;
         scene.text(
-            STACK_X,
-            STACK_BASE_Y - (row as f32) * ROW_STEP,
-            12.0,
+            origin[0],
+            origin[1] - (row as f32) * row_step,
+            text_size,
             Anchor::BASELINE_LEFT,
             "MORE",
         )?;

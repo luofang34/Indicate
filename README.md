@@ -18,6 +18,19 @@ bit-exact pinned frame hashes, a shared conformance corpus, a panel
 admission harness, and the instrument requirement registry with its
 evidence graph.
 
+## HWD review bench
+
+The independent HWD set provides forward scales and compact off-axis aircraft instruments.
+Run the production renderer against the supplied review cases:
+
+```sh
+cargo run --release -p hwd-bench -- target/hwd-gallery.html
+```
+
+Open `target/hwd-gallery.html` in a browser. Select a case, then adjust the head sliders or start the sweep.
+The gallery includes source failures, unusual attitudes, altitude references, and contrast backgrounds.
+Its source links explain the design evidence. The G5 registry and its baselines remain separate.
+
 ## The boundary
 
 This repository is upstream of every shell that displays its panels.
@@ -83,8 +96,8 @@ consumers red at their next advance instead of drifting silently.
 
 ## Gates
 
-`cargo test --all-targets` plus, in CI: the eleven-crate `no_std`
-closure compiled standalone for `thumbv7em-none-eabihf`, REN-03 frame
+`cargo test --all-targets` plus, in CI: the `no_std` closure compiled
+standalone for `thumbv7em-none-eabihf`, REN-03 frame
 hashes, REN-04 target timing, REN-02 glyph-pack integrity, the
 admission/digest bench smoke, the AIR-* requirement registry check, the
 standards-registry drift guard, the certification-claim guard, and the

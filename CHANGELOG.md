@@ -43,6 +43,61 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.7.1] — 2026-09-16
+
+The HWD API adds explicit display roles, tasks, visibility evidence, and layer reference frames.
+Automation indications occupy a stable upper side region.
+Producer-timed transition attention uses a dedicated event slot.
+Recovery, urgent alerts, and failed flight references override optional declutter.
+A mission reservation separates future task status from essential flight information.
+Nonconformal text shares one display frame and reserves a separate host status line.
+Forward-facing unusual attitude has an explicit warning before extreme-pitch chevrons appear.
+Gallery generation rejects text collisions, including contrast halos and invalid-source labels.
+The [HWD policy](docs/instruments/hwd-presentation-policy.md) records research, interfaces, and evaluation requirements.
+
+This release adds public HWD APIs without changing the five contract values.
+
+| Value | This release |
+|---|---|
+| State ABI | 8 |
+| Scene format | 1 |
+| Corpus | 8 |
+| Composition digest | `edf5815cc83179cfa7f5b8871bbe6e945dbf04d0339e9f5e55cb3a2922deff51` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
+
+Panel set changed since the previous release: no.
+
+## [0.7.0] — 2026-09-16
+
+Fixed instruments and head-worn displays share flight guidance, speed targets, envelope presentation, and alert semantics.
+AP, FD, and automatic thrust engagement remain independent.
+Invalid commands cannot produce steering cues.
+Selected and effective speed targets retain distinct meanings.
+
+Optional ABI v8 tags add guidance and speed-presentation reports.
+Existing wire payloads and fixtures remain unchanged.
+`FlightIngress` admits ordered producer reports and preserves acquisition ages.
+Rust consumers access resolved legacy flight fields through `PanelData.flight`.
+Complete `AircraftState` initializers must supply `flight` or use a default structure update.
+
+This change deliberately moves autoflight paint and PFD target presentation.
+Protected annunciation regions now include flight mode indications.
+The autoflight raster baseline, composition digest, and screen-composition digest move.
+The conformance corpus remains unchanged.
+
+The [shared contract](docs/instruments/flight-guidance-contract.md) defines producer responsibilities, wire fields, and verification requirements.
+Aircraft models supply aerodynamic limits and coordinate projections.
+
+| Value | This release |
+|---|---|
+| State ABI | 8 |
+| Scene format | 1 |
+| Corpus | 8 |
+| Composition digest | `edf5815cc83179cfa7f5b8871bbe6e945dbf04d0339e9f5e55cb3a2922deff51` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
+
+Panel set changed since the previous release: no.
+
 ## [0.6.3] — 2026-08-27
 
 True-airspeed, groundspeed, and barometric-setting labels now shrink to

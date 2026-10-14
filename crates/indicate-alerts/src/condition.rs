@@ -28,6 +28,7 @@ const FAMILY_MISCOMPARE: u8 = 0x04;
 const FAMILY_DISPLAY: u8 = 0x05;
 const FAMILY_FRAME: u8 = 0x06;
 const FAMILY_SYSTEM: u8 = 0x07;
+const FAMILY_AUTOFLIGHT: u8 = 0x08;
 
 const fn id(family: u8, code: u8) -> AlertId {
     AlertId(((family as u16) << 8) | code as u16)
@@ -313,6 +314,8 @@ impl SystemNote {
 /// only its stable identity and fixed class.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AlertCondition {
+    /// Producer-declared flight guidance event.
+    Autoflight(crate::AutoflightFault),
     /// Altitude reference/datum fault.
     Altitude(AltFault),
     /// Heading/navigation reference fault.
@@ -338,6 +341,7 @@ impl AlertCondition {
     /// The stable identity this condition raises.
     pub const fn id(self) -> AlertId {
         match self {
+            Self::Autoflight(f) => id(FAMILY_AUTOFLIGHT, f as u8),
             Self::Altitude(f) => id(FAMILY_ALTITUDE, f.code()),
             Self::Heading(f) => id(FAMILY_NAV, f.code()),
             Self::TurnSlip(f) => id(FAMILY_TURN_SLIP, f.code()),
@@ -351,6 +355,7 @@ impl AlertCondition {
     /// The fixed severity class this condition carries.
     pub const fn class(self) -> AlertClass {
         match self {
+            Self::Autoflight(f) => f.class(),
             Self::Altitude(f) => f.class(),
             Self::Heading(f) => f.class(),
             Self::TurnSlip(f) => f.class(),
@@ -368,6 +373,10 @@ pub const fn class_of(id: AlertId) -> Option<AlertClass> {
     let family = (id.0 >> 8) as u8;
     let code = (id.0 & 0x00ff) as u8;
     match family {
+        FAMILY_AUTOFLIGHT => match crate::AutoflightFault::from_code(code) {
+            Some(f) => Some(f.class()),
+            None => None,
+        },
         FAMILY_ALTITUDE => match AltFault::from_code(code) {
             Some(f) => Some(f.class()),
             None => None,

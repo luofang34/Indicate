@@ -125,6 +125,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "hwd-bench"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-frames",
+ "indicate-instrument-descriptor",
+ "indicate-instrument-glyphs",
+ "indicate-instrument-hmd",
+ "indicate-instrument-panels",
+ "indicate-instrument-raster",
+ "indicate-instrument-scene",
+ "indicate-instrument-state",
+ "thiserror",
+]
+
+[[package]]
 name = "hybrid-array"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -192,6 +208,21 @@ version = "0.1.0"
 dependencies = [
  "indicate-sha256",
  "thiserror",
+]
+
+[[package]]
+name = "indicate-instrument-hmd"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-instrument-conformance",
+ "indicate-instrument-descriptor",
+ "indicate-instrument-glyphs",
+ "indicate-instrument-registry",
+ "indicate-instrument-scene",
+ "indicate-instrument-state",
+ "indicate-instrument-symbology",
+ "libm",
 ]
 
 [[package]]

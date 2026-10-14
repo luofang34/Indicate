@@ -83,18 +83,18 @@ fn draw_autoflight_panel(
     Ok(())
 }
 
-/// The autoflight annunciator (AIR-IN-015): what the automation holds
-/// now, what it is armed to hold next, and the values it flies toward.
-///
-/// A surface of its own rather than a band inside the PFD: the PFD
-/// already annunciates the flight director's mode, and a second mode
-/// vocabulary competing for the same strip would leave a reader
-/// deciding which annunciation answers which question.
+/// The autoflight panel shares mode semantics with the PFD and HWD (AIR-IN-015).
 pub const AUTOFLIGHT_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     id: "autoflight",
     title: "Autoflight",
     required_layers: layer_bit(LayerId::Tapes) | layer_bit(LayerId::Annunciation),
-    required_groups: GroupSet::of(&[GroupId::ApModes, GroupId::ApTargets]),
+    required_groups: GroupSet::of(&[
+        GroupId::ApModes,
+        GroupId::ApTargets,
+        GroupId::FlightDirector,
+        GroupId::Guidance,
+        GroupId::SpeedPresentation,
+    ]),
     frame_min: BUILTIN_FRAME,
     frame_max: BUILTIN_FRAME,
     frame_step: FRAME_STEP,
@@ -135,13 +135,17 @@ pub const AUTOFLIGHT_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
             build: extreme_states::autoflight_engaged,
         },
         ExtremeState {
+            id: "extended-flight-guidance",
+            build: indicate_instrument_state::abi::v8::fixtures::extended,
+        },
+        ExtremeState {
             id: "target-against-another-datum",
             build: extreme_states::autoflight_incomparable_target,
         },
     ],
     raster_baselines: &[(
         BUILTIN_FRAME,
-        "fbc6d9448f9e73fc736a82059afe796d0853c31610c4d8360111a1d150976ead",
+        "943b82a02a5e6e4080359cb794b5956a2342da7034d8e2f4f1c6cfb6f95b5fcf",
     )],
     draw: draw_autoflight_panel,
 };

@@ -87,6 +87,10 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         GroupId::Altitude,
         GroupId::Dynamics,
         GroupId::FlightDirector,
+        GroupId::ApModes,
+        GroupId::ApTargets,
+        GroupId::Guidance,
+        GroupId::SpeedPresentation,
     ]),
     frame_min: BUILTIN_FRAME,
     frame_max: BUILTIN_FRAME,
@@ -181,6 +185,10 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         ),
     ],
     extreme_states: &[
+        ExtremeState {
+            id: "extended-flight-guidance",
+            build: indicate_instrument_state::abi::v8::fixtures::extended,
+        },
         ExtremeState {
             id: "unusual-inverted",
             build: extreme_states::pfd_unusual_inverted,
@@ -346,7 +354,7 @@ pub const ALL_SETS: &[PanelSet] = &[BUILTIN_SET, CONFIG_SET];
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "f6fb603bf2e1f7889ddc9b5d534f329a0379d34a8f00d954f366e9b270ddc273";
+    "edf5815cc83179cfa7f5b8871bbe6e945dbf04d0339e9f5e55cb3a2922deff51";
 
 pub use criticality_bands::BUILTIN_CRITICALITY_BANDS;
 pub use supplementary::{

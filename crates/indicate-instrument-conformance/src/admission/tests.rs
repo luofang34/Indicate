@@ -11,10 +11,16 @@ use super::{admit, criticality_bands};
 fn builtin_panels_pass_admission() {
     let registry = Registry::new(BUILTIN_PANELS).expect("composes");
     let report = admit(&registry).expect("shipped panels must be admissible");
-    // PFD: (6 canonical + 4 extreme) states × (1 fed + 8 withheld);
-    // HSI: (6 + 3) × 9; autoflight: (6 + 2) × 3; monitor: 7 × 2 — each
-    // drawn twice, quiet and with the saturated alert stack.
-    assert_eq!(report.cases, 418);
+    let expected = BUILTIN_PANELS
+        .iter()
+        .map(|panel| {
+            let states =
+                indicate_instrument_registry::CANONICAL_STATES.len() + panel.extreme_states.len();
+            let groups = panel.required_groups.len() as usize;
+            states * (1 + groups) * panel.canonical_frames.len() * 2
+        })
+        .sum::<usize>();
+    assert_eq!(report.cases, expected);
     assert!(report.warnings.is_empty(), "{:?}", report.warnings);
 }
 

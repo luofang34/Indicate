@@ -90,6 +90,18 @@ jobs:
         # remains a human source review.
         run: bash scripts/check-standards-registry.sh
 
+      - name: closure lists name every crate
+        # The two hand-written lists below — the downstream-agnostic
+        # allowlist and the bare-metal closure — are read from this
+        # file and compared with the tree: a family crate missing from
+        # the allowlist is a false boundary leak, and a `no_std` crate
+        # missing from the closure is a set CI never compiles
+        # bare-metal. CONTRIBUTING.md's local copy of the closure is
+        # held to the same list.
+        run: |
+          bash scripts/test-ci-closure.sh
+          bash scripts/check-ci-closure.sh
+
       - name: instrument trace inventory (AIR-03)
         # Emit a requirement/test/review/configuration inventory to the log.
         # This is an inventory, not a compliance trace, and fabricates nothing.
@@ -109,7 +121,7 @@ jobs:
                  indicate-instrument-scene indicate-instrument-state \
                  indicate-instrument-glyphs indicate-instrument-symbology \
                  indicate-instrument-panels indicate-instrument-template \
-                 indicate-instrument-raster \
+                 indicate-instrument-hmd indicate-instrument-raster \
                  indicate-instrument-conformance indicate-instrument-feeder \
                  indicate-instrument-descriptor indicate-instrument-registry \
                  indicate-evidence instrument-bench"
@@ -164,6 +176,7 @@ jobs:
           -p indicate-instrument-descriptor
           -p indicate-instrument-panels
           -p indicate-instrument-template
+          -p indicate-instrument-hmd
           -p indicate-instrument-raster
           -p indicate-instrument-feeder
           -p indicate-instrument-registry

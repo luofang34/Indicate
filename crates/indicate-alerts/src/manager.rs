@@ -191,7 +191,7 @@ impl AlertManager {
             if !a.present || a.acknowledged || a.aural_armed {
                 continue;
             }
-            let token = a.class.aural_token();
+            let token = crate::aural_of(a.id).unwrap_or(AuralToken::Silent);
             if token.is_continuous() || matches!(token, AuralToken::Silent) {
                 continue;
             }
@@ -218,14 +218,14 @@ impl AlertManager {
                     _ => Some((i, a.class, a.id)),
                 },
             );
-        let Some((i, class, _)) = best else {
+        let Some((i, _, id)) = best else {
             return AuralToken::Silent;
         };
         if let Some(a) = self.slots[i].as_mut() {
             a.aural_armed = false;
             a.last_aural_ms = now_ms;
         }
-        class.aural_token()
+        crate::aural_of(id).unwrap_or(AuralToken::Silent)
     }
 
     fn build_output(
@@ -293,7 +293,7 @@ fn sounds(a: &Alert, profile: &AlertProfile, ctx: AlertContext) -> bool {
     if !a.present || a.acknowledged {
         return false;
     }
-    let token = a.class.aural_token();
+    let token = crate::aural_of(a.id).unwrap_or(AuralToken::Silent);
     if matches!(token, AuralToken::Silent) {
         return false;
     }
@@ -320,7 +320,7 @@ fn view(a: &Alert, profile: &AlertProfile, ctx: AlertContext) -> ActiveAlert {
         id: a.id,
         class: a.class,
         state,
-        aural: a.class.aural_token(),
+        aural: crate::aural_of(a.id).unwrap_or(AuralToken::Silent),
         inhibited,
         decluttered,
         generation: a.generation,

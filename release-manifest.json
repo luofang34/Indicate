@@ -9,7 +9,7 @@
     "version": 8,
     "sha256": "0b0c7ccb135bfc4107bc110e4b24dceffd84adf1b767fcd14d2c5ace7391f962"
   },
-  "compositionDigest": "f6fb603bf2e1f7889ddc9b5d534f329a0379d34a8f00d954f366e9b270ddc273",
+  "compositionDigest": "edf5815cc83179cfa7f5b8871bbe6e945dbf04d0339e9f5e55cb3a2922deff51",
   "screenComposition": {
     "fixture": "tools/instrument-bench",
     "screen": { "width": 960, "height": 720 },
@@ -18,19 +18,19 @@
       { "panel": "hsi", "x": 480, "y": 0, "width": 480, "height": 360 },
       { "panel": "monitor", "x": 0, "y": 360, "width": 480, "height": 360 }
     ],
-    "digest": "47d862544850465b02cd2f9ff056f454331d82020ce5f8081b5f24bd1f630880"
+    "digest": "b90d5b6e741111ed2137e7fa7f4a04d447a76d0975bad6bb11d3904e2ba58e74"
   },
   "rasterBaselines": [
     { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "sha256": "1ffd3ff80047da054823de9cef9a5017b9c8b08d4b048b0db7db7ea1f827eea1" },
     { "panel": "hsi", "frame": { "width": 480, "height": 360 }, "sha256": "cfe8fb5eba7a2947aa69138e934f7a90be07580be22532cda099eedf990ea8ae" },
-    { "panel": "autoflight", "frame": { "width": 480, "height": 360 }, "sha256": "fbc6d9448f9e73fc736a82059afe796d0853c31610c4d8360111a1d150976ead" },
+    { "panel": "autoflight", "frame": { "width": 480, "height": 360 }, "sha256": "943b82a02a5e6e4080359cb794b5956a2342da7034d8e2f4f1c6cfb6f95b5fcf" },
     { "panel": "monitor", "frame": { "width": 480, "height": 360 }, "sha256": "40f44383f3ad46a0bbd65f04afc1d80fb9d94c11acff8dc66edbfcf7b8fa4c01" }
   ],
   "glyphPackHash": "281eef6229feee417c7090d8c8ea79489c017cd1c02fc7234876b2a64a532158",
   "criticalityBands": [
-    { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "band": { "x": 6, "y": 38, "width": 468, "height": 314 } },
+    { "panel": "pfd", "frame": { "width": 480, "height": 360 }, "band": { "x": 6, "y": 5.4, "width": 468, "height": 346.600006 } },
     { "panel": "hsi", "frame": { "width": 480, "height": 360 }, "band": { "x": 98, "y": 48, "width": 284, "height": 304 } },
-    { "panel": "autoflight", "frame": { "width": 480, "height": 360 }, "band": { "x": 100, "y": 276, "width": 90.857147, "height": 76 } },
+    { "panel": "autoflight", "frame": { "width": 480, "height": 360 }, "band": { "x": 51.900002, "y": 55.400002, "width": 378.814301, "height": 296.600006 } },
     { "panel": "monitor", "frame": { "width": 480, "height": 360 }, "band": { "x": 100, "y": 276, "width": 90.857147, "height": 76 } }
   ]
 }

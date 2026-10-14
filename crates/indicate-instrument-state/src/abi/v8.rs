@@ -57,7 +57,11 @@ pub mod fixtures;
 
 mod declared;
 mod equipment;
+mod flight;
+#[cfg(test)]
+mod flight_tests;
 mod monitor;
+mod speed;
 mod stamped;
 
 /// Version stamped in the frame's first byte.
@@ -126,6 +130,8 @@ const fn min_len(id: GroupId) -> usize {
         GroupId::FlightDirector => 16,
         GroupId::ApModes => 12,
         GroupId::ApTargets => 20,
+        GroupId::Guidance => flight::GUIDANCE_LEN,
+        GroupId::SpeedPresentation => speed::SPEED_LEN,
     }
 }
 
@@ -150,6 +156,8 @@ fn decode_group(state: &mut AircraftState, id: GroupId, payload: &[u8]) {
         GroupId::FlightDirector => equipment::decode_director(state, payload),
         GroupId::ApModes => equipment::decode_ap_modes(state, payload),
         GroupId::ApTargets => declared::decode_ap_targets(state, payload),
+        GroupId::Guidance => flight::decode_guidance(state, payload),
+        GroupId::SpeedPresentation => speed::decode_speed(state, payload),
     }
 }
 
@@ -179,6 +187,8 @@ fn encode_group(
         GroupId::FlightDirector => equipment::encode_director(state, out),
         GroupId::ApModes => equipment::encode_ap_modes(state, out),
         GroupId::ApTargets => declared::encode_ap_targets(state, out),
+        GroupId::Guidance => flight::encode_guidance(state, out),
+        GroupId::SpeedPresentation => speed::encode_speed(state, out),
     }
 }
 

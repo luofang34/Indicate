@@ -102,6 +102,7 @@ passes admission — copy it rather than starting from a shipped panel.
 | Crate | Role |
 |---|---|
 | `indicate-instrument-panels` | The shipped panels, in two sets: the flight set (PFD, HSI, autoflight, monitor) and the configuration set a shell composes when the airframe has the sensors. Immediate-mode scene emission per frame. |
+| `indicate-instrument-hmd` | Head-worn instruments with shared flight semantics and [display policy](../docs/instruments/hwd-presentation-policy.md). |
 | `indicate-instrument-template` | The smallest set that passes admission, written to be read and copied; its own test admits it, so the worked example cannot drift from the contract. |
 
 ### Tools — `tools/`
