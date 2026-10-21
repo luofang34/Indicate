@@ -1,15 +1,14 @@
-#![allow(clippy::expect_used, clippy::panic)]
-
 use super::{Attitude, Position, Tagged, transform_attitude, transform_position, transform_vector};
 use crate::error::FrameError;
-use crate::frame::FrameId;
+use crate::fixtures::{clock, frame};
+use crate::frame::FrameKind;
 use crate::rotation::Quat;
-use crate::time::{ClockDomain, Epoch, TimeScale};
+use crate::time::{ClockDomain, TimeScale, Timestamp};
 use crate::transform::FrameTransform;
 
-fn epoch(nanos: u64) -> Epoch {
-    Epoch {
-        clock: ClockDomain::Simulation,
+fn at(nanos: u64) -> Timestamp {
+    Timestamp {
+        clock: clock(ClockDomain::Simulation),
         scale: TimeScale::Monotonic,
         nanos,
     }
@@ -45,9 +44,9 @@ const META: Meta = Meta {
 
 fn ned_to_ecef() -> FrameTransform {
     FrameTransform::new(
-        FrameId::Ned,
-        FrameId::Ecef,
-        epoch(7),
+        frame(FrameKind::Ned),
+        frame(FrameKind::Ecef),
+        at(7),
         yaw(0.5),
         [1.0e6, 2.0e6, -3.0e6],
     )
@@ -57,15 +56,15 @@ fn ned_to_ecef() -> FrameTransform {
 #[test]
 fn provenance_rides_every_accepted_transform_untouched() {
     let p: Position<Meta> = Tagged {
-        frame: FrameId::Ned,
-        epoch: epoch(7),
+        frame: frame(FrameKind::Ned),
+        at: at(7),
         meta: META,
         value: [100.0, -200.0, 300.0],
     };
     let out = transform_position(&p, &ned_to_ecef()).expect("transforms");
     assert_eq!(out.meta, META);
-    assert_eq!(out.epoch, p.epoch);
-    assert_eq!(out.frame, FrameId::Ecef);
+    assert_eq!(out.at, p.at);
+    assert_eq!(out.frame, frame(FrameKind::Ecef));
 
     let v = Tagged {
         value: [1.0, 0.0, 0.0],
@@ -73,9 +72,10 @@ fn provenance_rides_every_accepted_transform_untouched() {
     };
     assert_eq!(transform_vector(&v, &ned_to_ecef()).expect("ok").meta, META);
 
-    let a: Attitude<Meta> = Tagged {
-        frame: FrameId::Ned,
-        epoch: epoch(7),
+    let a: Attitude<Meta> = Attitude {
+        subject: frame(FrameKind::Body),
+        frame: frame(FrameKind::Ned),
+        at: at(7),
         meta: META,
         value: yaw(0.25),
     };
@@ -88,26 +88,26 @@ fn provenance_rides_every_accepted_transform_untouched() {
 #[test]
 fn wrong_frame_and_wrong_epoch_are_typed_refusals() {
     let p: Position<Meta> = Tagged {
-        frame: FrameId::Eci,
-        epoch: epoch(7),
+        frame: frame(FrameKind::Eci),
+        at: at(7),
         meta: META,
         value: [0.0; 3],
     };
     assert_eq!(
         transform_position(&p, &ned_to_ecef()),
         Err(FrameError::FrameMismatch {
-            expected: FrameId::Ned,
-            found: FrameId::Eci,
+            expected: frame(FrameKind::Ned),
+            found: frame(FrameKind::Eci),
         })
     );
     let stale = Tagged {
-        epoch: epoch(6),
-        frame: FrameId::Ned,
+        at: at(6),
+        frame: frame(FrameKind::Ned),
         ..p
     };
     assert!(matches!(
         transform_position(&stale, &ned_to_ecef()),
-        Err(FrameError::EpochMismatch { .. })
+        Err(FrameError::TimestampMismatch { .. })
     ));
 }
 
@@ -116,26 +116,33 @@ fn same_orientation_projects_distinctly_per_reference() {
     // One physical orientation, expressed against ECI; supplied ECI→LVLH
     // and ECI→target transforms give deterministic but different
     // projections — none of which replaces the canonical quaternion.
-    let attitude: Attitude<Meta> = Tagged {
-        frame: FrameId::Eci,
-        epoch: epoch(7),
+    let attitude: Attitude<Meta> = Attitude {
+        subject: frame(FrameKind::Body),
+        frame: frame(FrameKind::Eci),
+        at: at(7),
         meta: META,
         value: yaw(0.3),
     };
-    let to_lvlh = FrameTransform::new(FrameId::Eci, FrameId::Lvlh, epoch(7), yaw(0.5), [0.0; 3])
-        .expect("valid");
+    let to_lvlh = FrameTransform::new(
+        frame(FrameKind::Eci),
+        frame(FrameKind::Lvlh),
+        at(7),
+        yaw(0.5),
+        [0.0; 3],
+    )
+    .expect("valid");
     let to_target = FrameTransform::new(
-        FrameId::Eci,
-        FrameId::TargetRelative,
-        epoch(7),
+        frame(FrameKind::Eci),
+        frame(FrameKind::TargetRelative),
+        at(7),
         yaw(-0.5),
         [0.0; 3],
     )
     .expect("valid");
     let lvlh = transform_attitude(&attitude, &to_lvlh).expect("lvlh");
     let target = transform_attitude(&attitude, &to_target).expect("target");
-    assert_eq!(lvlh.frame, FrameId::Lvlh);
-    assert_eq!(target.frame, FrameId::TargetRelative);
+    assert_eq!(lvlh.frame, frame(FrameKind::Lvlh));
+    assert_eq!(target.frame, frame(FrameKind::TargetRelative));
     assert_ne!(lvlh.value, target.value, "distinct projections");
     assert_ne!(lvlh.value, attitude.value, "LVLH differs from inertial");
     // Determinism: repeating the projection is bit-identical.
@@ -197,16 +204,28 @@ fn fixed_point_boundary_fixtures_stay_exact() {
             z: -1.0,
         },
     ] {
-        let t = FrameTransform::new(FrameId::Body, FrameId::Ned, epoch(1), q, [0.0; 3])
-            .expect("exact-norm accepted");
+        let t = FrameTransform::new(
+            frame(FrameKind::Body),
+            frame(FrameKind::Ned),
+            at(1),
+            q,
+            [0.0; 3],
+        )
+        .expect("exact-norm accepted");
         assert_eq!(t.rotation(), q, "no drift for exact-norm input");
     }
 }
 
 #[test]
 fn an_attitude_that_is_not_a_rotation_is_refused_rather_than_composed() {
-    let transform = FrameTransform::new(FrameId::Body, FrameId::Ned, epoch(1), yaw(0.0), [0.0; 3])
-        .expect("identity transform");
+    let transform = FrameTransform::new(
+        frame(FrameKind::Body),
+        frame(FrameKind::Ned),
+        at(1),
+        yaw(0.0),
+        [0.0; 3],
+    )
+    .expect("identity transform");
     for value in [
         Quat {
             w: f32::NAN,
@@ -227,9 +246,10 @@ fn an_attitude_that_is_not_a_rotation_is_refused_rather_than_composed() {
             z: 0.0,
         },
     ] {
-        let attitude: Attitude<()> = Tagged {
-            frame: FrameId::Body,
-            epoch: epoch(1),
+        let attitude: Attitude<()> = Attitude {
+            subject: frame(FrameKind::Body),
+            frame: frame(FrameKind::Body),
+            at: at(1),
             meta: (),
             value,
         };
@@ -242,11 +262,18 @@ fn an_attitude_that_is_not_a_rotation_is_refused_rather_than_composed() {
 
 #[test]
 fn an_attitude_within_norm_tolerance_is_renormalized_on_the_way_through() {
-    let transform = FrameTransform::new(FrameId::Body, FrameId::Ned, epoch(1), yaw(0.0), [0.0; 3])
-        .expect("identity transform");
-    let attitude: Attitude<()> = Tagged {
-        frame: FrameId::Body,
-        epoch: epoch(1),
+    let transform = FrameTransform::new(
+        frame(FrameKind::Body),
+        frame(FrameKind::Ned),
+        at(1),
+        yaw(0.0),
+        [0.0; 3],
+    )
+    .expect("identity transform");
+    let attitude: Attitude<()> = Attitude {
+        subject: frame(FrameKind::Body),
+        frame: frame(FrameKind::Body),
+        at: at(1),
         meta: (),
         value: Quat {
             w: 1.01,
@@ -257,5 +284,21 @@ fn an_attitude_within_norm_tolerance_is_renormalized_on_the_way_through() {
     };
     let out = transform_attitude(&attitude, &transform).expect("drift within tolerance");
     assert!((out.value.w - 1.0).abs() < 1e-6);
-    assert_eq!(out.frame, FrameId::Ned);
+    assert_eq!(out.frame, frame(FrameKind::Ned));
+}
+
+#[test]
+fn camera_rereferencing_preserves_its_subject_and_provenance() {
+    let camera = Attitude {
+        subject: frame(FrameKind::CameraFrd),
+        frame: frame(FrameKind::Ned),
+        at: at(7),
+        meta: META,
+        value: yaw(0.2),
+    };
+    let out = transform_attitude(&camera, &ned_to_ecef()).expect("camera transform");
+    assert_eq!(out.subject, camera.subject);
+    assert_eq!(out.frame, frame(FrameKind::Ecef));
+    assert_eq!(out.meta, camera.meta);
+    assert_eq!(out.at, camera.at);
 }

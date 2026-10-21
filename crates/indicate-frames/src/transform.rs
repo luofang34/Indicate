@@ -3,14 +3,14 @@
 use crate::error::FrameError;
 use crate::frame::FrameId;
 use crate::rotation::Quat;
-use crate::time::Epoch;
+use crate::time::Timestamp;
 
 /// How far a transform rotation's norm may drift before construction
 /// refuses it (matches the display stack's quaternion budget).
 pub const ROTATION_NORM_TOLERANCE: f32 = 0.02;
 
 /// A rigid transform from one frame's coordinates to another's, valid
-/// at exactly its epoch.
+/// at exactly its timestamp.
 ///
 /// Conventions: `rotation` maps `from`-coordinates into
 /// `to`-coordinates; `translation_m` is the origin of `from` expressed
@@ -23,7 +23,7 @@ pub const ROTATION_NORM_TOLERANCE: f32 = 0.02;
 pub struct FrameTransform {
     from: FrameId,
     to: FrameId,
-    epoch: Epoch,
+    at: Timestamp,
     rotation: Quat,
     translation_m: [f64; 3],
 }
@@ -39,7 +39,7 @@ impl FrameTransform {
     pub fn new(
         from: FrameId,
         to: FrameId,
-        epoch: Epoch,
+        at: Timestamp,
         rotation: Quat,
         translation_m: [f64; 3],
     ) -> Result<Self, FrameError> {
@@ -52,7 +52,7 @@ impl FrameTransform {
         Ok(Self {
             from,
             to,
-            epoch,
+            at,
             rotation,
             translation_m,
         })
@@ -69,8 +69,8 @@ impl FrameTransform {
     }
 
     /// The instant this transform is valid at.
-    pub const fn epoch(&self) -> Epoch {
-        self.epoch
+    pub const fn at(&self) -> Timestamp {
+        self.at
     }
 
     /// The validated rotation.
@@ -84,14 +84,14 @@ impl FrameTransform {
     }
 
     /// Composes `self` (A→B) with `next` (B→C) into A→C. The junction
-    /// frame and the epoch identity (clock, scale, instant) are
+    /// frame and the timestamp identity (clock, scale, instant) are
     /// checked; any disagreement is a typed refusal.
     ///
     /// # Errors
     ///
     /// [`FrameError::FrameMismatch`] when `next.from() != self.to()`;
     /// [`FrameError::ClockMismatch`] / [`FrameError::TimeScaleMismatch`]
-    /// / [`FrameError::EpochMismatch`] when the epochs differ.
+    /// / [`FrameError::TimestampMismatch`] when the timestamps differ.
     pub fn then(&self, next: &Self) -> Result<Self, FrameError> {
         if next.from != self.to {
             return Err(FrameError::FrameMismatch {
@@ -99,13 +99,13 @@ impl FrameTransform {
                 found: next.from,
             });
         }
-        check_epochs(self.epoch, next.epoch)?;
+        check_timestamps(self.at, next.at)?;
         let rotation = next.rotation.compose(self.rotation);
         let moved = next.rotation.rotate(self.translation_m);
         Ok(Self {
             from: self.from,
             to: next.to,
-            epoch: self.epoch,
+            at: self.at,
             rotation,
             translation_m: [
                 moved[0] + next.translation_m[0],
@@ -115,22 +115,22 @@ impl FrameTransform {
         })
     }
 
-    /// The inverse transform (B→A from A→B), same epoch.
+    /// The inverse transform (B→A from A→B), same timestamp.
     pub fn inverse(&self) -> Self {
         let rotation = self.rotation.inverse();
         let back = rotation.rotate(self.translation_m);
         Self {
             from: self.to,
             to: self.from,
-            epoch: self.epoch,
+            at: self.at,
             rotation,
             translation_m: [-back[0], -back[1], -back[2]],
         }
     }
 }
 
-/// Exact epoch identity, with the mismatch dimension named.
-pub(crate) fn check_epochs(a: Epoch, b: Epoch) -> Result<(), FrameError> {
+/// Exact timestamp identity, with the mismatch dimension named.
+pub(crate) fn check_timestamps(a: Timestamp, b: Timestamp) -> Result<(), FrameError> {
     if a.clock != b.clock {
         return Err(FrameError::ClockMismatch);
     }
@@ -138,7 +138,7 @@ pub(crate) fn check_epochs(a: Epoch, b: Epoch) -> Result<(), FrameError> {
         return Err(FrameError::TimeScaleMismatch);
     }
     if a.nanos != b.nanos {
-        return Err(FrameError::EpochMismatch {
+        return Err(FrameError::TimestampMismatch {
             expected: a,
             found: b,
         });

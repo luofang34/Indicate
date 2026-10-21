@@ -179,15 +179,26 @@ attr outcome pass
 node RESULT-PFD verification-result
 title PFD attitude panel suite — recorded pass
 attr command cargo test -p indicate-instrument-panels
-attr config-digest 8468dac1af446fb02c9989fb83ae62176e569a69
-attr tool-version rustc 1.98.0 (88d9e12ae 2026-08-18)
-attr source-digest git-blob:6c47106ffcf21fa9aae775a7852ec157058242bd
+attr config-digest 17437b5ec2d90312a792198b064268a870b68452
+attr tool-version rustc 1.99.0 (b940084d7 2026-09-28)
+attr source-digest git-blob:d2f6e075c1f42cfbaecfed9b1f84f1f1f5ccf006
 attr artifact docs/instruments/evidence-artifacts/att01/panel.run.txt
-attr output-digest sha256:f1eebfa77d78e80cafc5116015cb367a0f12e2a83bf61c4b5afb1a5118fc0ddc
-attr run-id local:8468dac1af446fb02c9989fb83ae62176e569a69
+attr output-digest sha256:31459a77af730810bf6a27e7e42c525c62c763ce88726e948d1f5c7f15cbf10f
+attr run-id local:17437b5ec2d90312a792198b064268a870b68452
 attr outcome pass
 
 # --- Configuration and tool identity ---
+
+node CFG-PFD configuration-item
+title PFD test configuration
+attr scm git-worktree
+attr commit 17437b5ec2d90312a792198b064268a870b68452
+attr tree d04f9f48771d5c2400a896013fe1bdbe0a31a92a
+
+node TOOL-PFD tool
+title Rust test runner for the PFD suite
+attr toolchain rust stable channel
+attr version rustc 1.99.0 (b940084d7 2026-09-28)
 
 node CFG-WORKTREE configuration-item
 title engineering worktree baseline — the git working tree the recorded results were produced against (not certified SCM)
@@ -299,8 +310,8 @@ edge RESULT-PRESENTATION justified-by TOOL-CARGO-TEST
 
 edge RESULT-PFD result-of CASE-PFD-CHEVRONS
 edge RESULT-PFD covers AIR-MODE-003
-edge RESULT-PFD justified-by CFG-WORKTREE
-edge RESULT-PFD justified-by TOOL-CARGO-TEST
+edge RESULT-PFD justified-by CFG-PFD
+edge RESULT-PFD justified-by TOOL-PFD
 
 # --- Reviews ---
 

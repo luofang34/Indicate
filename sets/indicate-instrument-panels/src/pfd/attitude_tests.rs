@@ -234,24 +234,29 @@ fn every_extreme_orientation_emits_finite_layered_scenes() {
 
 #[test]
 fn ned_adapter_output_is_byte_identical_to_the_direct_path() {
-    use indicate_frames::{ClockDomain, Epoch, FrameId, Tagged, TimeScale, ned_attitude};
+    use indicate_frames::{
+        Attitude as FrameAttitude, ClockDomain, ClockId, FrameId, FrameKind, TimeScale, Timestamp,
+        ned_attitude,
+    };
 
     // The same physical attitude, once fed directly and once through
     // the explicit NED reference selection: the PFD scene bytes must be
     // identical — the adapter changes where the frame choice is made,
     // never what the aircraft display shows.
     let quat = quat_euler(12.0, 6.0, 0.0);
-    let tagged = Tagged {
-        frame: FrameId::Ned,
-        epoch: Epoch {
-            clock: ClockDomain::Simulation,
+    let tagged = FrameAttitude {
+        subject: FrameId::new(FrameKind::Body, 1).expect("aircraft"),
+        frame: FrameId::new(FrameKind::Ned, 2).expect("navigation"),
+        at: Timestamp {
+            clock: ClockId::new(ClockDomain::Simulation, 1).expect("clock"),
             scale: TimeScale::Monotonic,
             nanos: 1,
         },
         meta: (),
         value: quat,
     };
-    let adapted = ned_attitude(&tagged).expect("NED reference accepted");
+    let adapted =
+        ned_attitude(&tagged, tagged.subject, tagged.frame).expect("NED reference accepted");
     assert_eq!(adapted, quat);
 
     let direct = render(&oriented(12.0, 6.0), &banded_cfg());
@@ -287,9 +292,9 @@ fn ned_adapter_output_is_byte_identical_to_the_direct_path() {
 
     // A non-NED reference is refused, never silently rendered as a
     // horizon.
-    let inertial = Tagged {
-        frame: FrameId::Eci,
+    let inertial = FrameAttitude {
+        frame: FrameId::new(FrameKind::Eci, 3).expect("inertial"),
         ..tagged
     };
-    assert!(ned_attitude(&inertial).is_err());
+    assert!(ned_attitude(&inertial, tagged.subject, tagged.frame).is_err());
 }

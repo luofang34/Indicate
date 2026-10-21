@@ -10,3 +10,4 @@ workspace = true
 
 [dependencies]
 libm = { workspace = true }
+thiserror = { workspace = true }
