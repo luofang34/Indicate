@@ -1,4 +1,3 @@
-#![allow(clippy::expect_used, clippy::panic)]
 use super::*;
 use crate::context::{HudProfile, WeaponMode, WorldSource};
 use crate::target::{Contact, Identity, TargetPicture};
@@ -80,6 +79,7 @@ pub(crate) fn flight_state(roll: f32, pitch: f32, heading: f32) -> AircraftState
 pub(super) fn synthetic() -> Sig<HudProjection> {
     Sig::valid(HudProjection {
         vertical_fov_rad: 1.0,
+        body_from_view: indicate_frames::Quat::IDENTITY,
         source: WorldSource::Synthetic,
     })
 }
@@ -206,6 +206,7 @@ fn uncalibrated_video_is_a_repeater_without_conformal_or_target_cues() {
         projection: Sig::with_status(
             HudProjection {
                 vertical_fov_rad: 1.0,
+                body_from_view: indicate_frames::Quat::IDENTITY,
                 source: WorldSource::Video,
             },
             SignalStatus::Degraded,
@@ -229,6 +230,7 @@ fn calibrated_video_is_conformal() {
         profile: HudProfile::Screen,
         projection: Sig::valid(HudProjection {
             vertical_fov_rad: 1.0,
+            body_from_view: indicate_frames::Quat::IDENTITY,
             source: WorldSource::Video,
         }),
         ..HudContext::default()
@@ -300,6 +302,7 @@ fn a_screen_without_its_camera_says_so_without_a_hud_label() {
         projection: Sig::with_status(
             HudProjection {
                 vertical_fov_rad: 1.0,
+                body_from_view: indicate_frames::Quat::IDENTITY,
                 source: WorldSource::Synthetic,
             },
             SignalStatus::Missing,
@@ -357,4 +360,53 @@ fn the_vertical_speed_scale_keeps_polarity_and_order() {
         tape::vertical_fraction(9000.0),
         tape::vertical_fraction(6000.0)
     );
+}
+
+#[test]
+fn a_side_view_keeps_flight_readouts_and_does_not_draw_the_nose_at_its_centre() {
+    let mut context = HudContext {
+        projection: synthetic(),
+        ..HudContext::default()
+    };
+    let data = flight(0.0, 0.0, 0.0);
+    let ahead = draw(&data, &context);
+    assert!(ahead.lines.iter().any(|points| points.len() == 7));
+    context.projection.value.body_from_view =
+        Quat::from_euler(0.0, 0.0, core::f32::consts::FRAC_PI_2);
+    let side = draw(&data, &context);
+    assert!(side.has("428") && side.has("9843"));
+    assert!(
+        side.has("10"),
+        "ladder remains visible toward the side view"
+    );
+    assert!(
+        !side.lines.iter().any(|points| points.len() == 7),
+        "nose is outside the field"
+    );
+    let bank = |drawn: &Drawn| {
+        drawn
+            .lines
+            .iter()
+            .filter(|points| points.len() == 3)
+            .cloned()
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        bank(&ahead),
+        bank(&side),
+        "aircraft bank indication stays independent of view yaw"
+    );
+}
+
+#[test]
+fn invalid_view_rotation_cannot_claim_conformal_registration() {
+    let mut context = HudContext {
+        projection: synthetic(),
+        ..HudContext::default()
+    };
+    context.projection.value.body_from_view.w = f32::NAN;
+    let data = flight(0.0, 0.0, 0.0);
+    assert_eq!(hud_mode(&data, &context), HudMode::Repeater);
+    let drawn = draw(&data, &context);
+    assert!(drawn.has("ATT REPEATER") && drawn.has("428"));
 }

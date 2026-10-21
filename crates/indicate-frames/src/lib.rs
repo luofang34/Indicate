@@ -25,7 +25,7 @@ pub use ned::ned_attitude;
 pub use rotation::{NotARotation, Quat};
 pub use tagged::{
     Acceleration, AngularVelocity, Attitude, Pose, Position, Tagged, Twist, Velocity,
-    transform_attitude, transform_position, transform_vector,
+    relative_attitude, transform_attitude, transform_position, transform_vector,
 };
 pub use time::{ClockDomain, ClockId, TimeScale, Timestamp};
 pub use transform::{FrameTransform, ROTATION_NORM_TOLERANCE};

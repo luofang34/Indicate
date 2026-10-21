@@ -1,5 +1,6 @@
 //! Aircraft or explicitly track-level reference for a collimated virtual instrument panel.
-use super::{HeadingReference, PanelData, live, vector::*};
+use super::{HeadingReference, PanelData, live};
+use indicate_frames::Quat;
 
 /// Local east/north/up axes; independent of the observer's head and either eye.
 #[derive(Clone, Copy, Default)]
@@ -39,17 +40,16 @@ pub fn view_reference(data: &PanelData) -> ViewReference {
     if ![heading, pitch, roll].iter().all(|v| v.is_finite()) {
         return ViewReference::default();
     }
-    let forward = direction(heading, pitch);
-    let level = direction(heading + core::f32::consts::FRAC_PI_2, 0.0);
-    let right = add(
-        scale(level, libm::cosf(roll)),
-        scale(cross(level, forward), -libm::sinf(roll)),
-    );
+    let rotation = Quat::from_euler(roll, pitch, heading);
+    let enu = |body| {
+        let [north, east, down] = rotation.rotate(body);
+        [east as f32, north as f32, -down as f32]
+    };
     ViewReference {
         kind: if aircraft { 2 } else { 1 },
-        right,
-        up: cross(right, forward),
-        forward,
+        right: enu([0.0, 1.0, 0.0]),
+        up: enu([0.0, 0.0, -1.0]),
+        forward: enu([1.0, 0.0, 0.0]),
     }
 }
 

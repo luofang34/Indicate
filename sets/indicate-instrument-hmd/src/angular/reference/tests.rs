@@ -1,4 +1,5 @@
 use super::*;
+use crate::angular::vector::dot;
 use indicate_instrument_state::{AircraftState, FreshnessPolicy, Sig, resolve};
 
 #[test]

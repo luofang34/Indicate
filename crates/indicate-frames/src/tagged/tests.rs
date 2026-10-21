@@ -2,6 +2,7 @@ use super::{Attitude, Position, Tagged, transform_attitude, transform_position, 
 use crate::error::FrameError;
 use crate::fixtures::{clock, frame};
 use crate::frame::FrameKind;
+use crate::relative_attitude;
 use crate::rotation::Quat;
 use crate::time::{ClockDomain, TimeScale, Timestamp};
 use crate::transform::FrameTransform;
@@ -301,4 +302,38 @@ fn camera_rereferencing_preserves_its_subject_and_provenance() {
     assert_eq!(out.frame, frame(FrameKind::Ecef));
     assert_eq!(out.meta, camera.meta);
     assert_eq!(out.at, camera.at);
+}
+
+#[test]
+fn camera_relative_to_aircraft_preserves_both_sources_and_checks_alignment() {
+    let aircraft = Attitude {
+        subject: frame(FrameKind::Body),
+        frame: frame(FrameKind::Ned),
+        at: at(50),
+        meta: "vehicle",
+        value: Quat::from_euler(0.0, 0.0, 0.5),
+    };
+    let mut camera = Attitude {
+        subject: frame(FrameKind::CameraFrd),
+        frame: aircraft.frame,
+        at: aircraft.at,
+        meta: "camera",
+        value: Quat::from_euler(0.0, 0.0, 0.8),
+    };
+    let relative = relative_attitude(&camera, &aircraft).expect("aligned observations");
+    assert_eq!(relative.subject, camera.subject);
+    assert_eq!(relative.frame, aircraft.subject);
+    assert_eq!(relative.meta, ("camera", "vehicle"));
+    assert!((relative.value.to_euler().2 - 0.3).abs() < 1e-6);
+    camera.at.nanos = 51;
+    assert!(matches!(
+        relative_attitude(&camera, &aircraft),
+        Err(FrameError::TimestampMismatch { .. })
+    ));
+    camera.at = aircraft.at;
+    camera.frame = crate::FrameId::new(FrameKind::Ned, 99).expect("other navigation origin");
+    assert!(matches!(
+        relative_attitude(&camera, &aircraft),
+        Err(FrameError::FrameMismatch { .. })
+    ));
 }
