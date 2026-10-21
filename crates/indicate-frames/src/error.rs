@@ -1,42 +1,53 @@
 //! Typed failures for frame composition and decoding.
 
-use crate::frame::FrameId;
-use crate::time::Epoch;
+use crate::{FrameId, FrameKind, Timestamp};
 
-/// Why a frame operation was refused. Every variant is fail-closed:
-/// nothing composes, inverts, or decodes through a guess.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Why a frame operation was refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum FrameError {
-    /// The wire carried a frame id this build cannot place.
-    UnknownFrame {
-        /// The unrecognized code.
+    /// An unknown coordinate convention was supplied.
+    #[error("unknown frame convention {code}")]
+    UnknownFrameKind {
+        /// Unrecognized wire value.
         code: u8,
     },
-    /// Two operands disagree about the frame at their junction.
+    /// A frame identity was supplied with an incompatible convention.
+    #[error("expected frame convention {expected:?}, found {found:?}")]
+    FrameKindMismatch {
+        /// Required convention.
+        expected: FrameKind,
+        /// Supplied convention.
+        found: FrameKind,
+    },
+    /// An operation received a different physical frame.
+    #[error("expected frame {expected:?}, found {found:?}")]
     FrameMismatch {
-        /// The frame the operation required.
+        /// Required frame.
         expected: FrameId,
-        /// The frame it found.
+        /// Supplied frame.
         found: FrameId,
     },
-    /// Two operands share clock and scale but not the instant; a
-    /// rotating-frame transform applied at the wrong instant silently
-    /// relabels geometry, so exact identity is required.
-    EpochMismatch {
-        /// The epoch the operation required.
-        expected: Epoch,
-        /// The epoch it found.
-        found: Epoch,
+    /// Two inputs apply at different instants.
+    #[error("expected timestamp {expected:?}, found {found:?}")]
+    TimestampMismatch {
+        /// Required instant.
+        expected: Timestamp,
+        /// Supplied instant.
+        found: Timestamp,
     },
-    /// Two operands' epochs come from different clocks.
+    /// Clock categories or instances differ.
+    #[error("clock identities differ")]
     ClockMismatch,
-    /// Two operands' epochs use different time scales.
+    /// Time scales differ.
+    #[error("time scales differ")]
     TimeScaleMismatch,
-    /// The offered rotation is not one (zero, gross, or non-finite
-    /// norm), or a translation component is non-finite.
+    /// A zero identifier cannot establish physical identity.
+    #[error("frame or clock identity is unspecified")]
+    UnspecifiedIdentity,
+    /// Rotation or translation is invalid.
+    #[error("invalid rigid transform")]
     InvalidTransform,
-    /// The attitude offered for re-referencing is not a rotation (zero,
-    /// gross, or non-finite norm); composing it would relabel garbage
-    /// as an orientation in the target frame.
+    /// The supplied attitude is not a rotation.
+    #[error("invalid attitude rotation")]
     InvalidAttitude,
 }

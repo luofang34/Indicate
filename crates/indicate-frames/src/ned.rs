@@ -1,35 +1,33 @@
-//! The explicit NED adapter for aircraft horizon presentation.
-//!
-//! Aircraft horizon/unusual-attitude presentation is one typed consumer
-//! of canonical state, not an invariant of it. This adapter is the one
-//! place that selection happens: it accepts an attitude only when its
-//! reference frame is [`FrameId::Ned`] and hands the body→NED
-//! quaternion to the instrument stack unchanged — so PFD output is
-//! byte-identical to feeding the quaternion directly. Any other
-//! reference is a typed refusal: no local-vertical assumption is ever
-//! fabricated for a frame that has no horizon.
+//! Explicit aircraft-to-navigation selection for horizon presentation.
 
-use crate::error::FrameError;
-use crate::frame::FrameId;
-use crate::rotation::Quat;
-use crate::tagged::Attitude;
+use crate::{Attitude, FrameError, FrameId, FrameKind, Quat, ROTATION_NORM_TOLERANCE};
 
-/// Extracts the body→NED attitude for horizon presentation.
+/// Extracts a validated body-to-NED attitude for the requested aircraft and navigation frame.
 ///
 /// # Errors
-///
-/// [`FrameError::FrameMismatch`] when the attitude's reference frame is
-/// anything but NED — attitude in an inertial or orbit frame remains
-/// meaningful, but it has no horizon until a caller supplies the
-/// NED-referencing transform explicitly.
-pub fn ned_attitude<M>(attitude: &Attitude<M>) -> Result<Quat, FrameError> {
-    if attitude.frame != FrameId::Ned {
-        return Err(FrameError::FrameMismatch {
-            expected: FrameId::Ned,
-            found: attitude.frame,
-        });
+/// Refuses a wrong convention, another object, another navigation origin, or an invalid rotation.
+pub fn ned_attitude<M>(
+    attitude: &Attitude<M>,
+    body: FrameId,
+    navigation: FrameId,
+) -> Result<Quat, FrameError> {
+    for (frame, expected) in [(body, FrameKind::Body), (navigation, FrameKind::Ned)] {
+        if frame.kind() != expected {
+            return Err(FrameError::FrameKindMismatch {
+                expected,
+                found: frame.kind(),
+            });
+        }
     }
-    Ok(attitude.value)
+    for (found, expected) in [(attitude.subject, body), (attitude.frame, navigation)] {
+        if found != expected {
+            return Err(FrameError::FrameMismatch { expected, found });
+        }
+    }
+    attitude
+        .value
+        .renormalized(ROTATION_NORM_TOLERANCE)
+        .map_err(|_| FrameError::InvalidAttitude)
 }
 
 #[cfg(test)]

@@ -9,3 +9,15 @@ disallowed-macros = [
     { path = "std::eprint", reason = "use tracing for diagnostics" },
     { path = "std::dbg", reason = "use tracing for diagnostics" },
 ]
+
+allow-dbg-in-tests = true
+
+allow-expect-in-tests = true
+
+allow-indexing-slicing-in-tests = true
+
+allow-panic-in-tests = true
+
+allow-print-in-tests = true
+
+allow-unwrap-in-tests = true

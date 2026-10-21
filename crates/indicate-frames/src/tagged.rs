@@ -4,22 +4,17 @@
 use crate::error::FrameError;
 use crate::frame::FrameId;
 use crate::rotation::Quat;
-use crate::time::Epoch;
-use crate::transform::{FrameTransform, ROTATION_NORM_TOLERANCE, check_epochs};
+use crate::time::Timestamp;
+use crate::transform::{FrameTransform, ROTATION_NORM_TOLERANCE, check_timestamps};
 
-/// A value expressed in an explicit frame at an explicit epoch, with
-/// caller-supplied metadata (source identity, acquisition time,
-/// integrity, authorization, coherence — whatever the producer stamps)
-/// that every accepted transform carries through untouched. Refusing a
-/// transform never fabricates or drops metadata: the input is simply
-/// returned unused via the error.
+/// A value with a physical reference frame, timestamp, and producer metadata.
+/// Transformations preserve metadata; they do not establish source quality or freshness.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Tagged<T, M> {
-    /// The frame `value` is expressed in. For an attitude this is the
-    /// *reference* frame: the rotation maps body coordinates into it.
+    /// Coordinates in which the value is expressed.
     pub frame: FrameId,
     /// The instant the value is valid at.
-    pub epoch: Epoch,
+    pub at: Timestamp,
     /// Producer-stamped provenance, preserved verbatim by transforms.
     pub meta: M,
     /// The value.
@@ -35,11 +30,23 @@ pub type Acceleration<M> = Tagged<[f64; 3], M>;
 /// Body angular velocity, radians/second, about body axes; the tag
 /// names the reference frame the rotation is measured against.
 pub type AngularVelocity<M> = Tagged<[f32; 3], M>;
-/// Attitude: rotation from body coordinates into the tagged frame.
-pub type Attitude<M> = Tagged<Quat, M>;
+/// Orientation of one explicitly identified object in another reference frame.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Attitude<M> {
+    /// The object's own coordinates: vehicle, camera, or observer.
+    pub subject: FrameId,
+    /// Reference coordinates into which `value` rotates the subject.
+    pub frame: FrameId,
+    /// Instant at which the orientation applies.
+    pub at: Timestamp,
+    /// Producer provenance, preserved by transformations.
+    pub meta: M,
+    /// Rotation from `subject` into `frame`.
+    pub value: Quat,
+}
 
 /// The vehicle-neutral pose boundary: where the vehicle is and how it
-/// is oriented, each component carrying its own frame/epoch/provenance
+/// is oriented, each component carrying its own frame/timestamp/provenance
 /// tag (an aircraft may pair NED position with NED attitude; a
 /// spacecraft may pair ECI position with LVLH attitude — the pairing is
 /// explicit, never assumed).
@@ -67,14 +74,14 @@ fn check_input<T, M>(tagged: &Tagged<T, M>, transform: &FrameTransform) -> Resul
             found: tagged.frame,
         });
     }
-    check_epochs(tagged.epoch, transform.epoch())
+    check_timestamps(tagged.at, transform.at())
 }
 
 /// Transforms a position (rotation and translation apply).
 ///
 /// # Errors
 ///
-/// Typed refusals for frame or epoch disagreement ([`FrameError`]).
+/// Typed refusals for frame or timestamp disagreement ([`FrameError`]).
 pub fn transform_position<M: Copy>(
     position: &Position<M>,
     transform: &FrameTransform,
@@ -84,7 +91,7 @@ pub fn transform_position<M: Copy>(
     let t = transform.translation_m();
     Ok(Tagged {
         frame: transform.to_frame(),
-        epoch: position.epoch,
+        at: position.at,
         meta: position.meta,
         value: [rotated[0] + t[0], rotated[1] + t[1], rotated[2] + t[2]],
     })
@@ -95,7 +102,7 @@ pub fn transform_position<M: Copy>(
 ///
 /// # Errors
 ///
-/// Typed refusals for frame or epoch disagreement ([`FrameError`]).
+/// Typed refusals for frame or timestamp disagreement ([`FrameError`]).
 pub fn transform_vector<M: Copy>(
     vector: &Tagged<[f64; 3], M>,
     transform: &FrameTransform,
@@ -103,38 +110,36 @@ pub fn transform_vector<M: Copy>(
     check_input(vector, transform)?;
     Ok(Tagged {
         frame: transform.to_frame(),
-        epoch: vector.epoch,
+        at: vector.at,
         meta: vector.meta,
         value: transform.rotation().rotate(vector.value),
     })
 }
 
-/// Re-references an attitude: body→A composed with A→B gives body→B.
-/// The same physical orientation projected through different supplied
-/// transforms yields deterministic but distinct inertial, LVLH, or
-/// target-relative attitudes — none of them is the canonical state,
-/// which stays the quaternion itself.
+/// Re-expresses the same object's orientation in another reference frame.
+/// The transform must begin at the attitude's reference frame and share its timestamp.
 ///
 /// # Errors
-///
-/// Typed refusals for frame or epoch disagreement, and
-/// [`FrameError::InvalidAttitude`] when the attitude's quaternion is not
-/// a rotation. `Tagged` has public fields, so a non-unit or non-finite
-/// quaternion can be built; it is refused here rather than composed,
-/// because a transform that accepted it would relabel garbage as an
-/// orientation in the target frame.
+/// Refuses mismatched frames, timestamps, or an invalid attitude rotation.
 pub fn transform_attitude<M: Copy>(
     attitude: &Attitude<M>,
     transform: &FrameTransform,
 ) -> Result<Attitude<M>, FrameError> {
-    check_input(attitude, transform)?;
+    if attitude.frame != transform.from_frame() {
+        return Err(FrameError::FrameMismatch {
+            expected: transform.from_frame(),
+            found: attitude.frame,
+        });
+    }
+    check_timestamps(attitude.at, transform.at())?;
     let value = attitude
         .value
         .renormalized(ROTATION_NORM_TOLERANCE)
         .map_err(|_| FrameError::InvalidAttitude)?;
-    Ok(Tagged {
+    Ok(Attitude {
+        subject: attitude.subject,
         frame: transform.to_frame(),
-        epoch: attitude.epoch,
+        at: attitude.at,
         meta: attitude.meta,
         value: transform.rotation().compose(value),
     })
