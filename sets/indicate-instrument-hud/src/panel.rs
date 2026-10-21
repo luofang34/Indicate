@@ -128,6 +128,7 @@ fn reference(profile: HudProfile, vertical_fov_rad: f32) -> HudContext {
         profile,
         projection: Sig::valid(HudProjection {
             vertical_fov_rad,
+            body_from_view: indicate_frames::Quat::IDENTITY,
             source: WorldSource::Synthetic,
         }),
         ..HudContext::default()
@@ -237,7 +238,7 @@ pub fn draw_hud(
     scene.begin_layer(LayerId::Attitude)?;
     match mode {
         HudMode::Conformal if recovery => {
-            ladder::waterline(&layout, scene)?;
+            ladder::waterline(&camera, &layout, scene)?;
             recovery::draw(data, &layout, scene)?;
             ladder::bank_scale(data, &layout, scene)?;
         }

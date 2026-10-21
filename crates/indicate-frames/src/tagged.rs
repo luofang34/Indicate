@@ -145,5 +145,32 @@ pub fn transform_attitude<M: Copy>(
     })
 }
 
+/// Expresses one observed object's attitude relative to another observed object.
+/// Both observations must share a reference frame and an aligned timestamp.
+/// The result preserves both provenance records in subject, reference order.
+///
+/// # Errors
+/// Refuses mismatched references, timestamps, or invalid rotations.
+pub fn relative_attitude<S: Copy, R: Copy>(
+    subject: &Attitude<S>,
+    reference: &Attitude<R>,
+) -> Result<Attitude<(S, R)>, FrameError> {
+    let reference_transform = FrameTransform::new(
+        reference.subject,
+        reference.frame,
+        reference.at,
+        reference.value,
+        [0.0; 3],
+    )?;
+    let relative = transform_attitude(subject, &reference_transform.inverse())?;
+    Ok(Attitude {
+        subject: relative.subject,
+        frame: relative.frame,
+        at: relative.at,
+        meta: (subject.meta, reference.meta),
+        value: relative.value,
+    })
+}
+
 #[cfg(test)]
 mod tests;

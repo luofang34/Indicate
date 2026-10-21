@@ -1,6 +1,7 @@
 //! Per-frame host input that is independent of the aircraft state ABI.
 use crate::runway::Runway;
 use crate::target::TargetPicture;
+use indicate_frames::{Quat, ROTATION_NORM_TOLERANCE};
 use indicate_instrument_state::{PanelData, Sig, SignalStatus};
 
 /// The display the HUD is drawn for. Each profile answers to its own requirements.
@@ -28,12 +29,16 @@ pub enum WorldSource {
 
 /// The host camera through which the outside world is drawn.
 ///
-/// The camera sits at the design eye and looks along the aircraft body x
-/// axis, with its image centre at the frame centre. Its pixels are square.
+/// Resolved display geometry with square pixels and a centred principal point.
+/// The host must align the view, aircraft state, and image before marking this geometry valid.
+/// A fixed installation may use its calibrated rotation without claiming a measured camera attitude.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HudProjection {
     /// Full vertical field of view of the frame, radians.
     pub vertical_fov_rad: f32,
+    /// Rotation from view forward/right/down coordinates into aircraft body coordinates.
+    /// This is independent of the aircraft attitude in the navigation frame.
+    pub body_from_view: Quat,
     /// Origin of the outside-world image.
     pub source: WorldSource,
 }
@@ -41,7 +46,12 @@ pub struct HudProjection {
 impl HudProjection {
     /// A field of view that a frame can use: finite and between 10 and 150 degrees.
     pub fn usable(&self) -> bool {
-        self.vertical_fov_rad.is_finite() && (0.17..=2.62).contains(&self.vertical_fov_rad)
+        self.vertical_fov_rad.is_finite()
+            && (0.17..=2.62).contains(&self.vertical_fov_rad)
+            && self
+                .body_from_view
+                .renormalized(ROTATION_NORM_TOLERANCE)
+                .is_ok()
     }
 }
 
@@ -205,6 +215,7 @@ impl Default for HudContext {
             projection: Sig::with_status(
                 HudProjection {
                     vertical_fov_rad: 0.0,
+                    body_from_view: indicate_frames::Quat::IDENTITY,
                     source: WorldSource::Video,
                 },
                 SignalStatus::Missing,

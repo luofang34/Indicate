@@ -7,18 +7,19 @@ const DEG: f32 = core::f32::consts::PI / 180.0;
 /// The level-frame azimuth of the ladder centre: the ground track when the
 /// flight path is known, so the ladder and the flight path marker share a column.
 fn ladder_azimuth(data: &PanelData, camera: &Camera) -> f32 {
+    let view_azimuth = camera.view_azimuth_from_heading().unwrap_or(0.0);
     let (Some(heading), Some(track), Some(speed)) = (
         camera.true_heading(),
         live(data.track_rad),
         live(data.gs_kt),
     ) else {
-        return 0.0;
+        return view_azimuth;
     };
     if speed < 20.0 {
-        return 0.0;
+        return view_azimuth;
     }
-    let drift = libm::remainderf(track - heading, 2.0 * core::f32::consts::PI);
-    drift.clamp(-0.35, 0.35)
+    let drift = libm::remainderf(track - heading - view_azimuth, 2.0 * core::f32::consts::PI);
+    view_azimuth + drift.clamp(-0.35, 0.35)
 }
 
 fn elevation(azimuth: f32, angle: f32) -> [f32; 3] {
@@ -35,7 +36,7 @@ pub(super) fn draw(
     layout: &Layout,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
-    waterline(layout, scene)?;
+    waterline(camera, layout, scene)?;
     if !camera.level_basis() {
         return Ok(());
     }
@@ -50,7 +51,6 @@ pub(super) fn draw(
         rung(camera, layout, azimuth, degrees, scene)?;
     }
     ghost_horizon(
-        data,
         camera,
         layout,
         azimuth,
@@ -62,12 +62,21 @@ pub(super) fn draw(
     bank_scale(data, layout, scene)
 }
 
-/// The fixed aircraft reference at the boresight.
+/// The aircraft nose projected into the view; hidden when outside the displayed field.
 pub(super) fn waterline(
+    camera: &Camera,
     layout: &Layout,
     scene: &mut SceneWriter<'_>,
 ) -> Result<(), PanelDrawError> {
-    let [cx, cy] = layout.centre;
+    let Some(point) = camera.project_body([1.0, 0.0, 0.0]) else {
+        return Ok(());
+    };
+    let [cx, cy] = [point.x, point.y];
+    if (cx - layout.centre[0]).abs() > layout.field[0]
+        || (cy - layout.centre[1]).abs() > layout.field[1]
+    {
+        return Ok(());
+    }
     let u = layout.unit;
     let points = [
         [cx - 22.0 * u, cy],
@@ -132,7 +141,6 @@ fn rung(
 /// A dashed line at the field edge nearest the horizon, drawn while the
 /// horizon is outside the field. It is a direction cue, not a registered line.
 fn ghost_horizon(
-    data: &PanelData,
     camera: &Camera,
     layout: &Layout,
     azimuth: f32,
@@ -147,14 +155,12 @@ fn ghost_horizon(
     if horizon.is_some_and(|p| p.x > left && p.x < right && p.y > top && p.y < bottom) {
         return Ok(());
     }
-    let (Some(roll), Some(pitch)) = (live(data.roll_rad), live(data.pitch_rad)) else {
+    let Some(direction) = horizon
+        .and_then(|p| unit([p.x - cx, p.y - cy]))
+        .or_else(|| camera.horizon_direction())
+    else {
         return Ok(());
     };
-    let below = [libm::sinf(roll), libm::cosf(roll)];
-    let sign = if pitch >= 0.0 { 1.0 } else { -1.0 };
-    let direction = horizon
-        .and_then(|p| unit([p.x - cx, p.y - cy]))
-        .unwrap_or([below[0] * sign, below[1] * sign]);
     let reach_x = (right - cx) / direction[0].abs().max(1e-6);
     let reach_y = if direction[1] >= 0.0 {
         (bottom - cy) / direction[1].max(1e-6)

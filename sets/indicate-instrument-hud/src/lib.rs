@@ -1,7 +1,7 @@
 //! Head-up flight and weapon symbology for flat-screen simulator views.
 //!
-//! Both profiles share one drawing path fixed to the aircraft nose. The host
-//! declares its projection in [`HudContext::projection`].
+//! Both profiles share a drawing path with an independent observation view.
+//! The host declares aligned view geometry in [`HudContext::projection`].
 //!
 //! - [`HudProfile::Screen`] draws over a world that the host renders through
 //!   that camera, on a phone, tablet, or computer. It adds simulated contacts

@@ -231,6 +231,7 @@ name = "indicate-instrument-hmd"
 version = "0.1.0"
 dependencies = [
  "indicate-alerts",
+ "indicate-frames",
  "indicate-instrument-conformance",
  "indicate-instrument-descriptor",
  "indicate-instrument-glyphs",
@@ -246,6 +247,7 @@ name = "indicate-instrument-hud"
 version = "0.1.0"
 dependencies = [
  "indicate-alerts",
+ "indicate-frames",
  "indicate-instrument-conformance",
  "indicate-instrument-descriptor",
  "indicate-instrument-registry",

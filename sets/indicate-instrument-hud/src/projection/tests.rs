@@ -1,4 +1,3 @@
-#![allow(clippy::expect_used)]
 use super::*;
 use crate::context::WorldSource;
 use crate::panel::tests::flight;
@@ -12,6 +11,7 @@ fn camera(roll: f32, pitch: f32, heading: f32) -> Camera {
     let data = flight(roll, pitch, heading);
     let projection = HudProjection {
         vertical_fov_rad: 1.0,
+        body_from_view: indicate_frames::Quat::IDENTITY,
         source: WorldSource::Synthetic,
     };
     Camera::new(&data, projection, FRAME)
@@ -72,10 +72,53 @@ fn magnetic_heading_cannot_place_world_vectors() {
     data.heading.reference = indicate_instrument_state::HeadingReference::Magnetic;
     let projection = HudProjection {
         vertical_fov_rad: 1.0,
+        body_from_view: indicate_frames::Quat::IDENTITY,
         source: WorldSource::Synthetic,
     };
     let camera = Camera::new(&data, projection, FRAME);
     assert!(camera.level_basis());
     assert!(!camera.world_basis());
     assert!(camera.project_ned([1000.0, 0.0, 0.0]).is_none());
+}
+
+#[test]
+fn view_rotation_changes_projection_without_changing_aircraft_attitude() {
+    let data = flight(0.0, 0.0, 0.0);
+    let body_from_view = Quat::from_euler(0.3, -0.4, 0.6);
+    let camera = Camera::new(
+        &data,
+        HudProjection {
+            vertical_fov_rad: 1.0,
+            body_from_view,
+            source: WorldSource::Video,
+        },
+        FRAME,
+    );
+    let optical_axis = body_from_view.rotate([1.0, 0.0, 0.0]).map(|v| v as f32);
+    let centre = camera.project_ned(optical_axis).expect("view forward");
+    assert!(close(centre.x, 500.0) && close(centre.y, 400.0));
+    let nose = camera.project_body([1.0, 0.0, 0.0]).expect("nose in front");
+    assert!(nose.x < 500.0 && nose.y < 400.0);
+    let behind = optical_axis.map(|v| -v);
+    assert!(camera.project_ned(behind).is_none());
+    assert_eq!(data.roll_rad.value, 0.0);
+    assert_eq!(data.pitch_rad.value, 0.0);
+    assert!((camera.view_azimuth_from_heading().expect("azimuth") - 0.6).abs() < 1e-6);
+}
+
+#[test]
+fn horizon_direction_uses_view_attitude_and_missing_aircraft_data_stays_missing() {
+    let mut data = flight(0.0, 0.0, 0.0);
+    let projection = HudProjection {
+        vertical_fov_rad: 1.0,
+        body_from_view: Quat::from_euler(0.0, -1.0, 0.0),
+        source: WorldSource::Video,
+    };
+    let camera = Camera::new(&data, projection, FRAME);
+    assert!(camera.horizon_direction().expect("horizon above")[1] < -0.99);
+    data.pitch_rad.status = SignalStatus::Missing;
+    let camera = Camera::new(&data, projection, FRAME);
+    assert!(!camera.level_basis());
+    assert!(camera.project_ned([1.0, 0.0, 0.0]).is_none());
+    assert!(camera.horizon_direction().is_none());
 }
