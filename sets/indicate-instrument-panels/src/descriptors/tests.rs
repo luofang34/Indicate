@@ -3,7 +3,7 @@
 use std::vec;
 use std::vec::Vec;
 
-use indicate_instrument_descriptor::{ConfigBlob, EMPTY_CONFIG, keys};
+use indicate_instrument_descriptor::{ConfigBlob, DrawContext, EMPTY_CONFIG, SceneTarget, keys};
 use indicate_instrument_registry::Registry;
 use indicate_instrument_scene::SceneWriter;
 use indicate_instrument_state::{
@@ -39,7 +39,15 @@ fn scene_via_descriptor(
     let data = resolved();
     let mut buf = vec![0u8; 64 * 1024];
     let mut writer = SceneWriter::new(&mut buf).expect("fits");
-    (descriptor.draw)(&data, config, None, BUILTIN_FRAME, &mut writer).expect("draws");
+    let ctx = DrawContext::new(&data).with_config(*config);
+    (descriptor.draw)(
+        &ctx,
+        SceneTarget::Planar2D {
+            frame: BUILTIN_FRAME,
+            writer: &mut writer,
+        },
+    )
+    .expect("draws");
     let used = writer.finish();
     buf[..used].to_vec()
 }
@@ -267,5 +275,15 @@ fn the_hsi_rejects_any_configuration_key() {
     let data = resolved();
     let mut buf = vec![0u8; 64 * 1024];
     let mut writer = SceneWriter::new(&mut buf).expect("fits");
-    assert!((HSI_DESCRIPTOR.draw)(&data, &blob, None, BUILTIN_FRAME, &mut writer).is_err());
+    let ctx = DrawContext::new(&data).with_config(blob);
+    assert!(
+        (HSI_DESCRIPTOR.draw)(
+            &ctx,
+            SceneTarget::Planar2D {
+                frame: BUILTIN_FRAME,
+                writer: &mut writer,
+            }
+        )
+        .is_err()
+    );
 }

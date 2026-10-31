@@ -13,10 +13,14 @@ members = [
     "sets/indicate-instrument-template",
     "sets/indicate-instrument-hmd",
     "sets/indicate-instrument-hud",
+    "sets/indicate-instrument-volumes",
     "crates/indicate-instrument-raster",
     "crates/indicate-instrument-conformance",
     "crates/indicate-instrument-feeder",
     "crates/indicate-intent",
+    "crates/indicate-interaction",
+    "crates/indicate-plugin-abi",
+    "crates/indicate-plugin-host",
     "crates/indicate-instrument-registry",
     "crates/indicate-evidence",
     "tools/instrument-bench",
@@ -36,6 +40,7 @@ proptest = "1.11.0"
 sha2 = "0.11.0"
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
+wasmi = { version = "2.0.0", default-features = false, features = ["stable", "std", "validate", "auto-dispatch", "deterministic"] }
 indicate-frames = { path = "crates/indicate-frames" }
 indicate-alerts = { path = "crates/indicate-alerts" }
 indicate-sha256 = { path = "crates/indicate-sha256" }
@@ -47,10 +52,14 @@ indicate-instrument-descriptor = { path = "crates/indicate-instrument-descriptor
 indicate-instrument-panels = { path = "sets/indicate-instrument-panels" }
 indicate-instrument-template = { path = "sets/indicate-instrument-template" }
 indicate-instrument-hud = { path = "sets/indicate-instrument-hud" }
+indicate-instrument-volumes = { path = "sets/indicate-instrument-volumes" }
 indicate-instrument-raster = { path = "crates/indicate-instrument-raster" }
 indicate-instrument-conformance = { path = "crates/indicate-instrument-conformance" }
 indicate-instrument-feeder = { path = "crates/indicate-instrument-feeder" }
 indicate-intent = { path = "crates/indicate-intent" }
+indicate-interaction = { path = "crates/indicate-interaction" }
+indicate-plugin-abi = { path = "crates/indicate-plugin-abi" }
+indicate-plugin-host = { path = "crates/indicate-plugin-host" }
 indicate-host = { path = "tools/indicate-host" }
 indicate-instrument-registry = { path = "crates/indicate-instrument-registry" }
 

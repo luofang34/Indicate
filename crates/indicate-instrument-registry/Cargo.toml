@@ -12,6 +12,8 @@ workspace = true
 indicate-instrument-descriptor = { workspace = true }
 indicate-instrument-scene = { workspace = true }
 indicate-instrument-state = { workspace = true }
+indicate-intent = { workspace = true }
+indicate-interaction = { workspace = true }
 indicate-sha256 = { workspace = true }
 thiserror = { workspace = true }
 

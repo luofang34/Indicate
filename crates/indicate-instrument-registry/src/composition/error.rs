@@ -52,6 +52,14 @@ pub enum CompositionError {
         /// The declared screen.
         screen: DesignFrame,
     },
+    /// A slot names an instrument whose render space is not `Planar2D`.
+    #[error("slot {slot} names instrument {panel}, which is not Planar2D")]
+    NonPlanarPanel {
+        /// The offending slot.
+        slot: usize,
+        /// The non-planar instrument id.
+        panel: &'static str,
+    },
     /// A slot asks a panel for a size it never declared. Composition is
     /// placement only — there is no `SCALE` opcode and a scene is never
     /// rewritten to fit — so the slot's dimensions *are* the frame the

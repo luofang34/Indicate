@@ -122,7 +122,7 @@ actual_digest="$(read_or_empty grep -A2 'BUILTIN_SCENE_DIGEST: &str' \
 # vanished panel. An id that still cannot be resolved is refused rather
 # than skipped.
 actual_panels="$(read_or_empty awk '
-    /^pub const [A-Z0-9_]+_DESCRIPTOR: PanelDescriptor/ {
+    /^pub const [A-Z0-9_]+_DESCRIPTOR: (Instrument|Panel)Descriptor/ {
         match($0, /[A-Z0-9_]+_DESCRIPTOR/)
         current = substr($0, RSTART, RLENGTH)
         next

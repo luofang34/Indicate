@@ -1,7 +1,11 @@
 //! Display choices stay separate from aircraft guidance and control state.
 use indicate_alerts::{AlertClass, AlertOutput};
+use indicate_instrument_descriptor::{AuxChannelId, PanelDrawError};
 use indicate_instrument_scene::LayerId;
 use indicate_instrument_state::{PanelData, Sig, SignalStatus, flight::presentation};
+
+/// Fixed byte length of the compact [`DisplayContext`] wire payload on `AuxChannelId::HWD_DISPLAY`.
+pub const HWD_DISPLAY_WIRE_BYTES: usize = 6;
 
 /// The HWD's responsibility for flight information.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -148,6 +152,92 @@ pub enum InstrumentReference {
 /// World geometry from [`crate::directions`] uses its own earth reference.
 pub const fn layer_reference(_layer: LayerId, _compact: bool) -> InstrumentReference {
     InstrumentReference::Head
+}
+
+impl DisplayContext {
+    /// Encodes the compact 6-byte `AuxChannelId::HWD_DISPLAY` wire payload.
+    #[must_use]
+    pub const fn encode_aux(&self) -> [u8; HWD_DISPLAY_WIRE_BYTES] {
+        let role = match self.role {
+            DisplayRole::Primary => 0,
+            DisplayRole::Supplemental => 1,
+        };
+        let task = match self.task {
+            DisplayTask::Flight => 0,
+            DisplayTask::Mission => 1,
+        };
+        let detail = match self.detail {
+            DetailLevel::Normal => 0,
+            DetailLevel::Reduced => 1,
+        };
+        let region = match self.region {
+            ViewRegion::Outside => 0,
+            ViewRegion::Hud => 1,
+            ViewRegion::Cockpit => 2,
+        };
+        let status = match self.alternate_flight_display.status {
+            SignalStatus::Valid => 0,
+            SignalStatus::Degraded => 1,
+            SignalStatus::Stale => 2,
+            SignalStatus::Missing => 3,
+            SignalStatus::Failed => 4,
+        };
+        let alt_val = if self.alternate_flight_display.value {
+            1
+        } else {
+            0
+        };
+        [role, task, detail, region, status, alt_val]
+    }
+
+    /// Decodes a compact 6-byte `AuxChannelId::HWD_DISPLAY` wire payload fail-closed.
+    pub fn decode_aux(bytes: &[u8]) -> Result<Self, PanelDrawError> {
+        let bad = || PanelDrawError::InvalidAux(AuxChannelId::HWD_DISPLAY.0);
+        if bytes.len() != HWD_DISPLAY_WIRE_BYTES {
+            return Err(bad());
+        }
+        let role = match *bytes.first().ok_or_else(bad)? {
+            0 => DisplayRole::Primary,
+            1 => DisplayRole::Supplemental,
+            _ => return Err(bad()),
+        };
+        let task = match *bytes.get(1).ok_or_else(bad)? {
+            0 => DisplayTask::Flight,
+            1 => DisplayTask::Mission,
+            _ => return Err(bad()),
+        };
+        let detail = match *bytes.get(2).ok_or_else(bad)? {
+            0 => DetailLevel::Normal,
+            1 => DetailLevel::Reduced,
+            _ => return Err(bad()),
+        };
+        let region = match *bytes.get(3).ok_or_else(bad)? {
+            0 => ViewRegion::Outside,
+            1 => ViewRegion::Hud,
+            2 => ViewRegion::Cockpit,
+            _ => return Err(bad()),
+        };
+        let status = match *bytes.get(4).ok_or_else(bad)? {
+            0 => SignalStatus::Valid,
+            1 => SignalStatus::Degraded,
+            2 => SignalStatus::Stale,
+            3 => SignalStatus::Missing,
+            4 => SignalStatus::Failed,
+            _ => return Err(bad()),
+        };
+        let alt_val = match *bytes.get(5).ok_or_else(bad)? {
+            0 => false,
+            1 => true,
+            _ => return Err(bad()),
+        };
+        Ok(Self {
+            role,
+            task,
+            detail,
+            region,
+            alternate_flight_display: Sig::with_status(alt_val, status),
+        })
+    }
 }
 
 #[cfg(test)]

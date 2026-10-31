@@ -2,26 +2,55 @@
 //! withholding, claim bounding, and scanner-level structure.
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_alerts::AlertOutput;
 use indicate_instrument_registry::{
-    BackgroundCapability, ConfigBlob, DesignFrame, GroupSet, PanelDescriptor, PanelDrawError,
-    Region, Registry,
+    DrawContext, GroupSet, PanelDescriptor, PanelDrawError, Region, Registry, SceneTarget,
+    UnderlayContract,
 };
-use indicate_instrument_scene::{Anchor, LayerId, Rgba8, SceneWriter};
-use indicate_instrument_state::{GroupId, PanelData};
+use indicate_instrument_scene::{Anchor, LayerId, Rgba8};
+use indicate_instrument_state::GroupId;
 
 use super::super::{AdmissionError, admit};
-use super::{FIXTURE_FRAME, opaque_panel};
+use super::{FIXTURE_SPACE, opaque_panel};
 
-/// A panel that draws a numeral carrying no provenance claim — the
-/// totality hole that would otherwise escape every withholding case.
+const AIR_BOX: &[(GroupId, Region)] = &[(
+    GroupId::Air,
+    Region {
+        x: 0.0,
+        y: 0.0,
+        width: 100.0,
+        height: 100.0,
+    },
+)];
+
+const fn air_panel(
+    id: &'static str,
+    groups: GroupSet,
+    draw: indicate_instrument_registry::DrawFn,
+) -> PanelDescriptor {
+    PanelDescriptor {
+        id,
+        title: "Probe",
+        space: FIXTURE_SPACE,
+        required_layers: 1 << 2,
+        required_groups: groups,
+        underlay: UnderlayContract::None,
+        config_schema: &[],
+        accepted_intents: &[],
+        aux_channels: &[],
+        group_regions: AIR_BOX,
+        extreme_states: &[],
+        raster_baselines: &[],
+        draw,
+    }
+}
+
 fn draw_dishonest(
-    _data: &PanelData,
-    _config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    _ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
+    let SceneTarget::Planar2D { writer: scene, .. } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
     scene.begin_layer(LayerId::Tapes)?;
     scene.fill_color(Rgba8::rgb(255, 255, 255))?;
     scene.text(30.0, 30.0, 14.0, Anchor::CENTER, "999")?;
@@ -31,32 +60,11 @@ fn draw_dishonest(
 
 #[test]
 fn an_unclaimed_numeral_is_refused() {
-    static DISHONEST: [PanelDescriptor; 1] = [PanelDescriptor {
-        id: "dishonest",
-        title: "Dishonest",
-        required_layers: 1 << 2, // Tapes
-        required_groups: GroupSet::of(&[GroupId::Air]),
-        frame_min: FIXTURE_FRAME,
-        frame_max: FIXTURE_FRAME,
-        frame_step: (1.0, 1.0),
-        aspect_min: 1.30,
-        aspect_max: 1.37,
-        canonical_frames: &[FIXTURE_FRAME],
-        background: BackgroundCapability::NotUsed,
-        config_schema: &[],
-        group_regions: &[(
-            GroupId::Air,
-            Region {
-                x: 0.0,
-                y: 0.0,
-                width: 100.0,
-                height: 100.0,
-            },
-        )],
-        extreme_states: &[],
-        raster_baselines: &[],
-        draw: draw_dishonest,
-    }];
+    static DISHONEST: [PanelDescriptor; 1] = [air_panel(
+        "dishonest",
+        GroupSet::of(&[GroupId::Air]),
+        draw_dishonest,
+    )];
     let registry = Registry::new(&DISHONEST).expect("structurally valid");
     assert!(matches!(
         admit(&registry),
@@ -67,17 +75,11 @@ fn an_unclaimed_numeral_is_refused() {
     ));
 }
 
-/// A panel that fabricates an airspeed from other data only when the
-/// air group is gone, claiming Air for the fake — clean when fed,
-/// dishonest degradation. The claim is what convicts it: the run is
-/// visible in the withhold-Air case while Air shows no value.
-fn draw_leaking(
-    data: &PanelData,
-    _config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
-) -> Result<(), PanelDrawError> {
+fn draw_leaking(ctx: &DrawContext<'_>, target: SceneTarget<'_, '_>) -> Result<(), PanelDrawError> {
+    let SceneTarget::Planar2D { writer: scene, .. } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    let data = ctx.data();
     scene.begin_layer(LayerId::Tapes)?;
     scene.fill_color(Rgba8::rgb(255, 255, 255))?;
     let air_missing = !data.ias_kt.status.shows_value();
@@ -98,32 +100,11 @@ fn draw_leaking(
 
 #[test]
 fn a_fabricated_claim_is_refused_when_its_group_is_withheld() {
-    static LEAKING: [PanelDescriptor; 1] = [PanelDescriptor {
-        id: "leaking",
-        title: "Leaking",
-        required_layers: 1 << 2, // Tapes
-        required_groups: GroupSet::of(&[GroupId::Air, GroupId::Kinematics]),
-        frame_min: FIXTURE_FRAME,
-        frame_max: FIXTURE_FRAME,
-        frame_step: (1.0, 1.0),
-        aspect_min: 1.30,
-        aspect_max: 1.37,
-        canonical_frames: &[FIXTURE_FRAME],
-        background: BackgroundCapability::NotUsed,
-        config_schema: &[],
-        group_regions: &[(
-            GroupId::Air,
-            Region {
-                x: 0.0,
-                y: 0.0,
-                width: 100.0,
-                height: 100.0,
-            },
-        )],
-        extreme_states: &[],
-        raster_baselines: &[],
-        draw: draw_leaking,
-    }];
+    static LEAKING: [PanelDescriptor; 1] = [air_panel(
+        "leaking",
+        GroupSet::of(&[GroupId::Air, GroupId::Kinematics]),
+        draw_leaking,
+    )];
     let registry = Registry::new(&LEAKING).expect("structurally valid");
     assert!(matches!(
         admit(&registry),
@@ -135,15 +116,14 @@ fn a_fabricated_claim_is_refused_when_its_group_is_withheld() {
     ));
 }
 
-/// The same fabricator hiding behind a transform: the checks work in
-/// design space, so a translate cannot move a run out of their sight.
 fn draw_translated(
-    data: &PanelData,
-    _config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
+    let SceneTarget::Planar2D { writer: scene, .. } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    let data = ctx.data();
     scene.begin_layer(LayerId::Tapes)?;
     scene.fill_color(Rgba8::rgb(255, 255, 255))?;
     let air_missing = !data.ias_kt.status.shows_value();
@@ -167,32 +147,11 @@ fn draw_translated(
 
 #[test]
 fn a_transform_cannot_hide_a_dishonest_numeral() {
-    static TRANSLATED: [PanelDescriptor; 1] = [PanelDescriptor {
-        id: "translated",
-        title: "Translated",
-        required_layers: 1 << 2, // Tapes
-        required_groups: GroupSet::of(&[GroupId::Air, GroupId::Kinematics]),
-        frame_min: FIXTURE_FRAME,
-        frame_max: FIXTURE_FRAME,
-        frame_step: (1.0, 1.0),
-        aspect_min: 1.30,
-        aspect_max: 1.37,
-        canonical_frames: &[FIXTURE_FRAME],
-        background: BackgroundCapability::NotUsed,
-        config_schema: &[],
-        group_regions: &[(
-            GroupId::Air,
-            Region {
-                x: 0.0,
-                y: 0.0,
-                width: 100.0,
-                height: 100.0,
-            },
-        )],
-        extreme_states: &[],
-        raster_baselines: &[],
-        draw: draw_translated,
-    }];
+    static TRANSLATED: [PanelDescriptor; 1] = [air_panel(
+        "translated",
+        GroupSet::of(&[GroupId::Air, GroupId::Kinematics]),
+        draw_translated,
+    )];
     let registry = Registry::new(&TRANSLATED).expect("structurally valid");
     assert!(matches!(
         admit(&registry),
@@ -203,15 +162,14 @@ fn a_transform_cannot_hide_a_dishonest_numeral() {
         })
     ));
 }
-/// A claim on a group outside the panel's required set: the matrix
-/// could never test it, so it is refused as structurally foreign.
+
 fn draw_foreign_claim(
-    _data: &PanelData,
-    _config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    _ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
+    let SceneTarget::Planar2D { writer: scene, .. } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
     scene.begin_layer(LayerId::Tapes)?;
     scene.fill_color(Rgba8::rgb(255, 255, 255))?;
     scene.text_attributed(
@@ -229,7 +187,7 @@ fn draw_foreign_claim(
 #[test]
 fn a_claim_outside_the_required_groups_is_refused() {
     let panels = std::boxed::Box::leak(std::boxed::Box::new(opaque_panel(draw_foreign_claim)));
-    panels[0].background = BackgroundCapability::NotUsed;
+    panels[0].underlay = UnderlayContract::None;
     let registry = Registry::new(panels).expect("structurally valid");
     assert!(matches!(
         admit(&registry),
@@ -237,15 +195,13 @@ fn a_claim_outside_the_required_groups_is_refused() {
     ));
 }
 
-/// A visible run claiming configuration provenance under the harness's
-/// fixed empty configuration derives from nothing.
 fn draw_config_claim(
-    _data: &PanelData,
-    _config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    _ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
+    let SceneTarget::Planar2D { writer: scene, .. } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
     scene.begin_layer(LayerId::Tapes)?;
     scene.fill_color(Rgba8::rgb(255, 255, 255))?;
     scene.text_attributed(
@@ -263,7 +219,7 @@ fn draw_config_claim(
 #[test]
 fn a_config_claim_is_refused_under_the_empty_config() {
     let panels = std::boxed::Box::leak(std::boxed::Box::new(opaque_panel(draw_config_claim)));
-    panels[0].background = BackgroundCapability::NotUsed;
+    panels[0].underlay = UnderlayContract::None;
     let registry = Registry::new(panels).expect("structurally valid");
     assert!(matches!(
         admit(&registry),
@@ -271,15 +227,13 @@ fn a_config_claim_is_refused_under_the_empty_config() {
     ));
 }
 
-/// A tagged numeral scrolled fully outside its clip paints nothing, and
-/// the claim rule is about what is shown — the panel passes.
 fn draw_clipped_away(
-    _data: &PanelData,
-    _config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    _ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
+    let SceneTarget::Planar2D { writer: scene, .. } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
     scene.begin_layer(LayerId::Tapes)?;
     scene.save()?;
     scene.clip_rect(0.0, 0.0, 10.0, 10.0)?;
@@ -300,7 +254,7 @@ fn draw_clipped_away(
 #[test]
 fn a_claimed_numeral_clipped_fully_away_is_tolerated() {
     let panels = std::boxed::Box::leak(std::boxed::Box::new(opaque_panel(draw_clipped_away)));
-    panels[0].background = BackgroundCapability::NotUsed;
+    panels[0].underlay = UnderlayContract::None;
     panels[0].required_groups = GroupSet::of(&[GroupId::Air]);
     let registry = Registry::new(panels).expect("structurally valid");
     admit(&registry).expect("an unshown claim is not a fabrication");
@@ -308,15 +262,11 @@ fn a_claimed_numeral_clipped_fully_away_is_tolerated() {
 
 #[test]
 fn a_dangling_claim_is_refused_by_the_scanner() {
-    // Hand-encoded: version byte, then two stacked ATTRIBUTE commands —
-    // the writer cannot produce this (text_attributed is atomic), so
-    // the scanner is tested at the byte level.
     let bytes = [1u8, 0x31, 1, 0, 2, 0x31, 1, 0, 3];
     assert!(matches!(
         super::super::collect_runs(&bytes),
         Err(super::super::RunsDefect::MisplacedClaim)
     ));
-    // A claim followed by a shape is equally malformed.
     let bytes = [
         1u8, 0x31, 1, 0, 2, 0x23, 17, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63,
     ];

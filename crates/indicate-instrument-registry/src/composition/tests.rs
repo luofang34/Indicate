@@ -1,12 +1,12 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_alerts::AlertOutput;
 use indicate_instrument_descriptor::{
-    BackgroundCapability, ConfigBlob, CriticalityBands, DesignFrame, GroupSet, PanelCriticality,
-    PanelDescriptor, PanelDrawError, Region,
+    CriticalityBands, DesignFrame, DrawContext, GroupSet, PanelCriticality, PanelDescriptor,
+    PanelDrawError, Region, RenderSpace, SceneTarget, UnderlayContract,
 };
-use indicate_instrument_scene::SceneWriter;
-use indicate_instrument_state::{GroupId, PanelData};
+use indicate_instrument_scene::volume::Extent3D;
+use indicate_instrument_state::GroupId;
+use indicate_interaction::ViewLimits;
 
 use super::{
     CompositionDescriptor, CompositionError, MAX_COMPOSITION_SLOTS, Slot, validate_composition,
@@ -23,29 +23,30 @@ pub(super) const SCREEN: DesignFrame = DesignFrame {
 };
 
 fn draw_nothing(
-    _data: &PanelData,
-    _config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    _scene: &mut SceneWriter<'_>,
+    _ctx: &DrawContext<'_>,
+    _target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
     Ok(())
 }
 
-const fn base(id: &'static str, background: BackgroundCapability) -> PanelDescriptor {
+const fn base(id: &'static str, underlay: UnderlayContract) -> PanelDescriptor {
     PanelDescriptor {
         id,
         title: "Panel",
+        space: RenderSpace::Planar2D {
+            frame_min: FRAME,
+            frame_max: FRAME,
+            frame_step: (1.0, 1.0),
+            aspect_min: 1.30,
+            aspect_max: 1.37,
+            canonical_frames: &[FRAME],
+        },
         required_layers: 0b0000_0110,
         required_groups: GroupSet::of(&[GroupId::Air]),
-        frame_min: FRAME,
-        frame_max: FRAME,
-        frame_step: (1.0, 1.0),
-        aspect_min: 1.30,
-        aspect_max: 1.37,
-        canonical_frames: &[FRAME],
-        background,
+        underlay,
         config_schema: &[],
+        accepted_intents: &[],
+        aux_channels: &[],
         group_regions: &[],
         extreme_states: &[],
         raster_baselines: &[],
@@ -74,20 +75,43 @@ pub(super) const BADGE_FRAME: DesignFrame = DesignFrame {
 
 pub(super) const PANELS: &[PanelDescriptor] = &[
     {
-        let mut panel = base("low", BackgroundCapability::Opaque);
+        let mut panel = base("low", UnderlayContract::Opaque);
         panel.group_regions = READOUT;
         panel
     },
-    base("high", BackgroundCapability::Opaque),
-    base("overlay", BackgroundCapability::NotUsed),
+    base("high", UnderlayContract::Opaque),
+    base("overlay", UnderlayContract::None),
     {
-        let mut panel = base("badge", BackgroundCapability::NotUsed);
-        panel.frame_min = BADGE_FRAME;
-        panel.frame_max = BADGE_FRAME;
-        panel.canonical_frames = &[BADGE_FRAME];
-        panel.aspect_min = 1.9;
-        panel.aspect_max = 2.1;
+        let mut panel = base("badge", UnderlayContract::None);
+        panel.space = RenderSpace::Planar2D {
+            frame_min: BADGE_FRAME,
+            frame_max: BADGE_FRAME,
+            frame_step: (1.0, 1.0),
+            aspect_min: 1.9,
+            aspect_max: 2.1,
+            canonical_frames: &[BADGE_FRAME],
+        };
         panel
+    },
+    PanelDescriptor {
+        id: "vol-non-planar",
+        title: "Volume",
+        space: RenderSpace::Volume3D {
+            extent_min_m: Extent3D::new(0.3, 0.3, 0.3),
+            extent_max_m: Extent3D::new(1.5, 1.5, 1.5),
+            canonical_extents_m: &[Extent3D::new(0.6, 0.45, 0.6)],
+            view_limits: ViewLimits::VOLUMETRIC_DEFAULT,
+        },
+        required_layers: 1,
+        required_groups: GroupSet::EMPTY,
+        underlay: UnderlayContract::None,
+        config_schema: &[],
+        accepted_intents: &[],
+        aux_channels: &[],
+        group_regions: &[],
+        extreme_states: &[],
+        raster_baselines: &[],
+        draw: draw_nothing,
     },
 ];
 
@@ -95,35 +119,18 @@ pub(super) fn registry() -> Registry {
     Registry::new(PANELS).expect("fixture composes")
 }
 
+const fn band(panel: &'static str, frame: DesignFrame, band: Option<Region>) -> PanelCriticality {
+    PanelCriticality { panel, frame, band }
+}
+
 /// Bands measured for every fixture panel at the one frame they declare:
 /// `low` warns in a band left of centre, the others warn nowhere.
 pub(super) const BANDS: CriticalityBands = CriticalityBands {
     panels: &[
-        PanelCriticality {
-            panel: "low",
-            frame: FRAME,
-            band: Some(Region {
-                x: 200.0,
-                y: 150.0,
-                width: 80.0,
-                height: 60.0,
-            }),
-        },
-        PanelCriticality {
-            panel: "high",
-            frame: FRAME,
-            band: None,
-        },
-        PanelCriticality {
-            panel: "overlay",
-            frame: FRAME,
-            band: None,
-        },
-        PanelCriticality {
-            panel: "badge",
-            frame: BADGE_FRAME,
-            band: None,
-        },
+        band("low", FRAME, Some(rect(200.0, 150.0, 80.0, 60.0))),
+        band("high", FRAME, None),
+        band("overlay", FRAME, None),
+        band("badge", BADGE_FRAME, None),
     ],
 };
 
@@ -133,26 +140,10 @@ pub(super) const BANDS: CriticalityBands = CriticalityBands {
 /// what [`an_unwitnessed_band_refuses_obscuration`] is for.
 pub(super) const UNWITNESSED_BANDS: CriticalityBands = CriticalityBands {
     panels: &[
-        PanelCriticality {
-            panel: "low",
-            frame: FRAME,
-            band: None,
-        },
-        PanelCriticality {
-            panel: "high",
-            frame: FRAME,
-            band: None,
-        },
-        PanelCriticality {
-            panel: "overlay",
-            frame: FRAME,
-            band: None,
-        },
-        PanelCriticality {
-            panel: "badge",
-            frame: BADGE_FRAME,
-            band: None,
-        },
+        band("low", FRAME, None),
+        band("high", FRAME, None),
+        band("overlay", FRAME, None),
+        band("badge", BADGE_FRAME, None),
     ],
 };
 
@@ -284,6 +275,21 @@ fn a_slot_off_the_screen_is_refused() {
             slot: 0,
             rect: OFF,
             screen: SCREEN,
+        })
+    );
+}
+
+#[test]
+fn non_planar_panel_is_refused_in_composition() {
+    const COMPOSITION: CompositionDescriptor = CompositionDescriptor {
+        screen: SCREEN,
+        slots: &[slot("vol-non-planar", rect(0.0, 0.0, 480.0, 360.0))],
+    };
+    assert_eq!(
+        validate_composition(&registry(), &COMPOSITION, &BANDS),
+        Err(CompositionError::NonPlanarPanel {
+            slot: 0,
+            panel: "vol-non-planar",
         })
     );
 }

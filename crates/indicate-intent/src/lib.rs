@@ -31,12 +31,23 @@
 mod echo;
 mod error;
 mod gate;
+mod namespace;
 mod request;
+mod wire;
 
 pub use echo::{EchoMonitor, EchoStatus, SELECTION_KINDS, SelectionKind};
 pub use error::IntentFault;
 pub use gate::{Admitted, IntentGate};
+pub use namespace::{
+    ExtensionPayload, IntentClass, IntentNamespace, MAX_EXTENSION_PAYLOAD, core_opcode,
+    namespace_id,
+};
 pub use request::{
     BARO_HPA_MAX, BARO_HPA_MIN, Intent, IntentStamp, PageId, Request, SELECT_ALTITUDE_M_MAX,
     SELECT_ALTITUDE_M_MIN,
+};
+pub use wire::{
+    ECHO_SUMMARY_BYTES, ECHO_SUMMARY_VERSION, EchoSummary, INTENT_WIRE_VERSION, IntentWireError,
+    MAX_INTENT_WIRE_BYTES, decode_echo_summary, decode_request, encode_echo_summary,
+    encode_echo_summary_slice, encode_request,
 };

@@ -69,6 +69,8 @@ kernel only.
 | `indicate-instrument-descriptor` | The vocabulary a set is written against: panel identity, group sets, config blobs and their key schema, canonical states, and the `PanelSet` a provider exports. |
 | `indicate-instrument-feeder` | Source admission ladder shared by every feeding shell. |
 | `indicate-intent` | Typed operator intents: the return path from a human controller to the system, admitted by device identity, sequence, clock, and bounds, and confirmed only by echo through the state. |
+| `indicate-interaction` | Deterministic spatial interaction algebra (`ViewPose3D`, `InteractionEvent`, `apply_event`) for three-dimensional instruments; leaf. |
+| `indicate-plugin-abi` | Canonical wire ABI and manifest schema for `.indpack` WebAssembly instrument packages (`no_std`, zero `alloc`). |
 
 ### Verification and registry — `crates/`
 
@@ -81,6 +83,7 @@ normal dependency of one.**
 | `indicate-instrument-registry` | Composition of descriptors into a validated registry, and the cross-shell scene digest. |
 | `indicate-instrument-raster` | Reference software rasterizer: bit-exact pinned frame hashes, the composed-screen harness, corpus authorship, target-timing evidence (`evidence/`). |
 | `indicate-instrument-conformance` | Panel admission harness (host-side, allocates; deliberately outside the `no_std` closure). |
+| `indicate-plugin-host` | Fuel-metered, zero-import WebAssembly host (`wasmi`) and `.indpack` signature and admission verifier. |
 | `indicate-evidence` | Standard-neutral lifecycle evidence graph and gate (`evidence-gate` binary); guards `docs/instruments/evidence-graph.evg`. |
 
 ### Sets — `sets/`
@@ -105,6 +108,7 @@ passes admission — copy it rather than starting from a shipped panel.
 | `indicate-instrument-panels` | The shipped panels, in two sets: the flight set (PFD, HSI, autoflight, monitor) and the configuration set a shell composes when the airframe has the sensors. Immediate-mode scene emission per frame. |
 | `indicate-instrument-hmd` | Head-worn instruments with shared flight semantics and [display policy](../docs/instruments/hwd-presentation-policy.md). |
 | `indicate-instrument-hud` | Head-up symbology in two profiles: a screen over a host-rendered world, with simulated contacts, and a reflective combiner design. |
+| `indicate-instrument-volumes` | Three-dimensional volumetric instruments (`terrain-volume`, `globe-volume`, `orrery-volume`) emitting `VolumeScene` geometry and status overlays. |
 | `indicate-instrument-template` | The smallest set that passes admission, written to be read and copied; its own test admits it, so the worked example cannot drift from the contract. |
 
 ### Tools — `tools/`

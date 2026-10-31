@@ -43,6 +43,28 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.8.0] — 2026-10-31
+
+The instrument descriptor contract generalizes across planar two-dimensional, angular-sphere, and three-dimensional volumetric render spaces (`RenderSpace`, `UnderlayContract`, `SceneTarget`, `DrawContext`).
+`indicate-interaction` (`IXN-01`) adds deterministic orbit, pan, zoom, and reset algebra over `ViewPose3D`.
+`indicate-intent` adds namespaced custom operator intents (`Intent::Custom`, `IntentClass::Custom`) and bounded echo summaries (`EchoSummary`).
+`indicate-instrument-scene` (`VOL-01`) adds bounded three-dimensional volumetric and angular-sphere scene writers and provenance-bearing billboards.
+`indicate-instrument-volumes` provides three spatial instruments (`terrain-volume`, `globe-volume`, `orrery-volume`) with typed auxiliary-channel codecs.
+`indicate-plugin-abi` and `indicate-plugin-host` (`PLUG-01`) add signed `.indpack` WebAssembly packages, zero-import fuel-metered execution, and host admission.
+
+Descriptor metadata hashing now includes render space, underlay contract, accepted intents, and auxiliary channels.
+That metadata expansion moves the composition digest and the screen-composition digest while preserving every two-dimensional raster baseline and corpus fixture.
+
+| Value | This release |
+|---|---|
+| State ABI | 8 |
+| Scene format | 1 |
+| Corpus | 8 |
+| Composition digest | `dae6c3a97550e2a5bb05f308444ca7b6f8af19924b3bb5cf864e45539d128ec6` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
+
+Panel set changed since the previous release: no.
+
 ## [0.7.1] — 2026-09-16
 
 The HWD API adds explicit display roles, tasks, visibility evidence, and layer reference frames.

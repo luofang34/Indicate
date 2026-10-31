@@ -182,7 +182,7 @@ fn pfd_critical() -> impl Iterator<Item = LayerId> {
     (0..LAYER_COUNT as u8)
         .filter_map(LayerId::from_u8)
         .filter(move |layer| {
-            layer != &LayerId::Background && required & (1u8 << layer.to_u8()) != 0
+            layer != &LayerId::Background && required & (1u16 << layer.to_u8()) != 0
         })
 }
 

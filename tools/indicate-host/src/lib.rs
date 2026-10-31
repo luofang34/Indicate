@@ -31,8 +31,11 @@ mod liveness;
 
 pub use error::{HostError, RequestRefused};
 pub use failure::failure_page;
-pub use host::{Host, HostConfig, Painted, Routed};
-pub use indicate_intent::{EchoStatus, Intent, IntentStamp, Request};
+pub use host::{Host, HostConfig, Painted, PaintedVolume, Routed};
+pub use indicate_intent::{EchoStatus, EchoSummary, Intent, IntentStamp, Request};
+pub use indicate_interaction::{
+    InteractionFrame, InteractionOutcome, InteractionStamp, SpatialEvent, ViewLimits, ViewPose3D,
+};
 pub use liveness::Liveness;
 
 #[cfg(test)]

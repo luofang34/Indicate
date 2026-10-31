@@ -10,14 +10,20 @@ pub const HMD_GLANCE_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
 };
 
 pub(super) fn draw(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
-    config.require_schema(&[])?;
-    super::draw_hwd(data, crate::DisplayContext::default(), true, alerts, scene)
+    let SceneTarget::AngularSphere {
+        angular,
+        overlay: Some((_frame, scene)),
+    } = target
+    else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    ctx.config().require_schema(&[])?;
+    let display_ctx = super::resolve_display_context(ctx)?;
+    crate::angular::emit_angular_scene(ctx.data(), true, angular)?;
+    super::draw_hwd(ctx.data(), display_ctx, true, ctx.alerts(), scene)
 }
 
 pub(super) fn instruments(

@@ -5,10 +5,9 @@
 //! polices, so the smallest interesting panel is one that paints a
 //! numeral it must justify.
 
-use indicate_alerts::AlertOutput;
 use indicate_instrument_descriptor::{
-    BackgroundCapability, ConfigBlob, DesignFrame, GroupSet, PanelDescriptor, PanelDrawError,
-    PanelSet, Region,
+    DesignFrame, DrawContext, GroupSet, PanelDescriptor, PanelDrawError, PanelSet, Region,
+    RenderSpace, SceneTarget, UnderlayContract,
 };
 use indicate_instrument_scene::{Anchor, LayerId, PaintMode, SceneWriter};
 use indicate_instrument_state::{GroupId, PanelData};
@@ -48,8 +47,8 @@ const VALUE_Y: f32 = 78.0;
 const VALUE_SIZE: f32 = 24.0;
 
 /// A required-layer mask is a bitset over [`LayerId`] wire values.
-const fn layer_bit(layer: LayerId) -> u8 {
-    1u8 << layer.to_u8()
+const fn layer_bit(layer: LayerId) -> u16 {
+    1u16 << layer.to_u8()
 }
 
 /// Draws the template panel from resolved state in the frame it is
@@ -60,22 +59,27 @@ const fn layer_bit(layer: LayerId) -> u8 {
 /// `begin_layer`/`end_layer` pair emits the mandatory state-isolation
 /// save and restore, which is the layer envelope admission checks.
 ///
-/// `frame` is the logical space to lay out against, and it arrives as
-/// an argument rather than as configuration: the admission harness
-/// draws the empty config on purpose, so a panel that took its size
-/// from a config key could never be admitted. Geometry reads the
-/// argument; the descriptor's range says which frames may arrive.
+/// `frame` is the logical space to lay out against, and it arrives via
+/// [`SceneTarget::Planar2D`] rather than as configuration: the admission
+/// harness draws the empty config on purpose, so a panel that took its
+/// size from a config key could never be admitted. Geometry reads the
+/// target; the descriptor's range says which frames may arrive.
 fn draw_template_panel(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
+    let SceneTarget::Planar2D {
+        frame,
+        writer: scene,
+    } = target
+    else {
+        return Err(PanelDrawError::WrongTarget);
+    };
     // The empty schema already makes any keyed blob a shell-side
     // rejection; re-checking here keeps the property when a shell skips
     // its gate.
-    config.require_schema(TEMPLATE_DESCRIPTOR.config_schema)?;
+    ctx.config()
+        .require_schema(TEMPLATE_DESCRIPTOR.config_schema)?;
 
     // `Opaque` is a promise to a compositor, and this is how it is kept:
     // one axis-aligned, full-alpha rect over the whole frame. A ground
@@ -92,7 +96,7 @@ fn draw_template_panel(
     // Fixed furniture: a run with no digits needs no provenance claim,
     // because there is no value in it to fabricate.
     scene.text(LABEL_X, LABEL_Y, LABEL_SIZE, Anchor::MIDDLE_LEFT, "IAS")?;
-    draw_airspeed(data, scene)?;
+    draw_airspeed(ctx.data(), scene)?;
     scene.end_layer(LayerId::Tapes)?;
     Ok(())
 }
@@ -148,6 +152,18 @@ pub const TEMPLATE_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     // Operator-facing, and non-empty: a registry refuses a panel that
     // cannot label a health or layout surface.
     title: "Template",
+    // The range of logical spaces this panel draws against. It need not
+    // match any other panel's. `frame_min` is the readability floor —
+    // conspicuity has to hold there, and group regions are checked
+    // against it — and `frame_max` is the ceiling the budgets allow.
+    space: RenderSpace::Planar2D {
+        frame_min: TEMPLATE_FRAME,
+        frame_max: TEMPLATE_FRAME,
+        frame_step: (1.0, 1.0),
+        aspect_min: 1.95,
+        aspect_max: 2.05,
+        canonical_frames: &[TEMPLATE_FRAME],
+    },
     // The bands that must be present and complete in every frame,
     // however degraded the state. The readout lives in `Tapes`, so
     // `Tapes` is required and nothing else is. `Background` is
@@ -163,41 +179,17 @@ pub const TEMPLATE_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     // nothing, so the value dashes out even though the air data is still
     // there. A group a panel merely reads past belongs nowhere here.
     required_groups: GroupSet::of(&[GroupId::Air, GroupId::Trust]),
-    // The range of logical spaces this panel draws against. It need not
-    // match any other panel's. `frame_min` is the readability floor —
-    // conspicuity has to hold there, and group regions are checked
-    // against it — and `frame_max` is the ceiling the budgets allow.
-    // Declaring them equal is the honest statement for a panel with a
-    // fixed layout: a shell can then only ask for the one frame the
-    // geometry was authored for.
-    frame_min: TEMPLATE_FRAME,
-    frame_max: TEMPLATE_FRAME,
-    // Admissible dimensions are `frame_min + k * step` per axis, which
-    // keeps a real range's behaviour space finite. With one admissible
-    // frame the only whole `k` is zero, so any positive step says the
-    // same thing.
-    frame_step: (1.0, 1.0),
-    // The width/height ratios the layout supports. Per-axis bounds alone
-    // would admit shapes no layout was designed for, so the ratio is
-    // bounded on its own. These bracket this panel's 2:1 rather than
-    // stating it exactly: the ratio is an f32 division, and a decimal
-    // literal is not reliably equal to it.
-    aspect_min: 1.95,
-    aspect_max: 2.05,
-    // The pinned evidence sizes: the frames the digest, the admission
-    // matrix, and any raster baselines are taken at. The registry
-    // requires both ends of the range to appear here, and every entry to
-    // be admissible in its own right.
-    canonical_frames: &[TEMPLATE_FRAME],
     // A compositor plans around this declaration, so admission refuses
-    // both directions: painting a band declared `NotUsed`, and failing
+    // both directions: painting a band declared `None`, and failing
     // to cover a band declared owned. `Opaque` is the honest answer for
     // a panel whose text needs a ground of its own.
-    background: BackgroundCapability::Opaque,
+    underlay: UnderlayContract::Opaque,
     // No configuration. An empty schema makes any keyed blob a
     // shell-side rejection; a panel with real keys lists them in
     // strictly ascending order, and decodes them in `draw`.
     config_schema: &[],
+    accepted_intents: &[],
+    aux_channels: &[],
     // Where a consumed group paints its readout, in design-frame units.
     // The registry validates the geometry at init, admission asserts
     // that somewhere in the case matrix a visible run claiming the

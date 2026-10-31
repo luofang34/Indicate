@@ -10,6 +10,10 @@ workspace = true
 
 [dependencies]
 indicate-alerts = { workspace = true }
+indicate-frames = { workspace = true }
 indicate-instrument-scene = { workspace = true }
 indicate-instrument-state = { workspace = true }
+indicate-intent = { workspace = true }
+indicate-interaction = { workspace = true }
+libm = { workspace = true }
 thiserror = { workspace = true }

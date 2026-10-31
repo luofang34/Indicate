@@ -34,13 +34,13 @@
 //! - The witness is sought across the panel's whole case matrix, not
 //!   per case. A readout that dashes out under withholding paints no
 //!   claimed run in that case, and it is still the same readout.
-//! - The search runs at [`PanelDescriptor::frame_min`], the frame
+//! - The search runs at [`RenderSpace::Planar2D`] `frame_min`, the frame
 //!   regions are declared and validated against. A panel laid out at a
 //!   larger frame puts its readouts somewhere else, and floor
 //!   coordinates describe that layout no better than they describe
 //!   another panel's.
 
-use indicate_instrument_registry::{PanelDescriptor, Region};
+use indicate_instrument_registry::{PanelDescriptor, Region, RenderSpace};
 use indicate_instrument_state::{FreshnessPolicy, GroupId, resolve};
 
 use super::TextRun;
@@ -54,7 +54,10 @@ pub(super) fn check_non_vacuity(panel: &'static PanelDescriptor) -> Result<(), A
     if panel.group_regions.is_empty() {
         return Ok(());
     }
-    let frame = panel.frame_min;
+    let RenderSpace::Planar2D { frame_min, .. } = panel.space else {
+        return Ok(());
+    };
+    let frame = frame_min;
     let mut populated = vec![false; panel.group_regions.len()];
     for case in case_matrix(panel) {
         let data = resolve(&case.state, &FreshnessPolicy::default());

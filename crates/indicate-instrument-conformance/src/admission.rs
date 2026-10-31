@@ -24,8 +24,8 @@
 use indicate_alerts::AlertOutput;
 use indicate_instrument_glyphs::PANEL_VOCABULARY;
 use indicate_instrument_registry::{
-    CANONICAL_STATES, DesignFrame, EMPTY_CONFIG, PanelCriticality, PanelDescriptor, PanelDrawError,
-    Registry,
+    CANONICAL_STATES, DesignFrame, DrawContext, EMPTY_CONFIG, PanelCriticality, PanelDescriptor,
+    PanelDrawError, Registry, RenderSpace, SceneTarget,
 };
 use indicate_instrument_scene::{
     Cmd, LayerError, MAX_SCENE_BYTES, SceneCmds, SceneWriter, validate_layers,
@@ -35,6 +35,7 @@ use indicate_instrument_state::{
 };
 
 mod alerts;
+mod angular;
 mod background;
 mod criticality;
 mod error;
@@ -43,6 +44,7 @@ mod geometry;
 mod ink;
 mod provenance;
 mod regions;
+mod volume;
 
 use alerts::saturated_stack;
 use background::check_background;
@@ -143,15 +145,32 @@ fn admit_panel(
     panel: &'static PanelDescriptor,
     report: &mut AdmissionReport,
 ) -> Result<(), AdmissionError> {
-    for frame in panel.canonical_frames {
-        admit_panel_at_frame(panel, *frame, report)?;
+    match panel.space {
+        RenderSpace::Planar2D {
+            canonical_frames, ..
+        } => {
+            for frame in canonical_frames {
+                admit_panel_at_frame(panel, *frame, report)?;
+            }
+            check_non_vacuity(panel)?;
+            check_frame_varies(panel)
+        }
+        RenderSpace::AngularSphere { overlay_frame } => {
+            angular::admit_angular(panel, overlay_frame, report)
+        }
+        RenderSpace::Volume3D {
+            extent_min_m,
+            extent_max_m,
+            canonical_extents_m,
+            ..
+        } => volume::admit_volume(
+            panel,
+            extent_min_m,
+            extent_max_m,
+            canonical_extents_m,
+            report,
+        ),
     }
-    // Per-panel facts rather than per-case ones. The witness a region
-    // needs may appear in only one case of the matrix, and whether a
-    // panel varies with its frame is a comparison across frames that no
-    // single case can make.
-    check_non_vacuity(panel)?;
-    check_frame_varies(panel)
 }
 
 fn admit_panel_at_frame(
@@ -290,7 +309,7 @@ fn draw_runs(
             alerted: case.alerted(),
         },
     })?;
-    let missing = panel.required_layers & !layers.present;
+    let missing = panel.required_layers & !u16::from(layers.present);
     if missing != 0 {
         return Err(AdmissionError::MissingRequiredLayers {
             panel: panel.id,
@@ -328,7 +347,16 @@ fn draw_scene<'b>(
     buf: &'b mut [u8],
 ) -> Result<&'b [u8], PanelDrawError> {
     let mut writer = SceneWriter::new(buf)?;
-    (panel.draw)(data, &EMPTY_CONFIG, alerts, frame, &mut writer)?;
+    let ctx = DrawContext::new(data)
+        .with_config(EMPTY_CONFIG)
+        .with_alerts(alerts);
+    (panel.draw)(
+        &ctx,
+        SceneTarget::Planar2D {
+            frame,
+            writer: &mut writer,
+        },
+    )?;
     let used = writer.finish();
     Ok(buf.get(..used).unwrap_or(&[]))
 }

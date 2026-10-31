@@ -1,6 +1,12 @@
 //! Collimated directions in local east/north/up coordinates, without a viewer-dependent basis.
 use crate::panel::live;
-use indicate_instrument_state::{HeadingReference, PanelData};
+use indicate_instrument_descriptor::PanelDrawError;
+use indicate_instrument_scene::{
+    HAlign, Rgba8,
+    angular::{AngularLayerId, AngularSceneWriter},
+};
+use indicate_instrument_state::{GroupId, HeadingReference, PanelData};
+use indicate_instrument_symbology::fmt_label;
 
 mod compass;
 mod reference;
@@ -153,6 +159,63 @@ fn pitch_ladder(scene: &mut AngularScene, heading: f32) {
             pitch,
         );
     }
+}
+
+/// Emits conformal unit-sphere HWD cues into `writer` (`RenderSpace::AngularSphere`).
+pub fn emit_angular_scene(
+    data: &PanelData,
+    compact: bool,
+    writer: &mut AngularSceneWriter<'_>,
+) -> Result<(), PanelDrawError> {
+    const GREEN: Rgba8 = Rgba8::rgba(90, 255, 130, 255);
+    writer.begin_layer(AngularLayerId::WorldCue)?;
+    writer.stroke_mrad(GREEN, 2.0)?;
+    writer.fill_color(GREEN)?;
+    if !compact {
+        let scene = directions(data);
+        let len = (scene.length as usize).min(scene.strokes.len());
+        if let Some(strokes) = scene.strokes.get(..len) {
+            for stroke in strokes {
+                if let (Some(ua), Some(ub)) = (normalized(stroke.a), normalized(stroke.b)) {
+                    writer.ray_line(ua, ub)?;
+                }
+            }
+        }
+        let true_heading = live(data.heading.value_rad)
+            && matches!(
+                data.heading.reference,
+                HeadingReference::True | HeadingReference::SimLocalTrue
+            );
+        if true_heading {
+            let deg = ((data.heading.value_rad.value.to_degrees() % 360.0) + 360.0) % 360.0;
+            let hdg_lbl = fmt_label!(8, "{:03.0}", deg);
+            if let Some(dir) = normalized(direction(data.heading.value_rad.value, 0.065)) {
+                writer.attributed_angular_text(
+                    GroupId::Heading.to_u8(),
+                    dir,
+                    14.0,
+                    HAlign::Center,
+                    hdg_lbl.as_str(),
+                )?;
+            }
+        }
+    }
+    writer.end_layer(AngularLayerId::WorldCue)?;
+
+    writer.begin_layer(AngularLayerId::Annunciation)?;
+    writer.fill_color(GREEN)?;
+    writer.angular_text(
+        [0.0, 1.0, 0.0],
+        11.0,
+        HAlign::Center,
+        if compact {
+            "OFF-AXIS / SIM / NOT FOR FLIGHT"
+        } else {
+            "SIM / NOT FOR FLIGHT"
+        },
+    )?;
+    writer.end_layer(AngularLayerId::Annunciation)?;
+    Ok(())
 }
 
 #[cfg(test)]

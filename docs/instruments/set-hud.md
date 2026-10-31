@@ -240,11 +240,14 @@ Crate: `indicate-instrument-hud`
 
 | Declared | Value |
 |---|---|
+| Render space | Planar2D |
 | Required layers | Tapes, Annunciation |
 | Required groups | Attitude, Kinematics, Air, Altitude, Heading, SpeedPresentation |
-| Frame range | 390×390 to 2560×1600, step 1×1, aspect 0.45 to 2.4 |
-| Canonical frames | 390×390, 844×390, 390×844, 1024×768, 1280×720, 2560×1600 |
-| Background | NotUsed |
+| Spatial bounds | 390×390 to 2560×1600, step 1×1, aspect 0.45 to 2.4 |
+| Canonical sizes | 390×390, 844×390, 390×844, 1024×768, 1280×720, 2560×1600 |
+| Underlay | None |
+| Accepted intents | none |
+| Aux channels | `HUD_CONTEXT` |
 | Config keys | none |
 | Group regions | none |
 | Extreme states | none |
@@ -256,11 +259,14 @@ Crate: `indicate-instrument-hud`
 
 | Declared | Value |
 |---|---|
+| Render space | Planar2D |
 | Required layers | Tapes, Annunciation |
 | Required groups | Attitude, Kinematics, Air, Altitude, Heading, SpeedPresentation |
-| Frame range | 390×390 to 2560×1600, step 1×1, aspect 0.45 to 2.4 |
-| Canonical frames | 390×390, 844×390, 390×844, 1024×768, 1280×720, 2560×1600 |
-| Background | NotUsed |
+| Spatial bounds | 390×390 to 2560×1600, step 1×1, aspect 0.45 to 2.4 |
+| Canonical sizes | 390×390, 844×390, 390×844, 1024×768, 1280×720, 2560×1600 |
+| Underlay | None |
+| Accepted intents | none |
+| Aux channels | `HUD_CONTEXT` |
 | Config keys | none |
 | Group regions | none |
 | Extreme states | none |
@@ -270,11 +276,14 @@ Crate: `indicate-instrument-hud`
 
 | Declared | Value |
 |---|---|
+| Render space | Planar2D |
 | Required layers | Tapes, Annunciation |
 | Required groups | Attitude, Kinematics, Air, Altitude, Heading, SpeedPresentation |
-| Frame range | 390×390 to 2560×1600, step 1×1, aspect 0.45 to 2.4 |
-| Canonical frames | 390×390, 844×390, 390×844, 1024×768, 1280×720, 2560×1600 |
-| Background | NotUsed |
+| Spatial bounds | 390×390 to 2560×1600, step 1×1, aspect 0.45 to 2.4 |
+| Canonical sizes | 390×390, 844×390, 390×844, 1024×768, 1280×720, 2560×1600 |
+| Underlay | None |
+| Accepted intents | none |
+| Aux channels | `HUD_CONTEXT` |
 | Config keys | none |
 | Group regions | none |
 | Extreme states | none |

@@ -2,6 +2,7 @@
 //! carrying the context its message needs.
 
 use indicate_instrument_registry::{DesignFrame, PanelDrawError, Region};
+use indicate_instrument_scene::volume::Extent3D;
 use indicate_instrument_state::GroupId;
 
 /// Why a panel failed admission.
@@ -40,7 +41,7 @@ pub enum AdmissionError {
     },
     /// A required layer band is absent from the emitted scene.
     #[error(
-        "panel {panel} scene for {state} (withheld: {withheld:?}, alerts: {alerted}) is missing required layers {missing:#04x}"
+        "panel {panel} scene for {state} (withheld: {withheld:?}, alerts: {alerted}) is missing required layers {missing:#06x}"
     )]
     MissingRequiredLayers {
         /// The drawing panel.
@@ -51,8 +52,8 @@ pub enum AdmissionError {
         withheld: Option<GroupId>,
         /// Whether the saturated alert stack was fed.
         alerted: bool,
-        /// Required-but-absent layer bits.
-        missing: u8,
+        /// Required-but-absent layer or band bits.
+        missing: u16,
     },
     /// The scene does not decode.
     #[error("panel {panel} scene for {state} does not decode")]
@@ -182,5 +183,35 @@ pub enum AdmissionError {
         min: DesignFrame,
         /// The largest frame it accepts.
         max: DesignFrame,
+    },
+    /// A 3D volume instrument emits a `TARGET_HANDLE` outside the volume
+    /// box `[-w/2..=w/2, -h/2..=h/2, -d/2..=d/2]` it was drawn at.
+    #[error(
+        "panel {panel} emits target handle {target_id} at {center:?} in {state}, outside extent {extent_m:?}"
+    )]
+    HandleOutOfBounds {
+        /// The drawing panel.
+        panel: &'static str,
+        /// The corpus state.
+        state: &'static str,
+        /// Handle target ID.
+        target_id: u32,
+        /// Transformed volume-space center in meters.
+        center: [f32; 3],
+        /// The volume box handed to the draw call.
+        extent_m: Extent3D,
+    },
+    /// A 3D volume instrument declares a non-degenerate extent range and
+    /// emits identical bytes at both ends of it.
+    #[error(
+        "panel {panel} emits identically at {min:?} and {max:?}, so it does not use the volume extent it is given"
+    )]
+    ExtentIgnored {
+        /// The declaring panel.
+        panel: &'static str,
+        /// Minimum volume extent.
+        min: Extent3D,
+        /// Maximum volume extent.
+        max: Extent3D,
     },
 }

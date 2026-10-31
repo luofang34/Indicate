@@ -2,8 +2,8 @@ use crate::context::{HudContext, HudMode, HudProfile, HudProjection, WorldSource
 use crate::projection::{Camera, live};
 use indicate_alerts::AlertOutput;
 use indicate_instrument_descriptor::{
-    BackgroundCapability, ConfigBlob, DesignFrame, GroupSet, PanelDescriptor, PanelDrawError,
-    PanelSet,
+    AuxChannelId, DesignFrame, DrawContext, GroupSet, PanelDescriptor, PanelDrawError, PanelSet,
+    RenderSpace, SceneTarget, UnderlayContract, planar_layer_bit,
 };
 use indicate_instrument_scene::{Anchor, LayerId, PaintMode, Rgba8, SceneWriter};
 use indicate_instrument_state::{GroupId, PanelData, Sig, SignalStatus};
@@ -79,16 +79,20 @@ const fn descriptor(
     PanelDescriptor {
         id,
         title,
-        required_layers: (1 << LayerId::Tapes.to_u8()) | (1 << LayerId::Annunciation.to_u8()),
+        space: RenderSpace::Planar2D {
+            frame_min: FRAME_MIN,
+            frame_max: FRAME_MAX,
+            frame_step: (1.0, 1.0),
+            aspect_min: 0.45,
+            aspect_max: 2.4,
+            canonical_frames: FRAMES,
+        },
+        required_layers: planar_layer_bit(LayerId::Tapes) | planar_layer_bit(LayerId::Annunciation),
         required_groups: REQUIRED_GROUPS,
-        frame_min: FRAME_MIN,
-        frame_max: FRAME_MAX,
-        frame_step: (1.0, 1.0),
-        aspect_min: 0.45,
-        aspect_max: 2.4,
-        canonical_frames: FRAMES,
-        background: BackgroundCapability::NotUsed,
+        underlay: UnderlayContract::None,
         config_schema: &[],
+        accepted_intents: &[],
+        aux_channels: &[AuxChannelId::HUD_CONTEXT],
         group_regions: &[],
         extreme_states: &[],
         raster_baselines: &[],
@@ -135,39 +139,62 @@ fn reference(profile: HudProfile, vertical_fov_rad: f32) -> HudContext {
     }
 }
 
-fn draw_screen(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
-) -> Result<(), PanelDrawError> {
-    config.require_schema(&[])?;
-    let context = reference(HudProfile::Screen, REFERENCE_SCREEN_FOV_RAD);
-    draw_hud(data, &context, alerts, frame, scene)
+fn resolve_hud_context(
+    ctx: &DrawContext<'_>,
+    default_profile: HudProfile,
+    default_fov_rad: Option<f32>,
+) -> Result<HudContext, PanelDrawError> {
+    if let Some(raw) = ctx.aux(AuxChannelId::HUD_CONTEXT) {
+        let mut decoded = HudContext::decode_aux(raw)?;
+        decoded.profile = default_profile;
+        if default_fov_rad.is_none() {
+            decoded.projection.status = SignalStatus::Missing;
+        }
+        Ok(decoded)
+    } else if let Some(fov_rad) = default_fov_rad {
+        Ok(reference(default_profile, fov_rad))
+    } else {
+        Ok(HudContext::default())
+    }
 }
 
-fn draw_combiner(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
-) -> Result<(), PanelDrawError> {
-    config.require_schema(&[])?;
-    let context = reference(HudProfile::Combiner, REFERENCE_COMBINER_FOV_RAD);
-    draw_hud(data, &context, alerts, frame, scene)
+fn draw_screen(ctx: &DrawContext<'_>, target: SceneTarget<'_, '_>) -> Result<(), PanelDrawError> {
+    let SceneTarget::Planar2D {
+        frame,
+        writer: scene,
+    } = target
+    else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    ctx.config().require_schema(&[])?;
+    let context = resolve_hud_context(ctx, HudProfile::Screen, Some(REFERENCE_SCREEN_FOV_RAD))?;
+    draw_hud(ctx.data(), &context, ctx.alerts(), frame, scene)
 }
 
-fn draw_repeater(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
-) -> Result<(), PanelDrawError> {
-    config.require_schema(&[])?;
-    draw_hud(data, &HudContext::default(), alerts, frame, scene)
+fn draw_combiner(ctx: &DrawContext<'_>, target: SceneTarget<'_, '_>) -> Result<(), PanelDrawError> {
+    let SceneTarget::Planar2D {
+        frame,
+        writer: scene,
+    } = target
+    else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    ctx.config().require_schema(&[])?;
+    let context = resolve_hud_context(ctx, HudProfile::Combiner, Some(REFERENCE_COMBINER_FOV_RAD))?;
+    draw_hud(ctx.data(), &context, ctx.alerts(), frame, scene)
+}
+
+fn draw_repeater(ctx: &DrawContext<'_>, target: SceneTarget<'_, '_>) -> Result<(), PanelDrawError> {
+    let SceneTarget::Planar2D {
+        frame,
+        writer: scene,
+    } = target
+    else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    ctx.config().require_schema(&[])?;
+    let context = resolve_hud_context(ctx, HudProfile::Combiner, None)?;
+    draw_hud(ctx.data(), &context, ctx.alerts(), frame, scene)
 }
 
 /// Frame-relative positions shared by every element.

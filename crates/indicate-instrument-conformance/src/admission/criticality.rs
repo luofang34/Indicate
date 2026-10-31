@@ -16,7 +16,7 @@
 //! bound taken from the typical case alone would miss both.
 
 use indicate_instrument_registry::{
-    DesignFrame, PanelCriticality, PanelDescriptor, Region, Registry,
+    DesignFrame, PanelCriticality, PanelDescriptor, Region, Registry, RenderSpace,
 };
 use indicate_instrument_scene::{MAX_SCENE_BYTES, validate_layers};
 use indicate_instrument_state::{FreshnessPolicy, resolve};
@@ -36,7 +36,13 @@ pub fn criticality_bands(registry: &Registry) -> Result<Vec<PanelCriticality>, A
     let mut out = Vec::new();
     let mut buf = vec![0u8; MAX_SCENE_BYTES];
     for panel in registry.panels() {
-        for frame in panel.canonical_frames {
+        let RenderSpace::Planar2D {
+            canonical_frames, ..
+        } = panel.space
+        else {
+            continue;
+        };
+        for frame in canonical_frames {
             out.push(measure(panel, *frame, &mut buf)?);
         }
     }

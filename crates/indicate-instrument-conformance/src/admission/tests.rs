@@ -2,7 +2,7 @@
 
 use indicate_instrument_panels::{BUILTIN_CRITICALITY_BANDS, BUILTIN_PANELS};
 use indicate_instrument_registry::{
-    BackgroundCapability, DesignFrame, GroupSet, PanelDescriptor, Registry,
+    DesignFrame, GroupSet, PanelDescriptor, Registry, RenderSpace, UnderlayContract,
 };
 
 use super::{admit, criticality_bands};
@@ -17,7 +17,17 @@ fn builtin_panels_pass_admission() {
             let states =
                 indicate_instrument_registry::CANONICAL_STATES.len() + panel.extreme_states.len();
             let groups = panel.required_groups.len() as usize;
-            states * (1 + groups) * panel.canonical_frames.len() * 2
+            let frames = match panel.space {
+                RenderSpace::Planar2D {
+                    canonical_frames, ..
+                } => canonical_frames.len(),
+                RenderSpace::AngularSphere { .. } => 1,
+                RenderSpace::Volume3D {
+                    canonical_extents_m,
+                    ..
+                } => canonical_extents_m.len(),
+            };
+            states * (1 + groups) * frames * 2
         })
         .sum::<usize>();
     assert_eq!(report.cases, expected);
@@ -37,6 +47,7 @@ fn the_pinned_criticality_bands_are_the_measured_ones() {
 mod background_checks;
 mod provenance_checks;
 mod region_checks;
+mod spatial_checks;
 
 /// The one frame every fixture panel below declares: a degenerate
 /// range, so each fixture is drawn exactly once per case and the counts
@@ -46,22 +57,28 @@ const FIXTURE_FRAME: DesignFrame = DesignFrame {
     height: 360.0,
 };
 
+const FIXTURE_SPACE: RenderSpace = RenderSpace::Planar2D {
+    frame_min: FIXTURE_FRAME,
+    frame_max: FIXTURE_FRAME,
+    frame_step: (1.0, 1.0),
+    aspect_min: 1.30,
+    aspect_max: 1.37,
+    canonical_frames: &[FIXTURE_FRAME],
+};
+
 /// One-panel descriptor around a draw fixture, shared by the
 /// background and provenance fixture suites.
 fn opaque_panel(draw: indicate_instrument_registry::DrawFn) -> [PanelDescriptor; 1] {
     [PanelDescriptor {
         id: "probe",
         title: "Probe",
+        space: FIXTURE_SPACE,
         required_layers: 1 << 2, // Tapes
         required_groups: GroupSet::EMPTY,
-        frame_min: FIXTURE_FRAME,
-        frame_max: FIXTURE_FRAME,
-        frame_step: (1.0, 1.0),
-        aspect_min: 1.30,
-        aspect_max: 1.37,
-        canonical_frames: &[FIXTURE_FRAME],
-        background: BackgroundCapability::Opaque,
+        underlay: UnderlayContract::Opaque,
         config_schema: &[],
+        accepted_intents: &[],
+        aux_channels: &[],
         group_regions: &[],
         extreme_states: &[],
         raster_baselines: &[],

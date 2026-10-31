@@ -1,5 +1,4 @@
-//! Why a composition was refused: one variant per rule, each carrying
-//! enough context to name the offending declaration without a debugger.
+//! Why a composition was refused: one variant per rule.
 
 /// Why a composition was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -7,8 +6,7 @@ pub enum RegistryError {
     /// A shell with no panels has nothing to display.
     #[error("a registry must contain at least one panel")]
     Empty,
-    /// A composition naming no sets has nothing to display, and would
-    /// pass the per-panel checks vacuously.
+    /// A composition naming no sets has nothing to display.
     #[error("a registry must contain at least one set")]
     NoSets,
     /// A set id violates the lowercase/digits/dashes charset.
@@ -23,8 +21,7 @@ pub enum RegistryError {
         /// Position of the second occurrence.
         set: usize,
     },
-    /// A set contributing no panels is a provider wired up wrongly, not
-    /// a shell that wanted nothing.
+    /// A set contributing no panels is a provider wired up wrongly.
     #[error("set {set} contributes no panels")]
     EmptySet {
         /// Position in the composed set list.
@@ -48,20 +45,25 @@ pub enum RegistryError {
         /// Position in the flattened composition.
         index: usize,
     },
-    /// A panel that requires no layers would pass every completeness
-    /// check vacuously.
+    /// A panel that requires no layers would pass completeness vacuously.
     #[error("panel {index} declares no required layers")]
     NoRequiredLayers {
         /// Position in the flattened composition.
         index: usize,
     },
-    /// Required-layer bits beyond the defined scene layers.
-    #[error("panel {index} requires undefined layer bits {bits:#04x}")]
+    /// Required-layer bits beyond the defined scene layers or bands.
+    #[error("panel {index} requires undefined layer bits {bits:#06x}")]
     UndefinedLayerBits {
         /// Position in the flattened composition.
         index: usize,
         /// The offending mask.
-        bits: u8,
+        bits: u16,
+    },
+    /// Underlay contract incompatible with the declared render space.
+    #[error("panel {index} declares an underlay incompatible with its render space")]
+    IncompatibleUnderlay {
+        /// Position in the flattened composition.
+        index: usize,
     },
     /// A non-finite or non-positive frame bound.
     #[error("panel {index} has a degenerate frame bound")]
@@ -69,15 +71,13 @@ pub enum RegistryError {
         /// Position in the flattened composition.
         index: usize,
     },
-    /// A maximum frame smaller than the minimum on some axis: the range
-    /// it describes is empty.
+    /// A maximum frame smaller than the minimum on some axis.
     #[error("panel {index} declares a maximum frame below its minimum")]
     FrameRangeInverted {
         /// Position in the flattened composition.
         index: usize,
     },
-    /// A non-finite or non-positive quantization step. A zero step
-    /// would make every dimension either on-grid or nothing at all.
+    /// A non-finite or non-positive quantization step.
     #[error("panel {index} has a degenerate frame step")]
     BadFrameStep {
         /// Position in the flattened composition.
@@ -89,22 +89,19 @@ pub enum RegistryError {
         /// Position in the flattened composition.
         index: usize,
     },
-    /// A panel pinning no evidence sizes is drawn at no frame at all by
-    /// the digest and the admission matrix.
+    /// A `Planar2D` panel pinning no evidence sizes.
     #[error("panel {index} pins no canonical frames")]
     NoCanonicalFrames {
         /// Position in the flattened composition.
         index: usize,
     },
-    /// The readability floor is not among the pinned evidence sizes, so
-    /// nothing is ever drawn there.
+    /// The readability floor is not among the pinned evidence sizes.
     #[error("panel {index} does not pin its minimum frame as canonical")]
     CanonicalFramesMissingMin {
         /// Position in the flattened composition.
         index: usize,
     },
-    /// The largest declared frame is not among the pinned evidence
-    /// sizes, so the top of the range is never exercised.
+    /// The largest declared frame is not among the pinned evidence sizes.
     #[error("panel {index} does not pin its maximum frame as canonical")]
     CanonicalFramesMissingMax {
         /// Position in the flattened composition.
@@ -126,9 +123,7 @@ pub enum RegistryError {
         /// Position of the offending frame within the panel.
         position: usize,
     },
-    /// A canonical frame whose ratio the declared layout does not
-    /// support. The per-axis corners alone may not be admissible
-    /// shapes, which is exactly why this is checked.
+    /// A canonical frame whose ratio violates `aspect_min..=aspect_max`.
     #[error("panel {index} canonical frame {position} violates its aspect bounds")]
     CanonicalFrameAspect {
         /// Position in the flattened composition.
@@ -160,7 +155,59 @@ pub enum RegistryError {
         /// Position of the second occurrence within the panel.
         position: usize,
     },
-    /// Schema keys must be strictly ascending (unique by construction).
+    /// Degenerate 2D overlay frame on `AngularSphere`.
+    #[error("panel {index} declares a degenerate AngularSphere overlay frame")]
+    BadOverlayFrame {
+        /// Position in the flattened composition.
+        index: usize,
+    },
+    /// Degenerate 3D metric extent bound on `Volume3D`.
+    #[error("panel {index} has a degenerate Volume3D extent bound")]
+    BadExtentBounds {
+        /// Position in the flattened composition.
+        index: usize,
+    },
+    /// Inverted 3D metric extent range (`max < min`).
+    #[error("panel {index} declares a maximum Volume3D extent below its minimum")]
+    ExtentRangeInverted {
+        /// Position in the flattened composition.
+        index: usize,
+    },
+    /// Invalid `ViewLimits` on `Volume3D`.
+    #[error("panel {index} declares invalid ViewLimits")]
+    BadViewLimits {
+        /// Position in the flattened composition.
+        index: usize,
+    },
+    /// `Volume3D` panel pinning no canonical extents.
+    #[error("panel {index} pins no canonical Volume3D extents")]
+    NoCanonicalExtents {
+        /// Position in the flattened composition.
+        index: usize,
+    },
+    /// Canonical `Volume3D` extent outside declared range or degenerate.
+    #[error("panel {index} canonical extent {position} is outside its declared range")]
+    CanonicalExtentOutOfRange {
+        /// Position in the flattened composition.
+        index: usize,
+        /// Position within `canonical_extents_m`.
+        position: usize,
+    },
+    /// Duplicate canonical `Volume3D` extent.
+    #[error("panel {index} repeats canonical extent {position}")]
+    DuplicateCanonicalExtent {
+        /// Position in the flattened composition.
+        index: usize,
+        /// Position of duplicate within `canonical_extents_m`.
+        position: usize,
+    },
+    /// `group_regions` or `raster_baselines` declared on a non-`Planar2D` instrument.
+    #[error("panel {index} declares 2D regions or raster baselines on a non-Planar2D space")]
+    NonPlanar2DMetadata {
+        /// Position in the flattened composition.
+        index: usize,
+    },
+    /// Schema keys must be strictly ascending.
     #[error("panel {index} schema key {key} repeats or descends")]
     SchemaKeysNotAscending {
         /// Position in the flattened composition.
@@ -176,8 +223,7 @@ pub enum RegistryError {
         /// The wire tag of the unrequired group.
         group: u8,
     },
-    /// A group region outside the minimum frame (or degenerate): the
-    /// floor is where a readout surface has to fit.
+    /// A group region outside the minimum frame (or degenerate).
     #[error("panel {index} declares a region for group {group} outside its minimum frame")]
     RegionOutsideFrame {
         /// Position in the flattened composition.

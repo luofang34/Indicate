@@ -5,6 +5,8 @@ use indicate_instrument_state::{
     AltitudeClass, GeoidModelId, HeadingReference, NavSource, OriginId,
 };
 
+use crate::namespace::{ExtensionPayload, IntentClass, IntentNamespace};
+
 /// Lowest barometric setting a request may name, hectopascals. Below
 /// the lowest sea-level pressure ever recorded, with margin.
 pub const BARO_HPA_MIN: f32 = 800.0;
@@ -73,6 +75,41 @@ pub enum Intent {
     SelectPage(PageId),
     /// Request declutter on or off; routed to the display.
     Declutter(bool),
+    /// Activate a numbered bezel or spatial softkey (`0x0009`).
+    PressSoftkey {
+        /// Softkey identifier.
+        key_id: u16,
+    },
+    /// Domain-namespaced extension intent with bounded payload (`<= 64` bytes).
+    Custom {
+        /// Non-zero domain namespace.
+        namespace: IntentNamespace,
+        /// Domain-specific opcode.
+        opcode: u16,
+        /// Inline extension payload.
+        payload: ExtensionPayload,
+    },
+}
+
+impl Intent {
+    /// Returns the [`IntentClass`] (`namespace`, `opcode`) of this intent.
+    #[must_use]
+    pub const fn class(&self) -> IntentClass {
+        match *self {
+            Self::SelectBaro { .. } => IntentClass::SELECT_BARO,
+            Self::SetHeadingBug { .. } => IntentClass::SET_HEADING_BUG,
+            Self::SelectAltitude { .. } => IntentClass::SELECT_ALTITUDE,
+            Self::SelectNavSource(_) => IntentClass::SELECT_NAV_SOURCE,
+            Self::AcknowledgeAlert(_) => IntentClass::ACKNOWLEDGE_ALERT,
+            Self::AcknowledgeAllAlerts => IntentClass::ACKNOWLEDGE_ALL_ALERTS,
+            Self::SelectPage(_) => IntentClass::SELECT_PAGE,
+            Self::Declutter(_) => IntentClass::DECLUTTER,
+            Self::PressSoftkey { .. } => IntentClass::PRESS_SOFTKEY,
+            Self::Custom {
+                namespace, opcode, ..
+            } => IntentClass::custom(namespace, opcode),
+        }
+    }
 }
 
 /// One request: the device's stamp and what it asked for.

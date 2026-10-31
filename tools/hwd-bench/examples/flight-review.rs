@@ -1,10 +1,15 @@
 //! Renders identical flight inputs through each production display for visual review.
 
-use indicate_instrument_descriptor::{EMPTY_CONFIG, PanelDescriptor};
+use indicate_instrument_descriptor::{
+    DesignFrame, DrawContext, EMPTY_CONFIG, PanelDescriptor, RenderSpace, SceneTarget,
+};
 use indicate_instrument_hmd::{HMD_DESCRIPTOR, HMD_GLANCE_DESCRIPTOR};
 use indicate_instrument_panels::{AUTOFLIGHT_DESCRIPTOR, PFD_DESCRIPTOR};
 use indicate_instrument_raster::{FrameId, FramebufferDims, RenderStatus, render};
-use indicate_instrument_scene::SceneWriter;
+use indicate_instrument_scene::{
+    SceneWriter,
+    angular::{AngularSceneWriter, MAX_ANGULAR_SCENE_BYTES},
+};
 use indicate_instrument_state::{FreshnessPolicy, abi::v8::fixtures, resolve};
 use std::path::{Path, PathBuf};
 
@@ -46,11 +51,44 @@ fn main() -> Result<(), Error> {
 
 fn export(directory: &Path, panel: &PanelDescriptor) -> Result<(), Error> {
     let data = resolve(&fixtures::extended(), &FreshnessPolicy::default());
+    let ctx = DrawContext::new(&data).with_config(EMPTY_CONFIG);
     let mut scene = [0; 65536];
+    let mut ang_buf = vec![0u8; MAX_ANGULAR_SCENE_BYTES];
     let mut writer = SceneWriter::new(&mut scene).map_err(Error::Scene)?;
-    (panel.draw)(&data, &EMPTY_CONFIG, None, panel.frame_min, &mut writer)?;
+    let frame: DesignFrame = match panel.space {
+        RenderSpace::Planar2D { frame_min, .. } => {
+            (panel.draw)(
+                &ctx,
+                SceneTarget::Planar2D {
+                    frame: frame_min,
+                    writer: &mut writer,
+                },
+            )?;
+            frame_min
+        }
+        RenderSpace::AngularSphere {
+            overlay_frame: Some(frame),
+        } => {
+            let mut ang_writer = AngularSceneWriter::new(&mut ang_buf).map_err(Error::Scene)?;
+            (panel.draw)(
+                &ctx,
+                SceneTarget::AngularSphere {
+                    angular: &mut ang_writer,
+                    overlay: Some((frame, &mut writer)),
+                },
+            )?;
+            let _ang_used = ang_writer.finish();
+            frame
+        }
+        _ => {
+            return Err(Error::Raster {
+                panel: panel.id,
+                detail: "no 2D frame".into(),
+            });
+        }
+    };
     let length = writer.finish();
-    let (width, height) = (panel.frame_min.width as u32, panel.frame_min.height as u32);
+    let (width, height) = (frame.width as u32, frame.height as u32);
     let mut pixels = vec![0; (width * height * 4) as usize];
     let report = render(
         &scene[..length],

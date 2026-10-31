@@ -11,19 +11,19 @@ mod criticality_bands;
 mod extreme_states;
 mod supplementary;
 
-use indicate_alerts::AlertOutput;
 use indicate_instrument_descriptor::{
-    BackgroundCapability, ConfigBlob, DesignFrame, ExtremeState, GroupSet, PanelDescriptor,
-    PanelDrawError, PanelSet, Region,
+    DesignFrame, DrawContext, ExtremeState, GroupSet, PanelDescriptor, PanelDrawError, PanelSet,
+    Region, RenderSpace, SceneTarget, UnderlayContract,
 };
-use indicate_instrument_scene::{LayerId, SceneWriter};
-use indicate_instrument_state::{GroupId, PanelData};
+use indicate_instrument_scene::LayerId;
+use indicate_instrument_state::GroupId;
+use indicate_intent::IntentClass;
 
 use crate::pfd::PFD_CONFIG_SCHEMA;
 use crate::{BUILTIN_FRAME, PfdConfig, draw_hsi, draw_pfd};
 
-const fn layer_bit(layer: LayerId) -> u8 {
-    1u8 << layer.to_u8()
+const fn layer_bit(layer: LayerId) -> u16 {
+    1u16 << layer.to_u8()
 }
 
 /// Every panel here declares one admissible frame, so the only whole
@@ -43,30 +43,41 @@ const ASPECT_MAX: f32 = 1.37;
 /// the ceiling of the declared range.
 const CANONICAL_FRAMES: &[DesignFrame] = &[BUILTIN_FRAME];
 
+/// Shared planar 2D render-space contract for every Garmin-G5-proportioned panel here.
+const BUILTIN_SPACE: RenderSpace = RenderSpace::Planar2D {
+    frame_min: BUILTIN_FRAME,
+    frame_max: BUILTIN_FRAME,
+    frame_step: FRAME_STEP,
+    aspect_min: ASPECT_MIN,
+    aspect_max: ASPECT_MAX,
+    canonical_frames: CANONICAL_FRAMES,
+};
+
 fn draw_pfd_panel(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
+    let SceneTarget::Planar2D { frame, writer } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    let config = ctx.config();
     let cfg = PfdConfig::from_config(config, frame)?;
-    draw_pfd(data, &cfg, alerts, frame, scene)?;
+    draw_pfd(ctx.data(), &cfg, ctx.alerts(), frame, writer)?;
     Ok(())
 }
 
 fn draw_hsi_panel(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
+    let SceneTarget::Planar2D { frame, writer } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
     // The HSI takes no configuration; the empty schema makes any keyed
     // blob a shell-side rejection before this runs, and a re-check here
     // keeps the property when a shell skips its gate.
-    config.require_schema(HSI_DESCRIPTOR.config_schema)?;
-    draw_hsi(data, alerts, frame, scene)?;
+    ctx.config().require_schema(HSI_DESCRIPTOR.config_schema)?;
+    draw_hsi(ctx.data(), ctx.alerts(), frame, writer)?;
     Ok(())
 }
 
@@ -74,6 +85,7 @@ fn draw_hsi_panel(
 pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     id: "pfd",
     title: "PFD",
+    space: BUILTIN_SPACE,
     required_layers: layer_bit(LayerId::Attitude)
         | layer_bit(LayerId::Tapes)
         | layer_bit(LayerId::Guidance)
@@ -92,14 +104,18 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         GroupId::Guidance,
         GroupId::SpeedPresentation,
     ]),
-    frame_min: BUILTIN_FRAME,
-    frame_max: BUILTIN_FRAME,
-    frame_step: FRAME_STEP,
-    aspect_min: ASPECT_MIN,
-    aspect_max: ASPECT_MAX,
-    canonical_frames: CANONICAL_FRAMES,
-    background: BackgroundCapability::Cedeable,
+    underlay: UnderlayContract::ConformalSvs3D,
     config_schema: PFD_CONFIG_SCHEMA,
+    accepted_intents: &[
+        IntentClass::SELECT_BARO,
+        IntentClass::SET_HEADING_BUG,
+        IntentClass::SELECT_ALTITUDE,
+        IntentClass::SELECT_NAV_SOURCE,
+        IntentClass::ACKNOWLEDGE_ALERT,
+        IntentClass::ACKNOWLEDGE_ALL_ALERTS,
+        IntentClass::DECLUTTER,
+    ],
+    aux_channels: &[],
     // Value-readout surfaces, keyed by the group whose data the number
     // comes from, drawn around the pointed readout and deliberately
     // excluding the scale ladder beside it — the rungs claim the same
@@ -221,6 +237,7 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
 pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     id: "hsi",
     title: "HSI",
+    space: BUILTIN_SPACE,
     required_layers: layer_bit(LayerId::Attitude)
         | layer_bit(LayerId::Tapes)
         | layer_bit(LayerId::Guidance)
@@ -235,14 +252,15 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         GroupId::Variation,
         GroupId::BearingPointers,
     ]),
-    frame_min: BUILTIN_FRAME,
-    frame_max: BUILTIN_FRAME,
-    frame_step: FRAME_STEP,
-    aspect_min: ASPECT_MIN,
-    aspect_max: ASPECT_MAX,
-    canonical_frames: CANONICAL_FRAMES,
-    background: BackgroundCapability::Opaque,
+    underlay: UnderlayContract::Opaque,
     config_schema: &[],
+    accepted_intents: &[
+        IntentClass::SET_HEADING_BUG,
+        IntentClass::SELECT_NAV_SOURCE,
+        IntentClass::ACKNOWLEDGE_ALERT,
+        IntentClass::ACKNOWLEDGE_ALL_ALERTS,
+    ],
+    aux_channels: &[],
     group_regions: &[
         // Wind box.
         (
@@ -354,7 +372,7 @@ pub const ALL_SETS: &[PanelSet] = &[BUILTIN_SET, CONFIG_SET];
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "edf5815cc83179cfa7f5b8871bbe6e945dbf04d0339e9f5e55cb3a2922deff51";
+    "dae6c3a97550e2a5bb05f308444ca7b6f8af19924b3bb5cf864e45539d128ec6";
 
 pub use criticality_bands::BUILTIN_CRITICALITY_BANDS;
 pub use supplementary::{

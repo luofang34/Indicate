@@ -80,6 +80,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "equivalent"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
+
+[[package]]
 name = "errno"
 version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -100,6 +106,12 @@ name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
+
+[[package]]
+name = "foldhash"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
 
 [[package]]
 name = "getrandom"
@@ -125,6 +137,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashbrown"
+version = "0.15.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
+dependencies = [
+ "foldhash",
+]
+
+[[package]]
+name = "hashbrown"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
+
+[[package]]
 name = "hwd-bench"
 version = "0.1.0"
 dependencies = [
@@ -147,6 +174,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "707114b52a152fa7bdb290cd7cd5912d9467273b6d74e21b8d81aca1f8533f6b"
 dependencies = [
  "typenum",
+]
+
+[[package]]
+name = "indexmap"
+version = "2.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855"
+dependencies = [
+ "equivalent",
+ "hashbrown 0.17.1",
 ]
 
 [[package]]
@@ -184,7 +221,9 @@ dependencies = [
  "indicate-instrument-state",
  "indicate-instrument-symbology",
  "indicate-instrument-template",
+ "indicate-instrument-volumes",
  "indicate-intent",
+ "indicate-interaction",
  "thiserror",
 ]
 
@@ -193,6 +232,7 @@ name = "indicate-instrument-conformance"
 version = "0.1.0"
 dependencies = [
  "indicate-alerts",
+ "indicate-frames",
  "indicate-instrument-glyphs",
  "indicate-instrument-panels",
  "indicate-instrument-registry",
@@ -206,8 +246,12 @@ name = "indicate-instrument-descriptor"
 version = "0.1.0"
 dependencies = [
  "indicate-alerts",
+ "indicate-frames",
  "indicate-instrument-scene",
  "indicate-instrument-state",
+ "indicate-intent",
+ "indicate-interaction",
+ "libm",
  "thiserror",
 ]
 
@@ -269,6 +313,7 @@ dependencies = [
  "indicate-instrument-scene",
  "indicate-instrument-state",
  "indicate-instrument-symbology",
+ "indicate-intent",
  "libm",
 ]
 
@@ -295,6 +340,8 @@ dependencies = [
  "indicate-instrument-descriptor",
  "indicate-instrument-scene",
  "indicate-instrument-state",
+ "indicate-intent",
+ "indicate-interaction",
  "indicate-sha256",
  "thiserror",
 ]
@@ -303,6 +350,8 @@ dependencies = [
 name = "indicate-instrument-scene"
 version = "0.1.0"
 dependencies = [
+ "indicate-frames",
+ "libm",
  "proptest",
  "thiserror",
 ]
@@ -341,6 +390,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "indicate-instrument-volumes"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-frames",
+ "indicate-instrument-conformance",
+ "indicate-instrument-descriptor",
+ "indicate-instrument-registry",
+ "indicate-instrument-scene",
+ "indicate-instrument-state",
+ "indicate-instrument-symbology",
+ "indicate-intent",
+ "indicate-interaction",
+ "libm",
+]
+
+[[package]]
 name = "indicate-intent"
 version = "0.1.0"
 dependencies = [
@@ -348,6 +414,44 @@ dependencies = [
  "indicate-instrument-feeder",
  "indicate-instrument-state",
  "thiserror",
+]
+
+[[package]]
+name = "indicate-interaction"
+version = "0.1.0"
+dependencies = [
+ "indicate-frames",
+ "libm",
+ "thiserror",
+]
+
+[[package]]
+name = "indicate-plugin-abi"
+version = "0.1.0"
+dependencies = [
+ "indicate-instrument-descriptor",
+ "indicate-instrument-scene",
+ "indicate-instrument-state",
+ "indicate-intent",
+ "indicate-interaction",
+ "indicate-sha256",
+ "thiserror",
+]
+
+[[package]]
+name = "indicate-plugin-host"
+version = "0.1.0"
+dependencies = [
+ "indicate-alerts",
+ "indicate-frames",
+ "indicate-instrument-descriptor",
+ "indicate-instrument-glyphs",
+ "indicate-instrument-registry",
+ "indicate-instrument-scene",
+ "indicate-instrument-state",
+ "indicate-plugin-abi",
+ "thiserror",
+ "wasmi",
 ]
 
 [[package]]
@@ -581,6 +685,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde"
+version = "1.0.229"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
+name = "serde_core"
+version = "1.0.229"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48"
+dependencies = [
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_derive"
+version = "1.0.229"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.3",
+]
+
+[[package]]
 name = "sha1"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -616,6 +749,22 @@ name = "smallvec"
 version = "1.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ed6a63f02c8539c91a8685a86f4099661ba3da017932f6ebbea6de3f0fa7c90"
+
+[[package]]
+name = "spin"
+version = "0.9.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3763264f6b73151db08c50ff20d7d8a0b8796e021cdea7ceedad07b80155fa0e"
+
+[[package]]
+name = "string-interner"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23de088478b31c349c9ba67816fa55d9355232d63c3afea8bf513e31f0f1d2c0"
+dependencies = [
+ "hashbrown 0.15.5",
+ "serde",
+]
 
 [[package]]
 name = "syn"
@@ -781,6 +930,56 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmi"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78693fcdd618e0fc34af59c6b8efa9ac5d58c68df940beff4bedddb6acfe7c27"
+dependencies = [
+ "spin",
+ "wasmi_collections",
+ "wasmi_core",
+ "wasmi_ir",
+ "wasmparser",
+]
+
+[[package]]
+name = "wasmi_collections"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a8be2aa467cf2d29e96ff759472c36eeb44a3c81c67fc9cb76c9a24c519c557"
+dependencies = [
+ "string-interner",
+]
+
+[[package]]
+name = "wasmi_core"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69372d5fda3ea3d1e0aa6603c7888110e0187e88ea17cd8fc2e2df0a0e1f37fa"
+dependencies = [
+ "libm",
+]
+
+[[package]]
+name = "wasmi_ir"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f17b774caa13c618c7244f1ee51fe23c5e7b8538a471fa46d9949779758aed6"
+dependencies = [
+ "wasmi_core",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.228.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4abf1132c1fdf747d56bbc1bb52152400c70f336870f968b85e89ea422198ae3"
+dependencies = [
+ "bitflags",
+ "indexmap",
+]
+
+[[package]]
 name = "windows-link"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -813,6 +1012,8 @@ dependencies = [
  "indicate-instrument-scene",
  "indicate-instrument-state",
  "indicate-instrument-template",
+ "indicate-instrument-volumes",
+ "indicate-intent",
  "instrument-bench",
  "thiserror",
  "tracing",

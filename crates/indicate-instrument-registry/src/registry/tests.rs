@@ -1,24 +1,24 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_alerts::AlertOutput;
-use indicate_instrument_scene::{LAYER_COUNT, SceneWriter};
-use indicate_instrument_state::{AircraftState, GroupId, PanelData};
+use indicate_instrument_scene::{
+    LAYER_COUNT,
+    volume::{Extent3D, VOLUME_BAND_COUNT},
+};
+use indicate_instrument_state::{AircraftState, GroupId};
+use indicate_interaction::ViewLimits;
 
 use std::vec::Vec;
 
 use indicate_instrument_descriptor::{
-    BackgroundCapability, ConfigBlob, DesignFrame, ExtremeState, GroupSet, PanelDescriptor,
-    PanelDrawError, PanelSet, Region,
+    DesignFrame, DrawContext, ExtremeState, GroupSet, PanelDescriptor, PanelDrawError, PanelSet,
+    Region, RenderSpace, SceneTarget, UnderlayContract,
 };
 
 use super::{Registry, RegistryError};
 
 fn draw_nothing(
-    _data: &PanelData,
-    _config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    _scene: &mut SceneWriter<'_>,
+    _ctx: &DrawContext<'_>,
+    _target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
     Ok(())
 }
@@ -33,20 +33,35 @@ pub(super) const FRAME: DesignFrame = DesignFrame {
 };
 const CANONICAL: &[DesignFrame] = &[FRAME];
 
+pub(super) const fn planar(
+    frame_min: DesignFrame,
+    frame_max: DesignFrame,
+    frame_step: (f32, f32),
+    aspect_min: f32,
+    aspect_max: f32,
+    canonical_frames: &'static [DesignFrame],
+) -> RenderSpace {
+    RenderSpace::Planar2D {
+        frame_min,
+        frame_max,
+        frame_step,
+        aspect_min,
+        aspect_max,
+        canonical_frames,
+    }
+}
+
 pub(super) const fn panel(id: &'static str) -> PanelDescriptor {
     PanelDescriptor {
         id,
         title: "Panel",
+        space: planar(FRAME, FRAME, (1.0, 1.0), 1.30, 1.37, CANONICAL),
         required_layers: 0b0000_0110,
         required_groups: GroupSet::of(&[GroupId::Attitude, GroupId::Air]),
-        frame_min: FRAME,
-        frame_max: FRAME,
-        frame_step: (1.0, 1.0),
-        aspect_min: 1.30,
-        aspect_max: 1.37,
-        canonical_frames: CANONICAL,
-        background: BackgroundCapability::NotUsed,
+        underlay: UnderlayContract::None,
         config_schema: &[],
+        accepted_intents: &[],
+        aux_channels: &[],
         group_regions: &[],
         extreme_states: &[],
         raster_baselines: &[],
@@ -54,9 +69,6 @@ pub(super) const fn panel(id: &'static str) -> PanelDescriptor {
     }
 }
 
-/// A panel with a real range: 480×360 up to 600×450, both 4:3, on a
-/// 40×30 grid. The fixtures below need a range wide enough that a
-/// constraint can be violated inside it.
 pub(super) const RANGED_MAX: DesignFrame = DesignFrame {
     width: 600.0,
     height: 450.0,
@@ -64,9 +76,14 @@ pub(super) const RANGED_MAX: DesignFrame = DesignFrame {
 
 pub(super) const fn ranged(id: &'static str) -> PanelDescriptor {
     let mut p = panel(id);
-    p.frame_max = RANGED_MAX;
-    p.frame_step = (40.0, 30.0);
-    p.canonical_frames = &[FRAME, RANGED_MAX];
+    p.space = planar(
+        FRAME,
+        RANGED_MAX,
+        (40.0, 30.0),
+        1.30,
+        1.37,
+        &[FRAME, RANGED_MAX],
+    );
     p
 }
 
@@ -111,14 +128,14 @@ fn layer_mask_abuse_is_refused() {
     );
     static BEYOND: [PanelDescriptor; 1] = [{
         let mut p = panel("pfd");
-        p.required_layers = 1 << LAYER_COUNT;
+        p.required_layers = 1u16 << LAYER_COUNT;
         p
     }];
     assert_eq!(
         Registry::new(&BEYOND).map(|_| ()),
         Err(RegistryError::UndefinedLayerBits {
             index: 0,
-            bits: 1 << LAYER_COUNT,
+            bits: 1u16 << LAYER_COUNT,
         })
     );
 }
@@ -179,8 +196,6 @@ fn group_regions_must_stay_honest() {
             group: GroupId::Attitude as u8,
         })
     );
-    // The floor is the frame a region must fit in: this one fits the
-    // ceiling comfortably and hangs off the bottom of the minimum.
     static ONLY_FITS_THE_CEILING: [PanelDescriptor; 1] = [{
         let mut p = ranged("pfd");
         p.group_regions = &[(
@@ -228,8 +243,6 @@ fn extreme_state_ids_must_be_unique_and_well_formed() {
     );
 }
 
-// --- Composition across provider crates (#6) ---
-
 static ALPHA: PanelSet = PanelSet {
     id: "alpha-set",
     panels: &[panel("alpha")],
@@ -249,9 +262,6 @@ fn sets_compose_in_shell_order_and_stay_queryable() {
     assert_eq!(registry.sets().len(), 2);
 }
 
-/// The property this mechanism exists for: a shell that composes two
-/// sets claiming the same panel gets a refusal at init, not whichever
-/// panel happened to be listed first.
 #[test]
 fn a_panel_id_claimed_by_two_sets_is_refused() {
     static CLASH: PanelSet = PanelSet {
@@ -275,7 +285,6 @@ fn per_panel_rules_still_run_over_a_composition_of_sets() {
     assert_eq!(
         Registry::from_sets(&SETS).map(|_| ()),
         Err(RegistryError::BadId { index: 1 }),
-        "a malformed id must not ride in unchecked because it arrived in a set",
     );
 }
 
@@ -326,12 +335,56 @@ fn a_composition_naming_no_sets_is_refused() {
     );
 }
 
-/// A bare slice still composes: a single-provider shell never learns
-/// that sets exist.
 #[test]
 fn an_anonymous_composition_names_no_sets() {
     static PANELS: [PanelDescriptor; 1] = [panel("alpha")];
     let registry = Registry::new(&PANELS).expect("composes");
     assert!(registry.sets().is_empty());
     assert_eq!(registry.panels().count(), 1);
+}
+
+#[test]
+fn angular_and_volume_descriptors_validate_and_reject_invalid_bits() {
+    static VALID_SPACES: [PanelDescriptor; 2] = [
+        PanelDescriptor {
+            id: "ang",
+            space: RenderSpace::AngularSphere {
+                overlay_frame: Some(FRAME),
+            },
+            required_layers: 0x0101,
+            underlay: UnderlayContract::None,
+            ..panel("ang")
+        },
+        PanelDescriptor {
+            id: "vol",
+            space: RenderSpace::Volume3D {
+                extent_min_m: Extent3D::new(0.3, 0.3, 0.3),
+                extent_max_m: Extent3D::new(1.5, 1.5, 1.5),
+                canonical_extents_m: &[Extent3D::new(0.6, 0.45, 0.6)],
+                view_limits: ViewLimits::VOLUMETRIC_DEFAULT,
+            },
+            required_layers: 0x0101,
+            underlay: UnderlayContract::VolumetricTerrain3D,
+            ..panel("vol")
+        },
+    ];
+    assert_eq!(
+        Registry::new(&VALID_SPACES)
+            .expect("valid")
+            .panels()
+            .count(),
+        2
+    );
+
+    static BAD_VOL_BITS: [PanelDescriptor; 1] = [PanelDescriptor {
+        required_layers: 1u16 << VOLUME_BAND_COUNT,
+        ..VALID_SPACES[1]
+    }];
+    assert_eq!(
+        Registry::new(&BAD_VOL_BITS).map(|_| ()),
+        Err(RegistryError::UndefinedLayerBits {
+            index: 0,
+            bits: 1u16 << VOLUME_BAND_COUNT,
+        })
+    );
 }

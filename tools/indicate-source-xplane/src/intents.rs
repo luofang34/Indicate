@@ -30,7 +30,9 @@ pub fn dref_for(intent: &Intent) -> Option<(Dataref, f32)> {
         | Intent::AcknowledgeAlert(_)
         | Intent::AcknowledgeAllAlerts
         | Intent::SelectPage(_)
-        | Intent::Declutter(_) => None,
+        | Intent::Declutter(_)
+        | Intent::PressSoftkey { .. }
+        | Intent::Custom { .. } => None,
     }
 }
 

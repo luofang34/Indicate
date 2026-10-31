@@ -62,7 +62,7 @@ rm -f "$docs/set-template.md"
 refuses "a set crate with no document" "MISSING SET DOCUMENT"
 
 restore
-sed -i.bak 's/| Background | Opaque |/| Background | Cedeable |/' "$docs/set-template.md" && rm -f "$docs/set-template.md.bak"
+sed -i.bak 's/| Underlay | Opaque |/| Underlay | Map2D |/' "$docs/set-template.md" && rm -f "$docs/set-template.md.bak"
 refuses "a generated block that drifted from the descriptor" "STALE:"
 
 restore

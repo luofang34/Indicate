@@ -15,13 +15,13 @@
 //! frame its panel is asked to emit — which is why a slot rect must be
 //! a frame the panel declared it can lay out against.
 //!
-//! Overlap rides [`BackgroundCapability`] rather than any new alpha
-//! mechanism: `Opaque` and `Cedeable` panels prove a full-frame opaque
-//! cover at admission, so they occlude their whole rect, while a
-//! `NotUsed` panel paints nothing in the background band and functions
-//! as an overlay through which lower slots show.
+//! Overlap rides [`indicate_instrument_descriptor::UnderlayContract`]
+//! rather than any new alpha mechanism: `Opaque` and cedeable 2D contracts
+//! prove a full-frame opaque cover at admission, so they occlude their
+//! whole rect, while a `None` panel paints nothing in the background band
+//! and functions as an overlay through which lower slots show.
 
-use indicate_instrument_descriptor::{BackgroundCapability, CriticalityBands, DesignFrame, Region};
+use indicate_instrument_descriptor::{CriticalityBands, DesignFrame, Region, RenderSpace};
 
 use crate::registry::Registry;
 
@@ -166,8 +166,14 @@ fn validate_slot(
             screen: composition.screen,
         });
     }
+    if !matches!(panel.space, RenderSpace::Planar2D { .. }) {
+        return Err(CompositionError::NonPlanarPanel {
+            slot: index,
+            panel: slot.panel,
+        });
+    }
     let frame = slot_frame(slot);
-    if panel.accepts(frame).is_err() {
+    if panel.accepts_2d(frame).is_err() {
         return Err(CompositionError::SlotFrameUnsupported {
             slot: index,
             panel: slot.panel,
@@ -225,12 +231,9 @@ fn validate_alive(
 /// Whether a slot's panel occludes what it covers: an owned background
 /// band is a proven full-frame opaque cover, and nothing else is.
 fn opaque(registry: &Registry, slot: &Slot) -> bool {
-    registry.by_id(slot.panel).is_some_and(|panel| {
-        matches!(
-            panel.background,
-            BackgroundCapability::Opaque | BackgroundCapability::Cedeable
-        )
-    })
+    registry
+        .by_id(slot.panel)
+        .is_some_and(|panel| panel.underlay.owns_2d_cover())
 }
 
 fn validate_occlusion(
@@ -318,9 +321,12 @@ fn check_ordinary(
             region,
         })
     };
-    let placeable = registry
-        .by_id(below.panel)
-        .filter(|panel| panel.frame_min == slot_frame(below));
+    let placeable = registry.by_id(below.panel).filter(|panel| {
+        matches!(
+            panel.space,
+            RenderSpace::Planar2D { frame_min, .. } if frame_min == slot_frame(below)
+        )
+    });
     let Some(panel) = placeable else {
         return refuse(below.rect);
     };
