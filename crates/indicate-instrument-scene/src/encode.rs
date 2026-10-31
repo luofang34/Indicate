@@ -14,6 +14,8 @@ pub enum SceneError {
     TooManyPoints,
     /// A text run exceeds [`MAX_TEXT_BYTES`].
     TextTooLong,
+    /// A geometric or numeric argument violates wire finiteness, norm, or bound rules.
+    InvalidGeometry,
 }
 
 /// Encodes drawing commands into a caller-provided byte buffer.

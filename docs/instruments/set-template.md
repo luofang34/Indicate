@@ -50,11 +50,14 @@ Crate: `indicate-instrument-template`
 
 | Declared | Value |
 |---|---|
+| Render space | Planar2D |
 | Required layers | Tapes |
 | Required groups | Air, Trust |
-| Frame range | 240×120 to 240×120, step 1×1, aspect 1.95 to 2.05 |
-| Canonical frames | 240×120 |
-| Background | Opaque |
+| Spatial bounds | 240×120 to 240×120, step 1×1, aspect 1.95 to 2.05 |
+| Canonical sizes | 240×120 |
+| Underlay | Opaque |
+| Accepted intents | none |
+| Aux channels | none |
 | Config keys | none |
 | Group regions | Air at (60, 64) size 168×28 |
 | Extreme states | none |

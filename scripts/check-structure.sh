@@ -339,9 +339,10 @@ check_crate_naming() {
 KERNEL_CRATES="indicate-frames indicate-alerts indicate-sha256 \
 indicate-instrument-state indicate-instrument-scene indicate-instrument-glyphs \
 indicate-instrument-symbology indicate-instrument-descriptor \
-indicate-instrument-feeder indicate-intent"
+indicate-instrument-feeder indicate-intent indicate-interaction \
+indicate-plugin-abi"
 VERIFICATION_CRATES="indicate-instrument-raster indicate-instrument-conformance \
-indicate-instrument-registry indicate-evidence"
+indicate-instrument-registry indicate-evidence indicate-plugin-host"
 
 # Cargo answers, rather than a regex over TOML. A manifest may write a
 # dependency six ways this file would otherwise have to anticipate —

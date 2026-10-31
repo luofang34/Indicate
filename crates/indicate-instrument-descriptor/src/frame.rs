@@ -1,22 +1,16 @@
-//! The predicate over a panel's declared frame bounds.
-//!
-//! A descriptor publishes `frame_min`, `frame_max`, `frame_step`, and
-//! the aspect bounds. Publishing those without the rule that reads them
-//! leaves every shell to write the rule, and two shells that write it
-//! separately disagree — on the tolerance, on whether a bound is
-//! inclusive, on whether the step is measured from the minimum or from
-//! zero — while each stays locally green, because each only ever tests
-//! its own. The panel is the one thing that knows, so the panel answers.
+//! Predicates over an instrument's declared 2D frame and 3D volume bounds.
 
-use crate::descriptor::{DesignFrame, PanelDescriptor};
+use indicate_instrument_scene::volume::Extent3D;
 
-/// Which declared bound a frame violated.
-///
-/// Typed rather than a bool because a shell that asked for a frame
-/// wants to know what to ask for instead, and the diagnostic then reads
-/// the same on every shell.
+use crate::descriptor::{DesignFrame, InstrumentDescriptor};
+use crate::space::RenderSpace;
+
+/// Which declared bound a 2D [`DesignFrame`] violated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum FrameRefusal {
+    /// Instrument does not render in [`RenderSpace::Planar2D`].
+    #[error("instrument does not declare a Planar2D render space")]
+    NotPlanar2D,
     /// A non-finite or non-positive dimension: not a frame at all.
     #[error("frame dimensions must be finite and positive")]
     Degenerate,
@@ -31,168 +25,156 @@ pub enum FrameRefusal {
     Aspect,
 }
 
-/// A backstop on the width walk.
-///
-/// The walk starts at the widest width the aspect bound can admit, not
-/// at the space's own width, so the steps it takes are bounded by how
-/// far the aspect band is from square rather than by the declared range.
-/// A realistic declaration finishes in a few hundred. Reaching this many
-/// means the grid is finer than the range can use, and stopping says so
-/// rather than spinning.
+/// Which declared bound a 3D [`Extent3D`] violated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum ExtentRefusal {
+    /// Instrument does not render in [`RenderSpace::Volume3D`].
+    #[error("instrument does not declare a Volume3D render space")]
+    NotVolume3D,
+    /// A non-finite or non-positive metric dimension.
+    #[error("volume extent dimensions must be finite and positive")]
+    Degenerate,
+    /// Outside `extent_min_m`..=`extent_max_m` on at least one axis.
+    #[error("volume extent is outside the declared metric range")]
+    OutOfRange,
+}
+
 const MAX_GRID_STEPS: usize = 4096;
 
-/// The tolerance applied when testing a dimension against the step
-/// grid: exactly none.
-///
-/// Stated as a constant because it is the parameter two shells would
-/// otherwise each choose. Zero is the choice: a step that cannot
-/// express a frame exactly is a declaration to fix, not a rounding to
-/// absorb, and admitting near-misses would pin the digest and the
-/// raster baselines at frames the arithmetic cannot reproduce.
+/// Exact zero tolerance applied when testing a dimension against the step grid.
 pub const FRAME_STEP_TOLERANCE: f32 = 0.0;
 
-impl PanelDescriptor {
-    /// Whether this panel declared that it can lay out against `frame`.
-    ///
-    /// This is the whole rule, and the only copy of it. A shell asks
-    /// before drawing; the draw path re-checks nothing.
-    ///
-    /// Safe on a descriptor this crate never validated: a bound that is
-    /// not a number refuses every frame rather than accepting one.
-    pub fn accepts(&self, frame: DesignFrame) -> Result<(), FrameRefusal> {
+impl InstrumentDescriptor {
+    /// Whether this `Planar2D` instrument declared that it can lay out against `frame`.
+    pub fn accepts_2d(&self, frame: DesignFrame) -> Result<(), FrameRefusal> {
+        let RenderSpace::Planar2D {
+            frame_min,
+            frame_max,
+            frame_step,
+            aspect_min,
+            aspect_max,
+            ..
+        } = self.space
+        else {
+            return Err(FrameRefusal::NotPlanar2D);
+        };
         if !(finite_positive(frame.width) && finite_positive(frame.height)) {
             return Err(FrameRefusal::Degenerate);
         }
-        // Phrased as "must be inside" rather than "reject if outside",
-        // so a bound that is itself not a number refuses every frame
-        // instead of accepting every frame. A shell may hold a
-        // descriptor this crate never validated.
-        let inside = frame.width >= self.frame_min.width
-            && frame.width <= self.frame_max.width
-            && frame.height >= self.frame_min.height
-            && frame.height <= self.frame_max.height;
+        let inside = frame.width >= frame_min.width
+            && frame.width <= frame_max.width
+            && frame.height >= frame_min.height
+            && frame.height <= frame_max.height;
         if !inside {
             return Err(FrameRefusal::OutOfRange);
         }
-        if !on_grid(frame.width, self.frame_min.width, self.frame_step.0)
-            || !on_grid(frame.height, self.frame_min.height, self.frame_step.1)
+        if !on_grid(frame.width, frame_min.width, frame_step.0)
+            || !on_grid(frame.height, frame_min.height, frame_step.1)
         {
             return Err(FrameRefusal::OffStep);
         }
         let aspect = frame.width / frame.height;
-        if !(aspect >= self.aspect_min && aspect <= self.aspect_max) {
+        if !(aspect >= aspect_min && aspect <= aspect_max) {
             return Err(FrameRefusal::Aspect);
         }
         Ok(())
     }
 
-    /// The frame this panel offers for a space, or why it offers none.
-    ///
-    /// [`Self::accepts`] is a veto: it can refuse a frame a shell
-    /// already holds, but it cannot produce one. Without this, a shell
-    /// that must pick a frame walks the step grid itself, which is the
-    /// arithmetic two shells write differently — and the reason
-    /// `accepts` exists at all. So the panel answers this question too.
-    ///
-    /// `space` is in the same logical units as a [`DesignFrame`], never
-    /// device pixels. A shell holding a surface in physical pixels
-    /// divides by its own scale factor before asking, because the panel
-    /// knows nothing of that factor; two shells that pass different
-    /// units for one window get different frames, which is the outcome
-    /// a shared rule exists to prevent. A shell under no constraint
-    /// passes `frame_max` and receives it back.
-    ///
-    /// The frame returned is the largest by area that fits inside
-    /// `space` on both axes and that `accepts` admits.
-    ///
-    /// One axis is walked and the other computed. Widths are tried from
-    /// the widest admissible one downward; each width's tallest
-    /// admissible height follows from the aspect bounds, the space, and
-    /// the declared maximum, with no search. Area does not decrease with
-    /// width, so the first width that has any admissible height is the
-    /// answer.
-    ///
-    /// A closed form over both axes cannot express this. When the aspect
-    /// band is narrower than the grid's quantization — a fixed ratio,
-    /// most of all — the largest fitting frame usually needs both axes
-    /// below what the space alone allows, and a form that pins one axis
-    /// at the space's own limit refuses spaces that comfortably hold
-    /// `frame_min`.
-    ///
-    /// A panel whose step cannot express its own grid exactly refuses
-    /// here through `accepts` rather than rounding onto a line the
-    /// arithmetic cannot reproduce.
-    pub fn choose_frame(&self, space: DesignFrame) -> Result<DesignFrame, FrameRefusal> {
+    /// Alias for [`Self::accepts_2d`].
+    pub fn accepts(&self, frame: DesignFrame) -> Result<(), FrameRefusal> {
+        self.accepts_2d(frame)
+    }
+
+    /// Largest admissible 2D [`DesignFrame`] by area that fits inside `space`.
+    pub fn choose_frame_2d(&self, space: DesignFrame) -> Result<DesignFrame, FrameRefusal> {
+        let RenderSpace::Planar2D {
+            frame_min,
+            frame_max,
+            frame_step,
+            aspect_min,
+            aspect_max,
+            ..
+        } = self.space
+        else {
+            return Err(FrameRefusal::NotPlanar2D);
+        };
         if !(finite_positive(space.width) && finite_positive(space.height)) {
             return Err(FrameRefusal::Degenerate);
         }
-        // The widest admissible width, then narrower ones in turn. Area
-        // does not decrease with width: the tallest height a width can
-        // take is capped either by the space, which does not move, or by
-        // that width's own aspect bound, which only grows with it. So
-        // the first width that has any admissible height is the answer,
-        // and there is no need to compare areas.
-        // No width above `space.height * aspect_max` can be admissible:
-        // its height is capped by the space, so its aspect necessarily
-        // exceeds the bound. Starting there loses nothing and skips a
-        // prefix that is doomed by arithmetic — on a wide, short space
-        // that prefix is most of the grid. The nudge is the same few
-        // ulps the aspect quotient takes, for the same reason.
-        let widest_by_aspect = space.height * self.aspect_max * (1.0 + 4.0 * f32::EPSILON);
+        let widest_by_aspect = space.height * aspect_max * (1.0 + 4.0 * f32::EPSILON);
         let mut width = floor_on_grid(
             space
                 .width
-                .min(self.frame_max.width)
-                .min(widest_by_aspect.max(self.frame_min.width)),
-            self.frame_min.width,
-            self.frame_step.0,
+                .min(frame_max.width)
+                .min(widest_by_aspect.max(frame_min.width)),
+            frame_min.width,
+            frame_step.0,
         )?;
         let mut refusal = FrameRefusal::Aspect;
-        // The grid is finite by declaration — `Registry::new` refuses a
-        // step that is not finite and positive — but a step small enough
-        // to make it vast is a declaration to fix, not a loop to run. A
-        // panel that walks past this bound refuses rather than spinning.
         for _ in 0..MAX_GRID_STEPS {
-            if width < self.frame_min.width {
+            if width < frame_min.width {
                 break;
             }
-            match self.tallest_admissible(width, space) {
+            match self.tallest_admissible(
+                width,
+                space,
+                (frame_min, frame_max, frame_step, aspect_min),
+            ) {
                 Ok(frame) => return Ok(frame),
                 Err(FrameRefusal::OutOfRange) => refusal = FrameRefusal::OutOfRange,
                 Err(_) => {}
             }
-            width -= self.frame_step.0;
+            width -= frame_step.0;
         }
         Err(refusal)
     }
 
-    /// The tallest admissible frame at this width, or why there is none.
-    ///
-    /// The height is computed, never searched: the aspect bounds put it
-    /// in `width / aspect_max ..= width / aspect_min`, the space and the
-    /// declared maximum cap it, and the grid line at or below that cap
-    /// is the only candidate worth testing.
+    /// Alias for [`Self::choose_frame_2d`].
+    pub fn choose_frame(&self, space: DesignFrame) -> Result<DesignFrame, FrameRefusal> {
+        self.choose_frame_2d(space)
+    }
+
+    /// Whether this `Volume3D` instrument accepts `extent_m`.
+    pub fn accepts_volume_3d(&self, extent_m: Extent3D) -> Result<(), ExtentRefusal> {
+        let RenderSpace::Volume3D {
+            extent_min_m,
+            extent_max_m,
+            ..
+        } = self.space
+        else {
+            return Err(ExtentRefusal::NotVolume3D);
+        };
+        if !extent_m.is_valid() {
+            return Err(ExtentRefusal::Degenerate);
+        }
+        let inside = extent_m.width_m >= extent_min_m.width_m
+            && extent_m.width_m <= extent_max_m.width_m
+            && extent_m.height_m >= extent_min_m.height_m
+            && extent_m.height_m <= extent_max_m.height_m
+            && extent_m.depth_m >= extent_min_m.depth_m
+            && extent_m.depth_m <= extent_max_m.depth_m;
+        if !inside {
+            return Err(ExtentRefusal::OutOfRange);
+        }
+        Ok(())
+    }
+
     fn tallest_admissible(
         &self,
         width: f32,
         space: DesignFrame,
+        bounds: (DesignFrame, DesignFrame, (f32, f32), f32),
     ) -> Result<DesignFrame, FrameRefusal> {
-        // Dividing by an aspect bound in f32 can land a hair below the
-        // grid line it aimed at, and the grid is tested at zero
-        // tolerance, so a whole step would be lost. The nudge is a few
-        // ulps and cannot reach the next line up; the caps below are
-        // applied after it, so it can never exceed the space.
-        let by_aspect = width / self.aspect_min * (1.0 + 4.0 * f32::EPSILON);
-        let ceiling = space.height.min(self.frame_max.height).min(by_aspect);
-        let height = floor_on_grid(ceiling, self.frame_min.height, self.frame_step.1)?;
+        let (frame_min, frame_max, frame_step, aspect_min) = bounds;
+        let by_aspect = width / aspect_min * (1.0 + 4.0 * f32::EPSILON);
+        let ceiling = space.height.min(frame_max.height).min(by_aspect);
+        let height = floor_on_grid(ceiling, frame_min.height, frame_step.1)?;
         let frame = DesignFrame { width, height };
-        self.accepts(frame)?;
+        self.accepts_2d(frame)?;
         Ok(frame)
     }
 }
 
-/// The largest `min + k * step` that is not above `value`, for a whole
-/// `k`. A `value` below `min` has no such line and refuses.
 fn floor_on_grid(value: f32, min: f32, step: f32) -> Result<f32, FrameRefusal> {
     if !(step.is_finite() && step > 0.0) {
         return Err(FrameRefusal::Degenerate);
@@ -205,14 +187,8 @@ fn floor_on_grid(value: f32, min: f32, step: f32) -> Result<f32, FrameRefusal> {
     if !steps.is_finite() {
         return Err(FrameRefusal::Degenerate);
     }
-    // `offset` is not negative, so truncating toward zero is the floor.
     let k = (steps as i64) as f32;
     let line = min + k * step;
-    // Binary rounding can put the computed line a hair above the value
-    // it was floored from; the line below is then the real answer.
-    // `floor_on_grid(800.3, 360.0, 1.7)` is such an input: the product
-    // rounds up past the value, and without this the function returns a
-    // line above the space it was asked to fit inside.
     if line > value && k >= 1.0 {
         return Ok(min + (k - 1.0) * step);
     }
@@ -223,12 +199,6 @@ fn finite_positive(value: f32) -> bool {
     value.is_finite() && value > 0.0
 }
 
-/// Whether `value` is `min + k * step` for a whole `k`.
-///
-/// Both sides of a grid line are tested. At a tolerance of zero the two
-/// tests collapse into one, but a one-sided test would silently admit
-/// near-misses above a line and refuse the identical miss below it,
-/// which is not what a tolerance means.
 fn on_grid(value: f32, min: f32, step: f32) -> bool {
     let offset = value - min;
     if offset < 0.0 {

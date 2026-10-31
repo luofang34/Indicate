@@ -105,11 +105,14 @@ Crate: `indicate-instrument-panels`
 
 | Declared | Value |
 |---|---|
+| Render space | Planar2D |
 | Required layers | Attitude, Tapes, Guidance, Annunciation |
 | Required groups | Attitude, Kinematics, Air, Selections, Trust, Altitude, Dynamics, FlightDirector, ApModes, ApTargets, Guidance, SpeedPresentation |
-| Frame range | 480×360 to 480×360, step 1×1, aspect 1.3 to 1.37 |
-| Canonical frames | 480×360 |
-| Background | Cedeable |
+| Spatial bounds | 480×360 to 480×360, step 1×1, aspect 1.3 to 1.37 |
+| Canonical sizes | 480×360 |
+| Underlay | ConformalSvs3D |
+| Accepted intents | `SelectBaro`, `SetHeadingBug`, `SelectAltitude`, `SelectNavSource`, `AcknowledgeAlert`, `AcknowledgeAllAlerts`, `Declutter` |
+| Aux channels | none |
 | Config keys | `0x0001`, `0x0002`, `0x0003`, `0x0004` |
 | Group regions | Air at (20, 162) size 40×36, Air at (390, 335) size 90×25, Air at (0, 0) size 90×25, Kinematics at (0, 335) size 90×25, Kinematics at (424, 162) size 36×36, Kinematics at (440, 28) size 26×307 |
 | Extreme states | `extended-flight-guidance`, `unusual-inverted`, `readout-extremes`, `director-engaged`, `level-accelerating` |
@@ -119,11 +122,14 @@ Crate: `indicate-instrument-panels`
 
 | Declared | Value |
 |---|---|
+| Render space | Planar2D |
 | Required layers | Attitude, Tapes, Guidance, Annunciation |
 | Required groups | Kinematics, Nav, Wind, Selections, Trust, Heading, Variation, BearingPointers |
-| Frame range | 480×360 to 480×360, step 1×1, aspect 1.3 to 1.37 |
-| Canonical frames | 480×360 |
-| Background | Opaque |
+| Spatial bounds | 480×360 to 480×360, step 1×1, aspect 1.3 to 1.37 |
+| Canonical sizes | 480×360 |
+| Underlay | Opaque |
+| Accepted intents | `SetHeadingBug`, `SelectNavSource`, `AcknowledgeAlert`, `AcknowledgeAllAlerts` |
+| Aux channels | none |
 | Config keys | none |
 | Group regions | Wind at (2, 2) size 112×48, Nav at (366, 2) size 112×48, Nav at (2, 322) size 112×36, Selections at (366, 322) size 112×36, Heading at (206, 2) size 68×26 |
 | Extreme states | `reciprocal-course`, `track-up`, `bearing-split-references` |
@@ -133,11 +139,14 @@ Crate: `indicate-instrument-panels`
 
 | Declared | Value |
 |---|---|
+| Render space | Planar2D |
 | Required layers | Tapes, Annunciation |
 | Required groups | FlightDirector, ApModes, ApTargets, Guidance, SpeedPresentation |
-| Frame range | 480×360 to 480×360, step 1×1, aspect 1.3 to 1.37 |
-| Canonical frames | 480×360 |
-| Background | Opaque |
+| Spatial bounds | 480×360 to 480×360, step 1×1, aspect 1.3 to 1.37 |
+| Canonical sizes | 480×360 |
+| Underlay | Opaque |
+| Accepted intents | `AcknowledgeAlert`, `AcknowledgeAllAlerts` |
+| Aux channels | none |
 | Config keys | none |
 | Group regions | ApModes at (0, 50) size 480×80, ApTargets at (140, 170) size 150×120 |
 | Extreme states | `modes-and-targets`, `extended-flight-guidance`, `target-against-another-datum` |
@@ -147,11 +156,14 @@ Crate: `indicate-instrument-panels`
 
 | Declared | Value |
 |---|---|
+| Render space | Planar2D |
 | Required layers | Tapes, Annunciation |
 | Required groups | MonitorText |
-| Frame range | 480×360 to 480×360, step 1×1, aspect 1.3 to 1.37 |
-| Canonical frames | 480×360 |
-| Background | Opaque |
+| Spatial bounds | 480×360 to 480×360, step 1×1, aspect 1.3 to 1.37 |
+| Canonical sizes | 480×360 |
+| Underlay | Opaque |
+| Accepted intents | `AcknowledgeAlert`, `AcknowledgeAllAlerts` |
+| Aux channels | none |
 | Config keys | none |
 | Group regions | MonitorText at (0, 60) size 480×300 |
 | Extreme states | `full-channel` |
@@ -163,11 +175,14 @@ Crate: `indicate-instrument-panels`
 
 | Declared | Value |
 |---|---|
+| Render space | Planar2D |
 | Required layers | Tapes, Annunciation |
 | Required groups | Trust, AirframeConfig |
-| Frame range | 480×360 to 480×360, step 1×1, aspect 1.3 to 1.37 |
-| Canonical frames | 480×360 |
-| Background | Opaque |
+| Spatial bounds | 480×360 to 480×360, step 1×1, aspect 1.3 to 1.37 |
+| Canonical sizes | 480×360 |
+| Underlay | Opaque |
+| Accepted intents | none |
+| Aux channels | none |
 | Config keys | none |
 | Group regions | AirframeConfig at (170, 50) size 170×290 |
 | Extreme states | `flaps-up-trim-nose-down`, `flaps-full-trim-nose-up` |

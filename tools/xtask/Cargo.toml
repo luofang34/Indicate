@@ -16,9 +16,11 @@ indicate-instrument-template = { workspace = true }
 # that reviews it names the same path.
 indicate-instrument-hmd = { path = "../../sets/indicate-instrument-hmd" }
 indicate-instrument-hud = { path = "../../sets/indicate-instrument-hud" }
+indicate-instrument-volumes = { workspace = true }
 indicate-instrument-registry = { workspace = true }
 indicate-instrument-scene = { workspace = true }
 indicate-instrument-state = { workspace = true }
+indicate-intent = { workspace = true }
 # The fixture screen and its pinned digest have one definition, in the
 # bench that checks them; the manifest records that definition rather
 # than a second copy of it.

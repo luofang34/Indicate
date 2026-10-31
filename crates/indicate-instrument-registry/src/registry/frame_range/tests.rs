@@ -1,21 +1,27 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
-//! One must-fail case per rule: a constraint the registry does not
-//! refuse is a constraint a shell can violate.
+//! One must-fail case per rule.
 
 use indicate_instrument_descriptor::{DesignFrame, PanelDescriptor};
 
-use super::super::tests::{FRAME, RANGED_MAX, panel, ranged};
+use super::super::tests::{FRAME, RANGED_MAX, panel, planar, ranged};
 use super::super::{Registry, RegistryError};
 
 #[test]
 fn a_degenerate_frame_bound_is_refused() {
     static FLAT: [PanelDescriptor; 1] = [{
         let mut p = panel("pfd");
-        p.frame_min = DesignFrame {
-            width: 480.0,
-            height: 0.0,
-        };
+        p.space = planar(
+            DesignFrame {
+                width: 480.0,
+                height: 0.0,
+            },
+            FRAME,
+            (1.0, 1.0),
+            1.30,
+            1.37,
+            &[FRAME],
+        );
         p
     }];
     assert_eq!(
@@ -28,10 +34,17 @@ fn a_degenerate_frame_bound_is_refused() {
 fn an_inverted_frame_range_is_refused() {
     static BACKWARDS: [PanelDescriptor; 1] = [{
         let mut p = panel("pfd");
-        p.frame_max = DesignFrame {
-            width: 440.0,
-            height: 360.0,
-        };
+        p.space = planar(
+            FRAME,
+            DesignFrame {
+                width: 440.0,
+                height: 360.0,
+            },
+            (1.0, 1.0),
+            1.30,
+            1.37,
+            &[FRAME],
+        );
         p
     }];
     assert_eq!(
@@ -44,7 +57,7 @@ fn an_inverted_frame_range_is_refused() {
 fn a_degenerate_frame_step_is_refused() {
     static ZERO: [PanelDescriptor; 1] = [{
         let mut p = panel("pfd");
-        p.frame_step = (0.0, 1.0);
+        p.space = planar(FRAME, FRAME, (0.0, 1.0), 1.30, 1.37, &[FRAME]);
         p
     }];
     assert_eq!(
@@ -57,8 +70,7 @@ fn a_degenerate_frame_step_is_refused() {
 fn inverted_aspect_bounds_are_refused() {
     static BACKWARDS: [PanelDescriptor; 1] = [{
         let mut p = panel("pfd");
-        p.aspect_min = 2.0;
-        p.aspect_max = 1.0;
+        p.space = planar(FRAME, FRAME, (1.0, 1.0), 2.0, 1.0, &[FRAME]);
         p
     }];
     assert_eq!(
@@ -71,7 +83,7 @@ fn inverted_aspect_bounds_are_refused() {
 fn a_panel_pinning_no_canonical_frames_is_refused() {
     static UNPINNED: [PanelDescriptor; 1] = [{
         let mut p = panel("pfd");
-        p.canonical_frames = &[];
+        p.space = planar(FRAME, FRAME, (1.0, 1.0), 1.30, 1.37, &[]);
         p
     }];
     assert_eq!(
@@ -80,13 +92,11 @@ fn a_panel_pinning_no_canonical_frames_is_refused() {
     );
 }
 
-/// Both ends of the declared range must be pinned, or the range
-/// contains a size nothing is ever drawn at.
 #[test]
 fn canonical_frames_must_include_both_ends_of_the_range() {
     static NO_MIN: [PanelDescriptor; 1] = [{
         let mut p = ranged("pfd");
-        p.canonical_frames = &[RANGED_MAX];
+        p.space = planar(FRAME, RANGED_MAX, (40.0, 30.0), 1.30, 1.37, &[RANGED_MAX]);
         p
     }];
     assert_eq!(
@@ -95,7 +105,7 @@ fn canonical_frames_must_include_both_ends_of_the_range() {
     );
     static NO_MAX: [PanelDescriptor; 1] = [{
         let mut p = ranged("pfd");
-        p.canonical_frames = &[FRAME];
+        p.space = planar(FRAME, RANGED_MAX, (40.0, 30.0), 1.30, 1.37, &[FRAME]);
         p
     }];
     assert_eq!(
@@ -108,14 +118,21 @@ fn canonical_frames_must_include_both_ends_of_the_range() {
 fn a_canonical_frame_outside_the_range_is_refused() {
     static BEYOND: [PanelDescriptor; 1] = [{
         let mut p = ranged("pfd");
-        p.canonical_frames = &[
+        p.space = planar(
             FRAME,
             RANGED_MAX,
-            DesignFrame {
-                width: 640.0,
-                height: 480.0,
-            },
-        ];
+            (40.0, 30.0),
+            1.30,
+            1.37,
+            &[
+                FRAME,
+                RANGED_MAX,
+                DesignFrame {
+                    width: 640.0,
+                    height: 480.0,
+                },
+            ],
+        );
         p
     }];
     assert_eq!(
@@ -127,21 +144,25 @@ fn a_canonical_frame_outside_the_range_is_refused() {
     );
 }
 
-/// 520×380 is in range and inside the aspect bounds, and its height is
-/// 20 above the floor on a 30-unit grid — so only the step rule can
-/// refuse it.
 #[test]
 fn a_canonical_frame_off_the_step_grid_is_refused() {
     static OFF: [PanelDescriptor; 1] = [{
         let mut p = ranged("pfd");
-        p.canonical_frames = &[
+        p.space = planar(
             FRAME,
             RANGED_MAX,
-            DesignFrame {
-                width: 520.0,
-                height: 380.0,
-            },
-        ];
+            (40.0, 30.0),
+            1.30,
+            1.37,
+            &[
+                FRAME,
+                RANGED_MAX,
+                DesignFrame {
+                    width: 520.0,
+                    height: 380.0,
+                },
+            ],
+        );
         p
     }];
     assert_eq!(
@@ -153,21 +174,25 @@ fn a_canonical_frame_off_the_step_grid_is_refused() {
     );
 }
 
-/// The reason the aspect bounds are checked per canonical frame rather
-/// than only at the corners: 600×360 is inside the per-axis range and
-/// on the grid, and is a shape the layout never declared.
 #[test]
 fn a_canonical_frame_outside_the_aspect_bounds_is_refused() {
     static SQUAT: [PanelDescriptor; 1] = [{
         let mut p = ranged("pfd");
-        p.canonical_frames = &[
+        p.space = planar(
             FRAME,
             RANGED_MAX,
-            DesignFrame {
-                width: 600.0,
-                height: 360.0,
-            },
-        ];
+            (40.0, 30.0),
+            1.30,
+            1.37,
+            &[
+                FRAME,
+                RANGED_MAX,
+                DesignFrame {
+                    width: 600.0,
+                    height: 360.0,
+                },
+            ],
+        );
         p
     }];
     assert_eq!(
@@ -201,25 +226,18 @@ fn a_raster_baseline_at_an_unrendered_frame_is_refused() {
     );
 }
 
-/// A repeated canonical frame would digest the same scene twice and run
-/// the admission matrix again for it, inflating both counts for nothing.
 #[test]
 fn a_repeated_canonical_frame_is_refused() {
-    const MIN: DesignFrame = DesignFrame {
-        width: 480.0,
-        height: 360.0,
-    };
-    const MAX: DesignFrame = DesignFrame {
-        width: 600.0,
-        height: 450.0,
-    };
     static TWICE: [PanelDescriptor; 1] = [{
         let mut p = panel("pfd");
-        p.frame_min = MIN;
-        p.frame_max = MAX;
-        p.frame_step = (40.0, 30.0);
-        p.canonical_frames = &[MIN, MAX, MIN];
-        p.raster_baselines = &[];
+        p.space = planar(
+            FRAME,
+            RANGED_MAX,
+            (40.0, 30.0),
+            1.30,
+            1.37,
+            &[FRAME, RANGED_MAX, FRAME],
+        );
         p
     }];
     assert_eq!(
@@ -231,8 +249,6 @@ fn a_repeated_canonical_frame_is_refused() {
     );
 }
 
-/// The lookup takes the first match, so a second baseline at one frame
-/// is dead code that disagrees with the live one about what is pinned.
 #[test]
 fn two_raster_baselines_at_one_frame_are_refused() {
     static CONFLICT: [PanelDescriptor; 1] = [{

@@ -2,7 +2,11 @@
 use crate::runway::Runway;
 use crate::target::TargetPicture;
 use indicate_frames::{Quat, ROTATION_NORM_TOLERANCE};
+use indicate_instrument_descriptor::{AuxChannelId, PanelDrawError};
 use indicate_instrument_state::{PanelData, Sig, SignalStatus};
+
+/// Fixed byte length of the compact [`HudContext`] wire header on `AuxChannelId::HUD_CONTEXT`.
+pub const HUD_CONTEXT_WIRE_BYTES: usize = 24;
 
 /// The display the HUD is drawn for. Each profile answers to its own requirements.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -248,5 +252,156 @@ pub fn hud_mode(_data: &PanelData, context: &HudContext) -> HudMode {
         HudMode::Conformal
     } else {
         HudMode::Repeater
+    }
+}
+
+fn status_to_u8(status: SignalStatus) -> u8 {
+    match status {
+        SignalStatus::Valid => 0,
+        SignalStatus::Degraded => 1,
+        SignalStatus::Stale => 2,
+        SignalStatus::Missing => 3,
+        SignalStatus::Failed => 4,
+    }
+}
+
+fn status_from_u8(raw: u8) -> Result<SignalStatus, PanelDrawError> {
+    match raw {
+        0 => Ok(SignalStatus::Valid),
+        1 => Ok(SignalStatus::Degraded),
+        2 => Ok(SignalStatus::Stale),
+        3 => Ok(SignalStatus::Missing),
+        4 => Ok(SignalStatus::Failed),
+        _ => Err(PanelDrawError::InvalidAux(AuxChannelId::HUD_CONTEXT.0)),
+    }
+}
+
+fn read_f32_le(bytes: &[u8], offset: usize) -> Result<f32, PanelDrawError> {
+    let end = offset
+        .checked_add(4)
+        .ok_or(PanelDrawError::InvalidAux(AuxChannelId::HUD_CONTEXT.0))?;
+    let slice = bytes
+        .get(offset..end)
+        .ok_or(PanelDrawError::InvalidAux(AuxChannelId::HUD_CONTEXT.0))?;
+    let arr: [u8; 4] = slice
+        .try_into()
+        .map_err(|_| PanelDrawError::InvalidAux(AuxChannelId::HUD_CONTEXT.0))?;
+    Ok(f32::from_le_bytes(arr))
+}
+
+impl HudContext {
+    /// Encodes the compact 24-byte `AuxChannelId::HUD_CONTEXT` wire payload.
+    #[must_use]
+    pub fn encode_aux(&self) -> [u8; HUD_CONTEXT_WIRE_BYTES] {
+        let mut out = [0u8; HUD_CONTEXT_WIRE_BYTES];
+        if let Some(slot) = out.first_mut() {
+            *slot = match self.profile {
+                HudProfile::Combiner => 0,
+                HudProfile::Screen => 1,
+            };
+        }
+        if let Some(slot) = out.get_mut(1) {
+            *slot = status_to_u8(self.projection.status);
+        }
+        let fov = self.projection.value.vertical_fov_rad.to_le_bytes();
+        let q = self.projection.value.body_from_view;
+        let qw = q.w.to_le_bytes();
+        let qx = q.x.to_le_bytes();
+        let qy = q.y.to_le_bytes();
+        let qz = q.z.to_le_bytes();
+        if let Some(dst) = out.get_mut(2..6) {
+            dst.copy_from_slice(&fov);
+        }
+        if let Some(dst) = out.get_mut(6..10) {
+            dst.copy_from_slice(&qw);
+        }
+        if let Some(dst) = out.get_mut(10..14) {
+            dst.copy_from_slice(&qx);
+        }
+        if let Some(dst) = out.get_mut(14..18) {
+            dst.copy_from_slice(&qy);
+        }
+        if let Some(dst) = out.get_mut(18..22) {
+            dst.copy_from_slice(&qz);
+        }
+        if let Some(slot) = out.get_mut(22) {
+            *slot = match self.projection.value.source {
+                WorldSource::Synthetic => 0,
+                WorldSource::Video => 1,
+            };
+        }
+        if let Some(slot) = out.get_mut(23) {
+            *slot = match self.weapon {
+                WeaponMode::Navigation => 0,
+                WeaponMode::Gun => 1,
+                WeaponMode::ShortRangeMissile => 2,
+                WeaponMode::MediumRangeMissile => 3,
+                WeaponMode::Rockets => 4,
+                WeaponMode::GuidedBomb => 5,
+                WeaponMode::DirectedEnergy => 6,
+            };
+        }
+        out
+    }
+
+    /// Decodes a compact 24-byte `AuxChannelId::HUD_CONTEXT` wire payload fail-closed.
+    pub fn decode_aux(bytes: &[u8]) -> Result<Self, PanelDrawError> {
+        if bytes.len() != HUD_CONTEXT_WIRE_BYTES {
+            return Err(PanelDrawError::InvalidAux(AuxChannelId::HUD_CONTEXT.0));
+        }
+        let profile = match *bytes
+            .first()
+            .ok_or(PanelDrawError::InvalidAux(AuxChannelId::HUD_CONTEXT.0))?
+        {
+            0 => HudProfile::Combiner,
+            1 => HudProfile::Screen,
+            _ => return Err(PanelDrawError::InvalidAux(AuxChannelId::HUD_CONTEXT.0)),
+        };
+        let status = status_from_u8(
+            *bytes
+                .get(1)
+                .ok_or(PanelDrawError::InvalidAux(AuxChannelId::HUD_CONTEXT.0))?,
+        )?;
+        let vertical_fov_rad = read_f32_le(bytes, 2)?;
+        let body_from_view = Quat {
+            w: read_f32_le(bytes, 6)?,
+            x: read_f32_le(bytes, 10)?,
+            y: read_f32_le(bytes, 14)?,
+            z: read_f32_le(bytes, 18)?,
+        };
+        let source = match *bytes
+            .get(22)
+            .ok_or(PanelDrawError::InvalidAux(AuxChannelId::HUD_CONTEXT.0))?
+        {
+            0 => WorldSource::Synthetic,
+            1 => WorldSource::Video,
+            _ => return Err(PanelDrawError::InvalidAux(AuxChannelId::HUD_CONTEXT.0)),
+        };
+        let weapon = match *bytes
+            .get(23)
+            .ok_or(PanelDrawError::InvalidAux(AuxChannelId::HUD_CONTEXT.0))?
+        {
+            0 => WeaponMode::Navigation,
+            1 => WeaponMode::Gun,
+            2 => WeaponMode::ShortRangeMissile,
+            3 => WeaponMode::MediumRangeMissile,
+            4 => WeaponMode::Rockets,
+            5 => WeaponMode::GuidedBomb,
+            6 => WeaponMode::DirectedEnergy,
+            _ => return Err(PanelDrawError::InvalidAux(AuxChannelId::HUD_CONTEXT.0)),
+        };
+        Ok(Self {
+            profile,
+            projection: Sig::with_status(
+                HudProjection {
+                    vertical_fov_rad,
+                    body_from_view,
+                    source,
+                },
+                status,
+            ),
+            weapon,
+            ..Self::default()
+        })
     }
 }

@@ -1,24 +1,23 @@
-//! Panel sets: the unit a shell names when it composes a registry.
-//!
-//! A provider crate exports one [`PanelSet`] rather than loose
-//! descriptors, so adding an instrument family to a shell is one
-//! declaration naming the set instead of one line per panel. The
-//! registry still validates panels, so a set cannot smuggle a
-//! malformed descriptor past the checks by arriving in a group, and
-//! cross-set duplicate ids are caught at init rather than resolving to
-//! whichever panel the shell happened to list first.
-//!
-//! Sets are packaging, not paint: set identity stays out of the scene
-//! digest, so regrouping the same panels into different sets without
-//! reordering them leaves cross-shell identity untouched.
+//! Instrument sets: the packaging unit a shell names when composing a registry.
 
-use crate::descriptor::PanelDescriptor;
+use crate::descriptor::InstrumentDescriptor;
 
-/// A named group of panels contributed by one provider crate.
+/// A named group of instruments contributed by one provider crate.
 #[derive(Debug, Clone, Copy)]
-pub struct PanelSet {
-    /// Set identity, under the same charset rule as panel ids.
+pub struct InstrumentSet {
+    /// Set identity, under the same charset rule as instrument ids.
     pub id: &'static str,
-    /// The set's panels, in the order they compose.
-    pub panels: &'static [PanelDescriptor],
+    /// The set's instruments, in the order they compose.
+    pub panels: &'static [InstrumentDescriptor],
 }
+
+impl InstrumentSet {
+    /// Returns the instruments contained in this set.
+    #[must_use]
+    pub const fn instruments(&self) -> &'static [InstrumentDescriptor] {
+        self.panels
+    }
+}
+
+/// Alias preserving compatibility with existing planar panel consumers.
+pub type PanelSet = InstrumentSet;

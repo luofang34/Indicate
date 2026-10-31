@@ -143,7 +143,9 @@ fn kind_of(intent: &Intent) -> Option<SelectionKind> {
         Intent::AcknowledgeAlert(_)
         | Intent::AcknowledgeAllAlerts
         | Intent::SelectPage(_)
-        | Intent::Declutter(_) => None,
+        | Intent::Declutter(_)
+        | Intent::PressSoftkey { .. }
+        | Intent::Custom { .. } => None,
     }
 }
 
@@ -191,7 +193,9 @@ fn echoed(intent: &Intent, selections: &Selections, nav_source: NavSource) -> bo
         Intent::AcknowledgeAlert(_)
         | Intent::AcknowledgeAllAlerts
         | Intent::SelectPage(_)
-        | Intent::Declutter(_) => false,
+        | Intent::Declutter(_)
+        | Intent::PressSoftkey { .. }
+        | Intent::Custom { .. } => false,
     }
 }
 

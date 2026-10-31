@@ -9,6 +9,8 @@ publish = false
 workspace = true
 
 [dependencies]
+indicate-frames = { workspace = true }
+libm = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

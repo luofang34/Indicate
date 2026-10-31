@@ -2,18 +2,53 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 use indicate_alerts::AlertOutput;
-use indicate_instrument_descriptor::{EMPTY_CONFIG, PanelDescriptor};
+use indicate_instrument_descriptor::{
+    DrawContext, EMPTY_CONFIG, PanelDescriptor, RenderSpace, SceneTarget,
+};
 use indicate_instrument_hmd::{HMD_DESCRIPTOR, HMD_GLANCE_DESCRIPTOR};
 use indicate_instrument_panels::{AUTOFLIGHT_DESCRIPTOR, PFD_DESCRIPTOR};
-use indicate_instrument_scene::{Cmd, LayerId, PaintMode, SceneCmds, SceneWriter};
+use indicate_instrument_scene::{
+    Cmd, LayerId, PaintMode, SceneCmds, SceneWriter,
+    angular::{AngularSceneWriter, MAX_ANGULAR_SCENE_BYTES},
+};
 use indicate_instrument_state::{
     FreshnessPolicy, PanelData, SignalStatus, abi::v8::fixtures, resolve,
 };
 
 fn render(panel: &PanelDescriptor, data: &PanelData, alerts: Option<&AlertOutput>) -> Vec<u8> {
+    let ctx = DrawContext::new(data)
+        .with_config(EMPTY_CONFIG)
+        .with_alerts(alerts);
     let mut storage = vec![0; 65536];
+    let mut ang_buf = vec![0u8; MAX_ANGULAR_SCENE_BYTES];
     let mut writer = SceneWriter::new(&mut storage).expect("buffer");
-    (panel.draw)(data, &EMPTY_CONFIG, alerts, panel.frame_min, &mut writer).expect("panel");
+    match panel.space {
+        RenderSpace::Planar2D { frame_min, .. } => {
+            (panel.draw)(
+                &ctx,
+                SceneTarget::Planar2D {
+                    frame: frame_min,
+                    writer: &mut writer,
+                },
+            )
+            .expect("planar panel");
+        }
+        RenderSpace::AngularSphere {
+            overlay_frame: Some(frame),
+        } => {
+            let mut ang_writer = AngularSceneWriter::new(&mut ang_buf).expect("angular buffer");
+            (panel.draw)(
+                &ctx,
+                SceneTarget::AngularSphere {
+                    angular: &mut ang_writer,
+                    overlay: Some((frame, &mut writer)),
+                },
+            )
+            .expect("angular panel");
+            let _ang_used = ang_writer.finish();
+        }
+        _ => panic!("unsupported space in cross_set_tests: {}", panel.id),
+    }
     let size = writer.finish();
     storage.truncate(size);
     storage

@@ -1,7 +1,7 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 use indicate_instrument_panels::{BUILTIN_PANELS, PfdConfig, draw_autoflight, draw_hsi, draw_pfd};
-use indicate_instrument_registry::DesignFrame;
+use indicate_instrument_registry::{DesignFrame, RenderSpace};
 use indicate_instrument_scene::{MAX_SCENE_BYTES, SceneWriter};
 use indicate_instrument_state::{AircraftState, FreshnessPolicy, resolve};
 use sha2::{Digest, Sha256};
@@ -39,7 +39,12 @@ fn canonical_frames(id: &str) -> &'static [DesignFrame] {
     BUILTIN_PANELS
         .iter()
         .find(|panel| panel.id == id)
-        .map(|panel| panel.canonical_frames)
+        .and_then(|panel| match panel.space {
+            RenderSpace::Planar2D {
+                canonical_frames, ..
+            } => Some(canonical_frames),
+            _ => None,
+        })
         .expect("every builtin panel pins its canonical frames")
 }
 
@@ -137,7 +142,13 @@ fn autoflight_frame_hash_is_reproducible_and_pinned() {
 #[test]
 fn all_builtin_panels_carry_a_baseline() {
     for panel in BUILTIN_PANELS {
-        for at in panel.canonical_frames {
+        let RenderSpace::Planar2D {
+            canonical_frames, ..
+        } = panel.space
+        else {
+            panic!("{} is not Planar2D", panel.id);
+        };
+        for at in canonical_frames {
             let pinned: Vec<&str> = panel
                 .raster_baselines
                 .iter()

@@ -2,18 +2,16 @@
 //! group's readout really uses.
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_alerts::AlertOutput;
 use indicate_instrument_registry::{
-    BackgroundCapability, ConfigBlob, DesignFrame, GroupSet, PanelDescriptor, PanelDrawError,
-    Region, Registry,
+    DrawContext, GroupSet, PanelDescriptor, PanelDrawError, Region, Registry, SceneTarget,
+    UnderlayContract,
 };
-use indicate_instrument_scene::{Anchor, LayerId, Rgba8, SceneWriter};
-use indicate_instrument_state::{GroupId, PanelData};
+use indicate_instrument_scene::{Anchor, LayerId, Rgba8};
+use indicate_instrument_state::GroupId;
 
 use super::super::{AdmissionError, admit};
-use super::FIXTURE_FRAME;
+use super::{FIXTURE_FRAME, FIXTURE_SPACE};
 
-/// The surface the fixture panel declares for `Air`.
 const READOUT: Region = Region {
     x: 20.0,
     y: 20.0,
@@ -21,8 +19,6 @@ const READOUT: Region = Region {
     height: 40.0,
 };
 
-/// A second surface over blank canvas: nothing the panel draws claims
-/// `Air` anywhere near it.
 const BARREN: Region = Region {
     x: 300.0,
     y: 250.0,
@@ -30,16 +26,11 @@ const BARREN: Region = Region {
     height: 40.0,
 };
 
-/// Paints the `Air` readout inside [`READOUT`] and a scale ladder well
-/// outside it — the shape every tape panel has, and the reason the
-/// family cannot demand that all claimed ink sit inside a region.
-fn draw_tape(
-    data: &PanelData,
-    _config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
-) -> Result<(), PanelDrawError> {
+fn draw_tape(ctx: &DrawContext<'_>, target: SceneTarget<'_, '_>) -> Result<(), PanelDrawError> {
+    let SceneTarget::Planar2D { writer: scene, .. } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    let data = ctx.data();
     scene.begin_layer(LayerId::Tapes)?;
     scene.save()?;
     scene.fill_color(Rgba8::rgb(255, 255, 255))?;
@@ -62,16 +53,13 @@ const fn probe(id: &'static str, group_regions: &'static [(GroupId, Region)]) ->
     PanelDescriptor {
         id,
         title: "Probe",
-        required_layers: 1 << 2, // Tapes
+        space: FIXTURE_SPACE,
+        required_layers: 1 << 2,
         required_groups: GroupSet::of(&[GroupId::Air]),
-        frame_min: FIXTURE_FRAME,
-        frame_max: FIXTURE_FRAME,
-        frame_step: (1.0, 1.0),
-        aspect_min: 1.30,
-        aspect_max: 1.37,
-        canonical_frames: &[FIXTURE_FRAME],
-        background: BackgroundCapability::NotUsed,
+        underlay: UnderlayContract::None,
         config_schema: &[],
+        accepted_intents: &[],
+        aux_channels: &[],
         group_regions,
         extreme_states: &[],
         raster_baselines: &[],
@@ -79,9 +67,6 @@ const fn probe(id: &'static str, group_regions: &'static [(GroupId, Region)]) ->
     }
 }
 
-/// The witness only has to exist somewhere in the matrix: the readout
-/// dashes out under withholding and paints no claimed run at all in
-/// those cases, and the region is still the surface it uses.
 #[test]
 fn a_populated_region_is_admitted() {
     static POPULATED: [PanelDescriptor; 1] = [probe("populated", &[(GroupId::Air, READOUT)])];
@@ -109,9 +94,6 @@ fn a_region_over_blank_space_is_refused() {
     assert_eq!(frame, FIXTURE_FRAME);
 }
 
-/// One populated region does not vouch for another: every declared
-/// surface answers for itself, or a panel could bury a fictional
-/// region behind a real one.
 #[test]
 fn a_barren_region_beside_a_populated_one_is_still_refused() {
     static MIXED: [PanelDescriptor; 1] = [probe(
@@ -126,9 +108,6 @@ fn a_barren_region_beside_a_populated_one_is_still_refused() {
     assert_eq!(region, BARREN);
 }
 
-/// A sliver overlapping the underside of the first ladder rung's ink
-/// and nothing else: claimed ink crosses it, but no claimed run is
-/// drawn *at* it.
 const GRAZE: Region = Region {
     x: 190.0,
     y: 126.0,
@@ -136,9 +115,6 @@ const GRAZE: Region = Region {
     height: 16.0,
 };
 
-/// Overlap is not the test. A region clipped by the edge of a rung it
-/// does not own would otherwise vouch for itself, which would make the
-/// family satisfiable by any region drawn near enough to any ink.
 #[test]
 fn a_region_merely_grazed_by_claimed_ink_is_refused() {
     static GRAZED: [PanelDescriptor; 1] = [probe("grazed", &[(GroupId::Air, GRAZE)])];
@@ -150,9 +126,6 @@ fn a_region_merely_grazed_by_claimed_ink_is_refused() {
     assert_eq!(region, GRAZE);
 }
 
-/// Ink claiming the group outside every declared region is not a
-/// defect: a scale ladder's rungs carry the group's claim because a
-/// numeral must, and they sit outside the readout box on purpose.
 #[test]
 fn claimed_ink_outside_the_regions_is_not_a_defect() {
     static POPULATED: [PanelDescriptor; 1] = [probe("ladder", &[(GroupId::Air, READOUT)])];

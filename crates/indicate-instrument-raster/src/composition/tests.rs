@@ -2,12 +2,11 @@
 //! show-through property that makes overlap safe.
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_alerts::AlertOutput;
 use indicate_instrument_panels::{BUILTIN_CRITICALITY_BANDS, PFD_DESCRIPTOR};
 use indicate_instrument_registry::{
-    BackgroundCapability, CompositionDescriptor, ConfigBlob, CriticalityBands, DesignFrame,
-    GroupSet, PanelCriticality, PanelDescriptor, PanelDrawError, Region, Registry, Slot,
-    validate_composition,
+    CompositionDescriptor, ConfigBlob, CriticalityBands, DesignFrame, DrawContext, GroupSet,
+    PanelCriticality, PanelDescriptor, PanelDrawError, Region, Registry, RenderSpace, SceneTarget,
+    Slot, UnderlayContract, validate_composition,
 };
 use indicate_instrument_scene::{LayerId, MAX_SCENE_BYTES, PaintMode, Rgba8, SceneWriter};
 use indicate_instrument_state::{FreshnessPolicy, PanelData, resolve};
@@ -62,36 +61,30 @@ fn no_config(config: &ConfigBlob<'_>) -> Result<(), PanelDrawError> {
 /// fill, so it occludes everything under its rect. The declaration is
 /// honest by construction here, which is what admission proves for a
 /// shipped panel.
-fn draw_inset(
-    _data: &PanelData,
-    config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
-) -> Result<(), PanelDrawError> {
-    no_config(config)?;
-    scene.begin_layer(LayerId::Background)?;
-    scene.save()?;
-    scene.fill_color(Rgba8::rgb(16, 24, 48))?;
-    scene.rect(PaintMode::Fill, 0.0, 0.0, frame.width, frame.height)?;
-    scene.restore()?;
-    scene.end_layer(LayerId::Background)?;
-    marker_band(scene)?;
+fn draw_inset(ctx: &DrawContext<'_>, target: SceneTarget<'_, '_>) -> Result<(), PanelDrawError> {
+    no_config(ctx.config())?;
+    let SceneTarget::Planar2D { frame, writer } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    writer.begin_layer(LayerId::Background)?;
+    writer.save()?;
+    writer.fill_color(Rgba8::rgb(16, 24, 48))?;
+    writer.rect(PaintMode::Fill, 0.0, 0.0, frame.width, frame.height)?;
+    writer.restore()?;
+    writer.end_layer(LayerId::Background)?;
+    marker_band(writer)?;
     Ok(())
 }
 
-/// A `NotUsed` overlay: it opens no background band at all, so every
+/// A `None` overlay: it opens no background band at all, so every
 /// pixel of its rect that its own symbology does not paint is left
 /// showing whatever lies beneath.
-fn draw_overlay(
-    _data: &PanelData,
-    config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
-) -> Result<(), PanelDrawError> {
-    no_config(config)?;
-    marker_band(scene)?;
+fn draw_overlay(ctx: &DrawContext<'_>, target: SceneTarget<'_, '_>) -> Result<(), PanelDrawError> {
+    no_config(ctx.config())?;
+    let SceneTarget::Planar2D { writer, .. } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    marker_band(writer)?;
     Ok(())
 }
 
@@ -109,22 +102,26 @@ fn marker_band(scene: &mut SceneWriter<'_>) -> Result<(), PanelDrawError> {
 
 const fn fixture(
     id: &'static str,
-    background: BackgroundCapability,
+    underlay: UnderlayContract,
     draw: indicate_instrument_registry::DrawFn,
 ) -> PanelDescriptor {
     PanelDescriptor {
         id,
         title: "Fixture",
+        space: RenderSpace::Planar2D {
+            frame_min: INSET_FRAME,
+            frame_max: INSET_FRAME,
+            frame_step: (1.0, 1.0),
+            aspect_min: 6.2,
+            aspect_max: 6.3,
+            canonical_frames: &[INSET_FRAME],
+        },
         required_layers: 1 << 2, // Tapes
         required_groups: GroupSet::EMPTY,
-        frame_min: INSET_FRAME,
-        frame_max: INSET_FRAME,
-        frame_step: (1.0, 1.0),
-        aspect_min: 6.2,
-        aspect_max: 6.3,
-        canonical_frames: &[INSET_FRAME],
-        background,
+        underlay,
         config_schema: &[],
+        accepted_intents: &[],
+        aux_channels: &[],
         group_regions: &[],
         extreme_states: &[],
         raster_baselines: &[],
@@ -134,12 +131,12 @@ const fn fixture(
 
 static PFD_AND_INSET: [PanelDescriptor; 2] = [
     PFD_DESCRIPTOR,
-    fixture("inset", BackgroundCapability::Opaque, draw_inset),
+    fixture("inset", UnderlayContract::Opaque, draw_inset),
 ];
 
 static PFD_AND_OVERLAY: [PanelDescriptor; 2] = [
     PFD_DESCRIPTOR,
-    fixture("overlay", BackgroundCapability::NotUsed, draw_overlay),
+    fixture("overlay", UnderlayContract::None, draw_overlay),
 ];
 
 /// The PFD's pinned criticality band, restated so the fixture bands are

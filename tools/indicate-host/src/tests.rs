@@ -8,7 +8,9 @@
 use indicate_alerts::{
     AlertClass, AlertCondition, AlertEvent, AlertProfile, AlertState, DisplayFault,
 };
-use indicate_instrument_descriptor::{DesignFrame, EMPTY_CONFIG, PanelDescriptor, PanelDrawError};
+use indicate_instrument_descriptor::{
+    DesignFrame, DrawContext, EMPTY_CONFIG, PanelDescriptor, PanelDrawError, SceneTarget,
+};
 use indicate_instrument_scene::{LayerId, SceneError};
 use indicate_instrument_state::{AircraftState, abi::v8::fixtures};
 use indicate_instrument_template::TEMPLATE_DESCRIPTOR;
@@ -37,13 +39,7 @@ fn request(sequence: u32, intent: Intent) -> Request {
     }
 }
 
-fn failing_draw(
-    _: &indicate_instrument_state::PanelData,
-    _: &indicate_instrument_descriptor::ConfigBlob<'_>,
-    _: Option<&indicate_alerts::AlertOutput>,
-    _: DesignFrame,
-    _: &mut indicate_instrument_scene::SceneWriter<'_>,
-) -> Result<(), PanelDrawError> {
+fn failing_draw(_: &DrawContext<'_>, _: SceneTarget<'_, '_>) -> Result<(), PanelDrawError> {
     Err(PanelDrawError::Scene(SceneError::BufferFull))
 }
 
@@ -265,4 +261,77 @@ fn declutter_and_page_requests_return_to_the_display() {
         ),
         Ok(Routed::ToDisplay(Intent::SelectPage(_)))
     ));
+}
+
+#[test]
+fn interaction_frames_evolve_view_pose_and_volume_paint_forwards_echo_and_pose() {
+    use indicate_instrument_state::Quat;
+    use indicate_instrument_volumes::{CANONICAL_EXTENT, TERRAIN_VOLUME_DESCRIPTOR};
+    use indicate_interaction::{
+        GesturePhase, InteractionFrame, InteractionStamp, SpatialEvent, ViewLimits,
+    };
+
+    let mut host = host();
+    host.admit_snapshot(fixtures::full(), 0.0).expect("clock");
+    host.request(&request(1, Intent::SelectBaro { hpa: 1018.0 }), 1.0)
+        .expect("admitted");
+
+    let mut buf = [0u8; 8192];
+    let first = host
+        .paint_volume(
+            &TERRAIN_VOLUME_DESCRIPTOR,
+            &EMPTY_CONFIG,
+            CANONICAL_EXTENT,
+            &[],
+            &mut buf,
+            10.0,
+        )
+        .expect("painted volume");
+    let first_bytes = buf[..first.scene_len].to_vec();
+    assert_eq!(host.echo_summary().last_admitted_seq, Some(1));
+    assert!(matches!(first.echo[0], EchoStatus::Pending { .. }));
+
+    let ixn1 = InteractionFrame {
+        stamp: InteractionStamp {
+            device_id: 1,
+            sequence: 1,
+            timestamp_us: 20_000,
+        },
+        event: SpatialEvent::Transform3D {
+            phase: GesturePhase::Changed,
+            pivot_local: [0.0, 0.0, 0.0],
+            translation_local: [0.05, 0.0, 0.0],
+            rotation: Quat::IDENTITY,
+            scale: 1.5,
+        },
+    };
+    let ixn2 = InteractionFrame {
+        stamp: InteractionStamp {
+            device_id: 1,
+            sequence: 2,
+            timestamp_us: 21_000,
+        },
+        event: SpatialEvent::ScrubTime { offset_s: 120.0 },
+    };
+    let _o1 = host
+        .interact(&ixn1, &ViewLimits::VOLUMETRIC_DEFAULT)
+        .expect("interact 1");
+    let _o2 = host
+        .interact(&ixn2, &ViewLimits::VOLUMETRIC_DEFAULT)
+        .expect("interact 2");
+    let pose = host.view_pose();
+    assert!((pose.zoom_scale - 1.5).abs() < 1e-5);
+    assert!((pose.time_offset_s - 120.0).abs() < 1e-5);
+
+    let second = host
+        .paint_volume(
+            &TERRAIN_VOLUME_DESCRIPTOR,
+            &EMPTY_CONFIG,
+            CANONICAL_EXTENT,
+            &[],
+            &mut buf,
+            20.0,
+        )
+        .expect("painted volume");
+    assert_ne!(first_bytes, &buf[..second.scene_len]);
 }

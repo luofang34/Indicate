@@ -1,9 +1,11 @@
 use indicate_alerts::AlertOutput;
 use indicate_instrument_descriptor::{
-    BackgroundCapability, ConfigBlob, DesignFrame, GroupSet, PanelDescriptor, PanelDrawError,
-    PanelSet,
+    AuxChannelId, DesignFrame, DrawContext, GroupSet, PanelDescriptor, PanelDrawError, PanelSet,
+    RenderSpace, SceneTarget, UnderlayContract, angular_layer_bit, angular_overlay_layer_bit,
 };
-use indicate_instrument_scene::{Anchor, LayerId, PaintMode, Rgba8, SceneWriter};
+use indicate_instrument_scene::{
+    Anchor, LayerId, PaintMode, Rgba8, SceneWriter, angular::AngularLayerId,
+};
 
 mod annunciation;
 mod attitude;
@@ -21,16 +23,23 @@ const HUD_GREEN: Rgba8 = Rgba8::rgba(90, 255, 130, 255);
 use indicate_instrument_state::{GroupId, PanelData, Sig, SignalStatus};
 use indicate_instrument_symbology::{fmt_label, palette, safety};
 
-const FRAME: DesignFrame = DesignFrame {
+/// Canonical 2D peripheral overlay frame paired with the conformal HWD angular scene.
+pub const HMD_FRAME: DesignFrame = DesignFrame {
     width: 1200.0,
     height: 600.0,
 };
 
-/// A transparent instrument overlay, independent of the conventional PFD set.
+/// A conformal unit-sphere and peripheral overlay instrument set, independent of the PFD set.
 pub const HMD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     id: "hmd-replay",
     title: "Head-worn flight instruments",
-    required_layers: (1 << LayerId::Tapes.to_u8()) | (1 << LayerId::Annunciation.to_u8()),
+    space: RenderSpace::AngularSphere {
+        overlay_frame: Some(HMD_FRAME),
+    },
+    required_layers: angular_layer_bit(AngularLayerId::WorldCue)
+        | angular_layer_bit(AngularLayerId::Annunciation)
+        | angular_overlay_layer_bit(LayerId::Tapes)
+        | angular_overlay_layer_bit(LayerId::Annunciation),
     required_groups: GroupSet::of(&[
         GroupId::Air,
         GroupId::Kinematics,
@@ -46,14 +55,10 @@ pub const HMD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         GroupId::Guidance,
         GroupId::SpeedPresentation,
     ]),
-    frame_min: FRAME,
-    frame_max: FRAME,
-    frame_step: (1.0, 1.0),
-    aspect_min: 1.99,
-    aspect_max: 2.01,
-    canonical_frames: &[FRAME],
-    background: BackgroundCapability::NotUsed,
+    underlay: UnderlayContract::None,
     config_schema: &[],
+    accepted_intents: &[],
+    aux_channels: &[AuxChannelId::HWD_DISPLAY],
     group_regions: &[],
     extreme_states: &[indicate_instrument_descriptor::ExtremeState {
         id: "extended-flight-guidance",
@@ -69,15 +74,27 @@ pub const HMD_SET: PanelSet = PanelSet {
     panels: &[HMD_DESCRIPTOR, HMD_GLANCE_DESCRIPTOR],
 };
 
-fn draw(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
-) -> Result<(), PanelDrawError> {
-    config.require_schema(&[])?;
-    draw_hwd(data, crate::DisplayContext::default(), false, alerts, scene)
+pub(super) fn resolve_display_context(
+    ctx: &DrawContext<'_>,
+) -> Result<crate::DisplayContext, PanelDrawError> {
+    match ctx.aux(AuxChannelId::HWD_DISPLAY) {
+        Some(raw) => crate::DisplayContext::decode_aux(raw),
+        None => Ok(crate::DisplayContext::default()),
+    }
+}
+
+fn draw(ctx: &DrawContext<'_>, target: SceneTarget<'_, '_>) -> Result<(), PanelDrawError> {
+    let SceneTarget::AngularSphere {
+        angular,
+        overlay: Some((_frame, scene)),
+    } = target
+    else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    ctx.config().require_schema(&[])?;
+    let display_ctx = resolve_display_context(ctx)?;
+    crate::angular::emit_angular_scene(ctx.data(), false, angular)?;
+    draw_hwd(ctx.data(), display_ctx, false, ctx.alerts(), scene)
 }
 
 /// Draws the HWD with explicit display context and host-selected off-axis layout.

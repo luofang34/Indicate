@@ -36,6 +36,7 @@ mod event;
 mod manager;
 mod output;
 mod profile;
+mod wire;
 
 pub use autoflight::{AutoflightFault, aural_of};
 pub use class::{AlertClass, AlertState, AuralToken};
@@ -47,3 +48,6 @@ pub use event::{AlertContext, AlertEvent, FlightPhase};
 pub use manager::AlertManager;
 pub use output::{ActiveAlert, AlertOutput, MAX_ACTIVE_ALERTS, ManagerHealth};
 pub use profile::{AlertProfile, InhibitRule, MAX_INHIBIT_RULES, ProfileError};
+pub use wire::{
+    ALERT_WIRE_VERSION, AlertWireError, MAX_ALERT_WIRE_BYTES, decode_alerts, encode_alerts,
+};

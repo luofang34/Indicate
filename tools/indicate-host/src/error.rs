@@ -5,6 +5,7 @@
 use indicate_instrument_descriptor::PanelDrawError;
 use indicate_instrument_scene::{LayerError, SceneError};
 use indicate_intent::IntentFault;
+use indicate_interaction::InteractionError;
 
 /// Why a paint produced no frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -23,11 +24,14 @@ pub enum HostError {
     #[error("scene failed the layer contract: {0}")]
     Layers(LayerError),
     /// The scene omits a layer the panel declares it always emits.
-    #[error("scene omits required layers (mask {missing:#04x})")]
+    #[error("scene omits required layers (mask {missing:#06x})")]
     MissingLayers {
         /// The required-layer bits that were absent.
-        missing: u8,
+        missing: u16,
     },
+    /// Spatial interaction frame or event failed validation.
+    #[error("spatial interaction refused: {0}")]
+    Interaction(#[from] InteractionError),
 }
 
 /// Why an operator request was not routed.

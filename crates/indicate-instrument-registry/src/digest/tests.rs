@@ -1,22 +1,22 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_alerts::AlertOutput;
-use indicate_instrument_scene::{MAX_SCENE_BYTES, SceneWriter};
-use indicate_instrument_state::PanelData;
+use indicate_instrument_scene::{
+    MAX_SCENE_BYTES,
+    volume::{Extent3D, MAX_VOLUME_SCENE_BYTES, VolumeBandId},
+};
+use indicate_interaction::ViewLimits;
 
 use indicate_instrument_descriptor::{
-    BackgroundCapability, ConfigBlob, DesignFrame, GroupSet, PanelDescriptor, PanelDrawError,
+    DesignFrame, DrawContext, GroupSet, PanelDescriptor, PanelDrawError, RenderSpace, SceneTarget,
+    UnderlayContract, volume_band_bit,
 };
 
 use super::{DigestError, scene_digest};
 use crate::registry::Registry;
 
 fn draw_nothing(
-    _data: &PanelData,
-    _config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    _scene: &mut SceneWriter<'_>,
+    _ctx: &DrawContext<'_>,
+    _target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
     Ok(())
 }
@@ -30,16 +30,20 @@ const fn panel(id: &'static str) -> PanelDescriptor {
     PanelDescriptor {
         id,
         title: "Panel",
+        space: RenderSpace::Planar2D {
+            frame_min: FRAME,
+            frame_max: FRAME,
+            frame_step: (1.0, 1.0),
+            aspect_min: 1.30,
+            aspect_max: 1.37,
+            canonical_frames: &[FRAME],
+        },
         required_layers: 0b10,
         required_groups: GroupSet::EMPTY,
-        frame_min: FRAME,
-        frame_max: FRAME,
-        frame_step: (1.0, 1.0),
-        aspect_min: 1.30,
-        aspect_max: 1.37,
-        canonical_frames: &[FRAME],
-        background: BackgroundCapability::NotUsed,
+        underlay: UnderlayContract::None,
         config_schema: &[],
+        accepted_intents: &[],
+        aux_channels: &[],
         group_regions: &[],
         extreme_states: &[],
         raster_baselines: &[],
@@ -71,7 +75,14 @@ fn the_digest_binds_the_descriptor_contract() {
     }];
     static WIDER_ASPECT: [PanelDescriptor; 1] = [{
         let mut p = panel("alpha");
-        p.aspect_max = 1.5;
+        p.space = RenderSpace::Planar2D {
+            frame_min: FRAME,
+            frame_max: FRAME,
+            frame_step: (1.0, 1.0),
+            aspect_min: 1.30,
+            aspect_max: 1.5,
+            canonical_frames: &[FRAME],
+        };
         p
     }];
     let mut scratch = std::vec![0u8; MAX_SCENE_BYTES];
@@ -79,16 +90,8 @@ fn the_digest_binds_the_descriptor_contract() {
         scene_digest(&Registry::new(panels).expect("composes"), scratch).expect("digests")
     };
     let base = digest(&BASE, &mut scratch);
-    assert_ne!(
-        base,
-        digest(&WIDER_MASK, &mut scratch),
-        "a weaker or stronger completeness gate is a different contract"
-    );
-    assert_ne!(
-        base,
-        digest(&WIDER_ASPECT, &mut scratch),
-        "the frame constraints a shell may pick from are part of the contract"
-    );
+    assert_ne!(base, digest(&WIDER_MASK, &mut scratch));
+    assert_ne!(base, digest(&WIDER_ASPECT, &mut scratch));
 }
 
 const BIG: DesignFrame = DesignFrame {
@@ -96,60 +99,57 @@ const BIG: DesignFrame = DesignFrame {
     height: 720.0,
 };
 
-/// A panel spanning two canonical frames, one exactly twice the other.
 const fn two_frame_panel() -> PanelDescriptor {
     let mut p = panel("alpha");
-    p.frame_max = BIG;
-    p.frame_step = (480.0, 360.0);
-    p.canonical_frames = &[FRAME, BIG];
+    p.space = RenderSpace::Planar2D {
+        frame_min: FRAME,
+        frame_max: BIG,
+        frame_step: (480.0, 360.0),
+        aspect_min: 1.30,
+        aspect_max: 1.37,
+        canonical_frames: &[FRAME, BIG],
+    };
     p
 }
 
 fn draw_frame_rect(
-    _data: &PanelData,
-    _config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    _ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
-    scene.begin_layer(indicate_instrument_scene::LayerId::Attitude)?;
-    scene.rect(
+    let SceneTarget::Planar2D { frame, writer } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    writer.begin_layer(indicate_instrument_scene::LayerId::Attitude)?;
+    writer.rect(
         indicate_instrument_scene::PaintMode::Fill,
         0.0,
         0.0,
         frame.width,
         frame.height,
     )?;
-    scene.end_layer(indicate_instrument_scene::LayerId::Attitude)?;
+    writer.end_layer(indicate_instrument_scene::LayerId::Attitude)?;
     Ok(())
 }
 
-/// The same drawing with the smallest frame's size baked in: identical
-/// bytes to [`draw_frame_rect`] at the floor, and stale everywhere else.
 fn draw_fixed_rect(
-    _data: &PanelData,
-    _config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    _ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
-    scene.begin_layer(indicate_instrument_scene::LayerId::Attitude)?;
-    scene.rect(
+    let SceneTarget::Planar2D { writer, .. } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    writer.begin_layer(indicate_instrument_scene::LayerId::Attitude)?;
+    writer.rect(
         indicate_instrument_scene::PaintMode::Fill,
         0.0,
         0.0,
         FRAME.width,
         FRAME.height,
     )?;
-    scene.end_layer(indicate_instrument_scene::LayerId::Attitude)?;
+    writer.end_layer(indicate_instrument_scene::LayerId::Attitude)?;
     Ok(())
 }
 
-/// The frame is an emission input, and the digest takes it at every
-/// canonical size: two panels whose contract blocks are identical and
-/// whose drawings agree at the floor still differ once a second
-/// canonical frame is pinned — but only if the frame reaches the draw
-/// and the draw is repeated there.
 #[test]
 fn the_digest_draws_every_canonical_frame_and_the_panel_sees_it() {
     static ONE_SIZED: [PanelDescriptor; 1] = [{
@@ -178,25 +178,23 @@ fn the_digest_draws_every_canonical_frame_and_the_panel_sees_it() {
     };
     assert_eq!(
         digest(&ONE_SIZED, &mut scratch),
-        digest(&ONE_FIXED, &mut scratch),
-        "at the floor alone the two drawings are byte-identical"
+        digest(&ONE_FIXED, &mut scratch)
     );
     assert_ne!(
         digest(&TWO_SIZED, &mut scratch),
-        digest(&TWO_FIXED, &mut scratch),
-        "the second canonical frame is drawn, and the panel lays out against it"
+        digest(&TWO_FIXED, &mut scratch)
     );
 }
 
 fn draw_one_layer(
-    _data: &PanelData,
-    _config: &ConfigBlob<'_>,
-    _alerts: Option<&AlertOutput>,
-    _frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    _ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
-    scene.begin_layer(indicate_instrument_scene::LayerId::Attitude)?;
-    scene.end_layer(indicate_instrument_scene::LayerId::Attitude)?;
+    let SceneTarget::Planar2D { writer, .. } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    writer.begin_layer(indicate_instrument_scene::LayerId::Attitude)?;
+    writer.end_layer(indicate_instrument_scene::LayerId::Attitude)?;
     Ok(())
 }
 
@@ -208,17 +206,58 @@ fn an_undersized_scratch_fails_typed_not_truncated() {
         p
     }];
     let registry = Registry::new(&ONE).expect("composes");
-    // Too small for the writer's own header: refused before any draw.
     let mut none = [0u8; 0];
     assert!(matches!(
         scene_digest(&registry, &mut none),
         Err(DigestError::Scratch { len: 0 })
     ));
-    // Big enough to open the writer, too small for the panel's layer:
-    // the panel's own refusal, with the panel and state named.
     let mut tiny = [0u8; 2];
     assert!(matches!(
         scene_digest(&registry, &mut tiny),
         Err(DigestError::Draw { panel: "alpha", .. })
     ));
+}
+
+fn draw_volume_box(
+    _ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
+) -> Result<(), PanelDrawError> {
+    let SceneTarget::Volume3D { extent_m, writer } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    writer.begin_band(VolumeBandId::ReferenceGrid)?;
+    writer.save()?;
+    writer.line_3d([0.0, 0.0, 0.0], [extent_m.width_m, 0.0, 0.0])?;
+    writer.restore()?;
+    writer.end_band(VolumeBandId::ReferenceGrid)?;
+    Ok(())
+}
+
+#[test]
+fn digest_streams_volume_3d_instruments_deterministically() {
+    static VOL: [PanelDescriptor; 1] = [PanelDescriptor {
+        id: "vol-test",
+        title: "Volume Test",
+        space: RenderSpace::Volume3D {
+            extent_min_m: Extent3D::new(0.3, 0.3, 0.3),
+            extent_max_m: Extent3D::new(1.5, 1.5, 1.5),
+            canonical_extents_m: &[Extent3D::new(0.6, 0.45, 0.6)],
+            view_limits: ViewLimits::VOLUMETRIC_DEFAULT,
+        },
+        required_layers: volume_band_bit(VolumeBandId::ReferenceGrid),
+        required_groups: GroupSet::EMPTY,
+        underlay: UnderlayContract::None,
+        config_schema: &[],
+        accepted_intents: &[],
+        aux_channels: &[],
+        group_regions: &[],
+        extreme_states: &[],
+        raster_baselines: &[],
+        draw: draw_volume_box,
+    }];
+    let registry = Registry::new(&VOL).expect("volume registry");
+    let mut scratch = std::vec![0u8; MAX_VOLUME_SCENE_BYTES];
+    let d1 = scene_digest(&registry, &mut scratch).expect("digest 1");
+    let d2 = scene_digest(&registry, &mut scratch).expect("digest 2");
+    assert_eq!(d1, d2);
 }

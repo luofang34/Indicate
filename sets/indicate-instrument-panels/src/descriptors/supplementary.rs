@@ -6,27 +6,28 @@
 //! airframe is set to. They sit apart from the PFD and HSI descriptors
 //! for that reason, not because of how much room they take.
 
-use indicate_alerts::AlertOutput;
 use indicate_instrument_descriptor::{
-    BackgroundCapability, ConfigBlob, DesignFrame, ExtremeState, GroupSet, PanelDescriptor,
-    PanelDrawError, PanelSet, Region,
+    DrawContext, ExtremeState, GroupSet, PanelDescriptor, PanelDrawError, PanelSet, Region,
+    SceneTarget, UnderlayContract,
 };
-use indicate_instrument_scene::{LayerId, SceneWriter};
-use indicate_instrument_state::{GroupId, PanelData};
+use indicate_instrument_scene::LayerId;
+use indicate_instrument_state::GroupId;
+use indicate_intent::IntentClass;
 
 use super::extreme_states;
-use super::{ASPECT_MAX, ASPECT_MIN, CANONICAL_FRAMES, FRAME_STEP, layer_bit};
+use super::{BUILTIN_SPACE, layer_bit};
 use crate::BUILTIN_FRAME;
 
 fn draw_monitor_panel(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
-    config.require_schema(MONITOR_DESCRIPTOR.config_schema)?;
-    crate::monitor::draw_monitor(data, alerts, frame, scene)?;
+    let SceneTarget::Planar2D { frame, writer } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    ctx.config()
+        .require_schema(MONITOR_DESCRIPTOR.config_schema)?;
+    crate::monitor::draw_monitor(ctx.data(), ctx.alerts(), frame, writer)?;
     Ok(())
 }
 
@@ -36,19 +37,19 @@ fn draw_monitor_panel(
 pub const MONITOR_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     id: "monitor",
     title: "Monitor",
+    space: BUILTIN_SPACE,
     required_layers: layer_bit(LayerId::Tapes) | layer_bit(LayerId::Annunciation),
     required_groups: GroupSet::of(&[GroupId::MonitorText]),
-    frame_min: BUILTIN_FRAME,
-    frame_max: BUILTIN_FRAME,
-    frame_step: FRAME_STEP,
-    aspect_min: ASPECT_MIN,
-    aspect_max: ASPECT_MAX,
-    canonical_frames: CANONICAL_FRAMES,
     // The panel owns its band with an opaque ground: text needs it, and
     // declaring anything weaker would hand a compositor a black
     // rectangle it was told is not painted.
-    background: BackgroundCapability::Opaque,
+    underlay: UnderlayContract::Opaque,
     config_schema: &[],
+    accepted_intents: &[
+        IntentClass::ACKNOWLEDGE_ALERT,
+        IntentClass::ACKNOWLEDGE_ALL_ALERTS,
+    ],
+    aux_channels: &[],
     // The whole text area is the channel's region: with MONITOR_TEXT
     // withheld the panel shows dashes, never lines it was not given.
     group_regions: &[(
@@ -72,14 +73,15 @@ pub const MONITOR_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
 };
 
 fn draw_autoflight_panel(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
-    config.require_schema(AUTOFLIGHT_DESCRIPTOR.config_schema)?;
-    crate::autoflight::draw_autoflight(data, alerts, frame, scene)?;
+    let SceneTarget::Planar2D { frame, writer } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    ctx.config()
+        .require_schema(AUTOFLIGHT_DESCRIPTOR.config_schema)?;
+    crate::autoflight::draw_autoflight(ctx.data(), ctx.alerts(), frame, writer)?;
     Ok(())
 }
 
@@ -87,6 +89,7 @@ fn draw_autoflight_panel(
 pub const AUTOFLIGHT_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     id: "autoflight",
     title: "Autoflight",
+    space: BUILTIN_SPACE,
     required_layers: layer_bit(LayerId::Tapes) | layer_bit(LayerId::Annunciation),
     required_groups: GroupSet::of(&[
         GroupId::ApModes,
@@ -95,17 +98,16 @@ pub const AUTOFLIGHT_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         GroupId::Guidance,
         GroupId::SpeedPresentation,
     ]),
-    frame_min: BUILTIN_FRAME,
-    frame_max: BUILTIN_FRAME,
-    frame_step: FRAME_STEP,
-    aspect_min: ASPECT_MIN,
-    aspect_max: ASPECT_MAX,
-    canonical_frames: CANONICAL_FRAMES,
     // The panel owns its band with an opaque ground: annunciation text
     // needs one, and declaring anything weaker would hand a compositor
     // a black rectangle it was told is not painted.
-    background: BackgroundCapability::Opaque,
+    underlay: UnderlayContract::Opaque,
     config_schema: &[],
+    accepted_intents: &[
+        IntentClass::ACKNOWLEDGE_ALERT,
+        IntentClass::ACKNOWLEDGE_ALL_ALERTS,
+    ],
+    aux_channels: &[],
     group_regions: &[
         // The mode band: with the group withheld the band carries the
         // column headings and no mode, never a mode nobody sent.
@@ -151,14 +153,15 @@ pub const AUTOFLIGHT_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
 };
 
 fn draw_config_panel(
-    data: &PanelData,
-    config: &ConfigBlob<'_>,
-    alerts: Option<&AlertOutput>,
-    frame: DesignFrame,
-    scene: &mut SceneWriter<'_>,
+    ctx: &DrawContext<'_>,
+    target: SceneTarget<'_, '_>,
 ) -> Result<(), PanelDrawError> {
-    config.require_schema(CONFIG_DESCRIPTOR.config_schema)?;
-    crate::config::draw_config(data, alerts, frame, scene)?;
+    let SceneTarget::Planar2D { frame, writer } = target else {
+        return Err(PanelDrawError::WrongTarget);
+    };
+    ctx.config()
+        .require_schema(CONFIG_DESCRIPTOR.config_schema)?;
+    crate::config::draw_config(ctx.data(), ctx.alerts(), frame, writer)?;
     Ok(())
 }
 
@@ -171,16 +174,13 @@ fn draw_config_panel(
 pub const CONFIG_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     id: "config",
     title: "Configuration",
+    space: BUILTIN_SPACE,
     required_layers: layer_bit(LayerId::Tapes) | layer_bit(LayerId::Annunciation),
     required_groups: GroupSet::of(&[GroupId::AirframeConfig, GroupId::Trust]),
-    frame_min: BUILTIN_FRAME,
-    frame_max: BUILTIN_FRAME,
-    frame_step: FRAME_STEP,
-    aspect_min: ASPECT_MIN,
-    aspect_max: ASPECT_MAX,
-    canonical_frames: CANONICAL_FRAMES,
-    background: BackgroundCapability::Opaque,
+    underlay: UnderlayContract::Opaque,
     config_schema: &[],
+    accepted_intents: &[],
+    aux_channels: &[],
     // The two numerals. The dashes a withheld group draws are plain
     // text carrying no claim, so they are not what this region is
     // measured against — only attributed runs are, and the panel

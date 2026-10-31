@@ -21,8 +21,9 @@ use indicate_instrument_conformance::{AdmissionError, admit};
 use indicate_instrument_panels::{BUILTIN_CRITICALITY_BANDS, BUILTIN_PANELS, BUILTIN_SCENE_DIGEST};
 use indicate_instrument_raster::{FrameId, FramebufferDims, RenderStatus, render};
 use indicate_instrument_registry::{
-    CANONICAL_STATES, CompositionError, DesignFrame, EMPTY_CONFIG, PanelDrawError, Registry,
-    RegistryError, composition_digest, scene_digest, validate_composition,
+    CANONICAL_STATES, CompositionError, DesignFrame, DrawContext, EMPTY_CONFIG, PanelDrawError,
+    Registry, RegistryError, RenderSpace, SceneTarget, composition_digest, scene_digest,
+    validate_composition,
 };
 use indicate_instrument_scene::{MAX_SCENE_BYTES, SceneWriter};
 use indicate_instrument_state::{FreshnessPolicy, resolve};
@@ -111,8 +112,14 @@ fn main() -> Result<(), BenchError> {
 
     let mut rasterized = 0usize;
     for panel in registry.panels() {
+        let RenderSpace::Planar2D {
+            canonical_frames, ..
+        } = panel.space
+        else {
+            continue;
+        };
         for state in CANONICAL_STATES {
-            for frame in panel.canonical_frames {
+            for frame in canonical_frames {
                 let pixels = rasterize(panel, state.id, (state.build)(), *frame, &mut scratch)?;
                 rasterized += 1;
                 if let Some(dir) = &out_dir {
@@ -186,16 +193,22 @@ fn rasterize(
     scratch: &mut [u8],
 ) -> Result<Vec<u8>, BenchError> {
     let data = resolve(&state, &FreshnessPolicy::default());
+    let ctx = DrawContext::new(&data).with_config(EMPTY_CONFIG);
     let mut writer = SceneWriter::new(scratch).map_err(|_| BenchError::Raster {
         panel: panel.id,
         state: state_id,
     })?;
-    (panel.draw)(&data, &EMPTY_CONFIG, None, frame, &mut writer).map_err(|source| {
-        BenchError::Draw {
-            panel: panel.id,
-            state: state_id,
-            source,
-        }
+    (panel.draw)(
+        &ctx,
+        SceneTarget::Planar2D {
+            frame,
+            writer: &mut writer,
+        },
+    )
+    .map_err(|source| BenchError::Draw {
+        panel: panel.id,
+        state: state_id,
+        source,
     })?;
     let used = writer.finish();
     let (w, h) = (frame.width as u32, frame.height as u32);

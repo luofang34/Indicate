@@ -1,0 +1,18 @@
+[package]
+name = "indicate-plugin-abi"
+description = "Signed .indpack plugin container codec and Wasm guest/host ABI definitions (PLUG-01)"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+indicate-instrument-descriptor = { workspace = true }
+indicate-instrument-scene = { workspace = true }
+indicate-instrument-state = { workspace = true }
+indicate-intent = { workspace = true }
+indicate-interaction = { workspace = true }
+indicate-sha256 = { workspace = true }
+thiserror = { workspace = true }

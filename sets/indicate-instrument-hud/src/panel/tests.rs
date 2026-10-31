@@ -410,3 +410,67 @@ fn invalid_view_rotation_cannot_claim_conformal_registration() {
     let drawn = draw(&data, &context);
     assert!(drawn.has("ATT REPEATER") && drawn.has("428"));
 }
+
+#[test]
+fn hud_context_aux_channel_round_trips_and_rejects_malformed_bytes() {
+    let data = flight(0.0, 0.0, 0.0);
+    let custom = HudContext {
+        profile: HudProfile::Screen,
+        projection: Sig::with_status(
+            HudProjection {
+                vertical_fov_rad: 1.0,
+                body_from_view: indicate_frames::Quat::IDENTITY,
+                source: WorldSource::Video,
+            },
+            SignalStatus::Missing,
+        ),
+        weapon: WeaponMode::Gun,
+        ..HudContext::default()
+    };
+    let wire = custom.encode_aux();
+    let entries = [indicate_instrument_descriptor::AuxEntry {
+        id: AuxChannelId::HUD_CONTEXT,
+        payload: &wire,
+    }];
+    let ctx = DrawContext::new(&data).with_aux(&entries);
+    let mut storage = std::vec![0u8; 65536];
+    let mut writer = SceneWriter::new(&mut storage).expect("writer");
+    (HUD_SCREEN_DESCRIPTOR.draw)(
+        &ctx,
+        SceneTarget::Planar2D {
+            frame: FRAME_LANDSCAPE,
+            writer: &mut writer,
+        },
+    )
+    .expect("valid aux");
+    let size = writer.finish();
+    let has_not_hud = SceneCmds::new(&storage[..size])
+        .expect("decode")
+        .any(|cmd| {
+            matches!(
+                cmd,
+                Ok(Cmd::Text {
+                    text: "NON-CONFORMAL / NOT A HUD",
+                    ..
+                })
+            )
+        });
+    assert!(has_not_hud);
+
+    let bad_entries = [indicate_instrument_descriptor::AuxEntry {
+        id: AuxChannelId::HUD_CONTEXT,
+        payload: &[0xFF, 0x00],
+    }];
+    let bad_ctx = DrawContext::new(&data).with_aux(&bad_entries);
+    let mut writer2 = SceneWriter::new(&mut storage).expect("writer");
+    assert_eq!(
+        (HUD_SCREEN_DESCRIPTOR.draw)(
+            &bad_ctx,
+            SceneTarget::Planar2D {
+                frame: FRAME_LANDSCAPE,
+                writer: &mut writer2,
+            },
+        ),
+        Err(PanelDrawError::InvalidAux(AuxChannelId::HUD_CONTEXT.0))
+    );
+}

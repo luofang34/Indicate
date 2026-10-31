@@ -43,4 +43,7 @@ pub enum IntentFault {
         /// Which field.
         what: &'static str,
     },
+    /// A custom intent named the reserved core namespace (`0`).
+    #[error("custom intent cannot use reserved core namespace")]
+    ReservedCoreNamespace,
 }

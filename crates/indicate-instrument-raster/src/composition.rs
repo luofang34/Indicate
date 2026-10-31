@@ -36,7 +36,7 @@
 
 use indicate_alerts::AlertOutput;
 use indicate_instrument_registry::{
-    CompositionDescriptor, DesignFrame, EMPTY_CONFIG, Registry, Slot,
+    CompositionDescriptor, DesignFrame, DrawContext, EMPTY_CONFIG, Registry, SceneTarget, Slot,
 };
 use indicate_instrument_scene::SceneWriter;
 use indicate_instrument_state::PanelData;
@@ -126,12 +126,15 @@ fn paint_slot(
         .map_err(|_| RasterError::SlotSceneBuffer { panel: panel.id })?;
     // The frame asked for is the slot's own size: composition is
     // placement, so the rect and the emission frame are one decision.
+    let ctx = DrawContext::new(inputs.data)
+        .with_config(EMPTY_CONFIG)
+        .with_alerts(inputs.alerts);
     (panel.draw)(
-        inputs.data,
-        &EMPTY_CONFIG,
-        inputs.alerts,
-        slot_frame(slot),
-        &mut writer,
+        &ctx,
+        SceneTarget::Planar2D {
+            frame: slot_frame(slot),
+            writer: &mut writer,
+        },
     )
     .map_err(|source| RasterError::SlotDraw {
         panel: panel.id,

@@ -15,6 +15,7 @@ indicate-instrument-descriptor = { workspace = true }
 indicate-instrument-scene = { workspace = true }
 indicate-instrument-state = { workspace = true }
 indicate-instrument-symbology = { workspace = true }
+indicate-intent = { workspace = true }
 
 [dev-dependencies]
 indicate-instrument-registry = { workspace = true }

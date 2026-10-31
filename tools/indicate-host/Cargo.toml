@@ -19,7 +19,9 @@ indicate-instrument-scene = { workspace = true }
 indicate-instrument-state = { workspace = true }
 indicate-instrument-symbology = { workspace = true }
 indicate-intent = { workspace = true }
+indicate-interaction = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
 indicate-instrument-template = { workspace = true }
+indicate-instrument-volumes = { workspace = true }

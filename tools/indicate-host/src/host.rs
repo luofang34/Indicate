@@ -3,11 +3,19 @@
 use indicate_alerts::{
     AlertContext, AlertEvent, AlertManager, AlertOutput, AlertProfile, FlightPhase,
 };
-use indicate_instrument_descriptor::{ConfigBlob, DesignFrame, PanelDescriptor};
+use indicate_instrument_descriptor::{
+    ConfigBlob, DesignFrame, DrawContext, PanelDescriptor, SceneTarget,
+};
 use indicate_instrument_feeder::clock::clock_ok;
-use indicate_instrument_scene::{LayerReport, SceneWriter, validate_layers};
+use indicate_instrument_scene::{
+    LayerReport, SceneWriter, validate_layers,
+    volume::{Extent3D, VolumeBandReport, VolumeSceneWriter, validate_volume_bands},
+};
 use indicate_instrument_state::{AircraftState, FreshnessPolicy, NavSource, PanelData, resolve};
-use indicate_intent::{EchoMonitor, EchoStatus, Intent, IntentGate, Request};
+use indicate_intent::{EchoMonitor, EchoStatus, EchoSummary, Intent, IntentGate, Request};
+use indicate_interaction::{
+    InteractionFrame, InteractionOutcome, ViewLimits, ViewPose3D, apply_event,
+};
 
 use crate::error::{HostError, RequestRefused};
 use crate::liveness::Liveness;
@@ -66,6 +74,25 @@ pub struct Painted {
     pub layers: LayerReport,
 }
 
+/// One completed 3D volumetric frame.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PaintedVolume {
+    /// Encoded volume scene length in the caller's buffer.
+    pub scene_len: usize,
+    /// The snapshot generation the frame was resolved from.
+    pub frame_generation: u32,
+    /// The render generation after this frame.
+    pub render_generation: u32,
+    /// The alert snapshot fanned to the instrument.
+    pub alerts: AlertOutput,
+    /// Where each outstanding selection request stands.
+    pub echo: [EchoStatus; 4],
+    /// The active 3D view pose supplied to the instrument.
+    pub view_pose: ViewPose3D,
+    /// The band report of the validated volume scene.
+    pub bands: VolumeBandReport,
+}
+
 /// The reference host.
 #[derive(Debug)]
 pub struct Host {
@@ -79,6 +106,9 @@ pub struct Host {
     liveness: Liveness,
     gate: IntentGate,
     echo: EchoMonitor,
+    last_echo: [EchoStatus; 4],
+    last_admitted_seq: Option<u32>,
+    view_pose: ViewPose3D,
     queued: [Option<AlertEvent>; MAX_QUEUED_EVENTS],
     queued_len: usize,
     declutter: bool,
@@ -99,6 +129,9 @@ impl Host {
             liveness: Liveness::new(config.frame_deadline_ms),
             gate: IntentGate::new(),
             echo: EchoMonitor::new(config.confirm_within_ms),
+            last_echo: [EchoStatus::Idle; 4],
+            last_admitted_seq: None,
+            view_pose: ViewPose3D::IDENTITY,
             queued: [None; MAX_QUEUED_EVENTS],
             queued_len: 0,
             declutter: false,
@@ -132,6 +165,7 @@ impl Host {
     /// Admits and routes one operator request.
     pub fn request(&mut self, request: &Request, now_ms: f64) -> Result<Routed, RequestRefused> {
         let admitted = self.gate.admit(request, now_ms)?;
+        self.last_admitted_seq = Some(admitted.request.stamp.sequence);
         match admitted.request.intent {
             Intent::AcknowledgeAlert(id) => {
                 self.enqueue(AlertEvent::Acknowledge(id))?;
@@ -143,17 +177,47 @@ impl Host {
             }
             Intent::Declutter(on) => {
                 self.declutter = on;
+                self.view_pose.decluttered = on;
                 Ok(Routed::ToDisplay(admitted.request.intent))
             }
-            Intent::SelectPage(_) => Ok(Routed::ToDisplay(admitted.request.intent)),
+            Intent::SelectPage(_) | Intent::PressSoftkey { .. } => {
+                Ok(Routed::ToDisplay(admitted.request.intent))
+            }
             Intent::SelectBaro { .. }
             | Intent::SetHeadingBug { .. }
             | Intent::SelectAltitude { .. }
-            | Intent::SelectNavSource(_) => {
+            | Intent::SelectNavSource(_)
+            | Intent::Custom { .. } => {
                 self.echo.request(&admitted);
                 Ok(Routed::ToSource(admitted.request.intent))
             }
         }
+    }
+
+    /// Current bounded 3D view pose supplied to volumetric instruments.
+    #[must_use]
+    pub const fn view_pose(&self) -> ViewPose3D {
+        self.view_pose
+    }
+
+    /// Current echo-tracking summary supplied in [`DrawContext`].
+    #[must_use]
+    pub const fn echo_summary(&self) -> EchoSummary {
+        EchoSummary {
+            statuses: self.last_echo,
+            last_admitted_seq: self.last_admitted_seq,
+        }
+    }
+
+    /// Applies one spatial [`InteractionFrame`] against `limits` to evolve [`ViewPose3D`].
+    pub fn interact(
+        &mut self,
+        frame: &InteractionFrame,
+        limits: &ViewLimits,
+    ) -> Result<InteractionOutcome, HostError> {
+        let outcome = apply_event(&mut self.view_pose, &frame.event, limits)?;
+        self.declutter = self.view_pose.decluttered;
+        Ok(outcome)
     }
 
     /// One paint-clock tick: resolve the admitted snapshot once, step
@@ -182,10 +246,11 @@ impl Host {
             self.enqueue_or_drop(event);
         }
         let alerts = self.step_alerts(events, now_ms);
+        let echo = self.observe_echo(now_ms);
         let data: PanelData = resolve(&self.state, &self.policy);
-        let scene_len = self.draw(panel, &data, config, Some(&alerts), frame, scene_buf)?;
+        let scene_len = self.draw_planar(panel, &data, config, Some(&alerts), frame, scene_buf)?;
         let layers = validate_layers(&scene_buf[..scene_len]).map_err(HostError::Layers)?;
-        let missing = panel.required_layers & !layers.present;
+        let missing = panel.required_layers & !u16::from(layers.present);
         if missing != 0 {
             return Err(HostError::MissingLayers { missing });
         }
@@ -193,14 +258,6 @@ impl Host {
         if let Some(event) = self.liveness.painted(now_ms) {
             self.enqueue_or_drop(event);
         }
-        let nav_source = self
-            .state
-            .nav
-            .data
-            .map_or(NavSource::None, |nav| nav.source);
-        let echo = self
-            .echo
-            .observe(&self.state.selections, nav_source, now_ms);
         Ok(Painted {
             scene_len,
             frame_generation: self.frame_generation,
@@ -208,6 +265,47 @@ impl Host {
             alerts,
             echo,
             layers,
+        })
+    }
+
+    /// One paint-clock tick for a 3D volumetric instrument (`RenderSpace::Volume3D`).
+    pub fn paint_volume(
+        &mut self,
+        panel: &PanelDescriptor,
+        config: &ConfigBlob<'_>,
+        extent_m: Extent3D,
+        events: &[AlertEvent],
+        scene_buf: &mut [u8],
+        now_ms: f64,
+    ) -> Result<PaintedVolume, HostError> {
+        if !clock_ok(now_ms, self.observed_ms) {
+            return Err(HostError::InvalidClock);
+        }
+        self.observed_ms = Some(now_ms);
+        if let Some(event) = self.liveness.tick(now_ms) {
+            self.enqueue_or_drop(event);
+        }
+        let alerts = self.step_alerts(events, now_ms);
+        let echo = self.observe_echo(now_ms);
+        let data: PanelData = resolve(&self.state, &self.policy);
+        let scene_len = self.draw_vol(panel, &data, config, Some(&alerts), extent_m, scene_buf)?;
+        let bands = validate_volume_bands(&scene_buf[..scene_len]).map_err(HostError::Layers)?;
+        let missing = panel.required_layers & !bands.present;
+        if missing != 0 {
+            return Err(HostError::MissingLayers { missing });
+        }
+        self.render_generation = self.render_generation.wrapping_add(1);
+        if let Some(event) = self.liveness.painted(now_ms) {
+            self.enqueue_or_drop(event);
+        }
+        Ok(PaintedVolume {
+            scene_len,
+            frame_generation: self.frame_generation,
+            render_generation: self.render_generation,
+            alerts,
+            echo,
+            view_pose: self.view_pose,
+            bands,
         })
     }
 
@@ -221,7 +319,20 @@ impl Host {
         self.liveness.stalled()
     }
 
-    fn draw(
+    fn observe_echo(&mut self, now_ms: f64) -> [EchoStatus; 4] {
+        let nav_source = self
+            .state
+            .nav
+            .data
+            .map_or(NavSource::None, |nav| nav.source);
+        let echo = self
+            .echo
+            .observe(&self.state.selections, nav_source, now_ms);
+        self.last_echo = echo;
+        echo
+    }
+
+    fn draw_planar(
         &self,
         panel: &PanelDescriptor,
         data: &PanelData,
@@ -230,8 +341,46 @@ impl Host {
         frame: DesignFrame,
         scene_buf: &mut [u8],
     ) -> Result<usize, HostError> {
+        let ctx = DrawContext::new(data)
+            .with_config(*config)
+            .with_alerts(alerts)
+            .with_echo(self.echo_summary())
+            .with_view(self.view_pose);
         let mut writer = SceneWriter::new(scene_buf).map_err(HostError::Scene)?;
-        (panel.draw)(data, config, alerts, frame, &mut writer).map_err(HostError::Draw)?;
+        (panel.draw)(
+            &ctx,
+            SceneTarget::Planar2D {
+                frame,
+                writer: &mut writer,
+            },
+        )
+        .map_err(HostError::Draw)?;
+        Ok(writer.finish())
+    }
+
+    fn draw_vol(
+        &self,
+        panel: &PanelDescriptor,
+        data: &PanelData,
+        config: &ConfigBlob<'_>,
+        alerts: Option<&AlertOutput>,
+        extent_m: Extent3D,
+        scene_buf: &mut [u8],
+    ) -> Result<usize, HostError> {
+        let ctx = DrawContext::new(data)
+            .with_config(*config)
+            .with_alerts(alerts)
+            .with_echo(self.echo_summary())
+            .with_view(self.view_pose);
+        let mut writer = VolumeSceneWriter::new(scene_buf).map_err(HostError::Scene)?;
+        (panel.draw)(
+            &ctx,
+            SceneTarget::Volume3D {
+                extent_m,
+                writer: &mut writer,
+            },
+        )
+        .map_err(HostError::Draw)?;
         Ok(writer.finish())
     }
 

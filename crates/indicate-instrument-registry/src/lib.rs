@@ -1,22 +1,8 @@
-//! Panel composition and cross-shell identity (ADR-0029, ADR-0033).
+//! Instrument composition and cross-shell identity (ADR-0029, ADR-0033).
 //!
-//! A registry is plain data composed by each shell from panel
-//! descriptors and validated at init; an out-of-repo panel registers by
-//! being named in the shell's composition, never by link-time magic. The
-//! descriptor vocabulary itself lives in
-//! [`indicate_instrument_descriptor`] and is re-exported here, so a
-//! shell needs one dependency to compose and a panel needs neither this
-//! crate nor its checks.
-//!
-//! A shell drawing from one provider crate passes a descriptor slice to
-//! [`Registry::new`]. A shell drawing from several names
-//! [`PanelSet`]s and calls [`Registry::from_sets`], so adding an
-//! instrument family is one declaration naming the set rather than one
-//! line per panel — the by-hand panel list ADR-0029 removed does not
-//! reappear one layer up. Both compositions are `Copy` and
-//! allocation-free, and the same per-panel rules run over the flattened
-//! traversal either way, so a panel id claimed by two sets is refused
-//! at init.
+//! A registry is plain data composed by each shell from instrument
+//! descriptors and validated at init; an out-of-repo instrument registers by
+//! being named in the shell's composition, never by link-time magic.
 
 #![no_std]
 
@@ -34,8 +20,14 @@ pub use composition::{
 pub use digest::{DigestError, SCENE_DIGEST_DOMAIN, scene_digest};
 pub use indicate_instrument_descriptor::states;
 pub use indicate_instrument_descriptor::{
-    BackgroundCapability, CANONICAL_STATES, CONFIG_BLOB_MAX, CanonicalState, ConfigBlob,
-    ConfigError, ConfigKey, CriticalityBands, DesignFrame, DrawFn, EMPTY_CONFIG, ExtremeState,
-    GroupSet, PanelCriticality, PanelDescriptor, PanelDrawError, PanelSet, Region, keys,
+    AuxChannelId, AuxEntry, CANONICAL_STATES, CONFIG_BLOB_MAX, CanonicalState, ConfigBlob,
+    ConfigError, ConfigKey, CriticalityBands, DRAW_CONTEXT_HEADER_BYTES, DRAW_CONTEXT_WIRE_VERSION,
+    DecodedDrawContext, DesignFrame, DrawContext, DrawContextWireError, DrawFn, EMPTY_CONFIG,
+    ExtentRefusal, ExtremeState, FRAME_STEP_TOLERANCE, FrameRefusal, GroupSet,
+    InstrumentDescriptor, InstrumentDrawError, InstrumentSet, MAX_AUX_ENTRIES, PanelCriticality,
+    PanelDescriptor, PanelDrawError, PanelSet, Region, RenderSpace, SceneTarget, UnderlayContract,
+    UnderlayStatus, ViewLimits, ViewPose3D, angular_layer_bit, angular_overlay_layer_bit,
+    custom_aux_id, decode_draw_context, encode_draw_context, keys, planar_layer_bit,
+    volume_band_bit,
 };
 pub use registry::{Panels, Registry, RegistryError};

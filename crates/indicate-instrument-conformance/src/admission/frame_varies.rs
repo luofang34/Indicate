@@ -17,7 +17,7 @@
 //! alert, in an extreme state, or with a group withheld, and refusing
 //! such a panel would be a false accusation.
 
-use indicate_instrument_registry::{DesignFrame, PanelDescriptor};
+use indicate_instrument_registry::{DesignFrame, PanelDescriptor, RenderSpace};
 use indicate_instrument_scene::MAX_SCENE_BYTES;
 use indicate_instrument_state::{FreshnessPolicy, resolve};
 
@@ -37,27 +37,35 @@ use super::{Case, case_matrix, draw_scene};
 /// cannot pass on that variation. That makes a deterministic `DrawFn`
 /// part of what is being checked rather than assumed.
 pub(super) fn check_frame_varies(panel: &'static PanelDescriptor) -> Result<(), AdmissionError> {
-    if panel.frame_min == panel.frame_max {
+    let RenderSpace::Planar2D {
+        frame_min,
+        frame_max,
+        ..
+    } = panel.space
+    else {
+        return Ok(());
+    };
+    if frame_min == frame_max {
         return Ok(());
     }
     let mut first = vec![0u8; MAX_SCENE_BYTES];
     let mut large = vec![0u8; MAX_SCENE_BYTES];
     let mut again = vec![0u8; MAX_SCENE_BYTES];
     for case in case_matrix(panel) {
-        let at_min = draw_at(panel, &case, panel.frame_min, &mut first)?.to_vec();
-        let at_max = draw_at(panel, &case, panel.frame_max, &mut large)?;
+        let at_min = draw_at(panel, &case, frame_min, &mut first)?.to_vec();
+        let at_max = draw_at(panel, &case, frame_max, &mut large)?;
         if at_min == at_max {
             continue;
         }
-        let reproduced = draw_at(panel, &case, panel.frame_min, &mut again)?;
+        let reproduced = draw_at(panel, &case, frame_min, &mut again)?;
         if at_min == reproduced {
             return Ok(());
         }
     }
     Err(AdmissionError::FrameIgnored {
         panel: panel.id,
-        min: panel.frame_min,
-        max: panel.frame_max,
+        min: frame_min,
+        max: frame_max,
     })
 }
 

@@ -17,6 +17,7 @@
 #[cfg(test)]
 extern crate std;
 
+pub mod angular;
 mod cmd;
 mod color;
 mod decode;
@@ -24,6 +25,7 @@ mod encode;
 mod layer;
 mod opcode;
 mod text_metrics;
+pub mod volume;
 
 pub use cmd::{ATTR_CONFIG, Anchor, Cmd, HAlign, MAX_TEXT_BYTES, PaintMode, PointsRef, VAlign};
 pub use color::Rgba8;

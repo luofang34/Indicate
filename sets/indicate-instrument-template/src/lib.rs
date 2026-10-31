@@ -17,8 +17,8 @@
 //! - **Honest status.** A run showing a number claims the state group
 //!   the number came from; a run showing dashes claims nothing. Getting
 //!   this backwards is the failure a first set hits.
-//! - **A background declaration the scene keeps.** Declaring
-//!   [`BackgroundCapability::Opaque`](indicate_instrument_descriptor::BackgroundCapability)
+//! - **An underlay declaration the scene keeps.** Declaring
+//!   [`UnderlayContract::Opaque`](indicate_instrument_descriptor::UnderlayContract)
 //!   obliges the panel to cover the frame in the `Background` band, in
 //!   every corpus case.
 //! - **Kernel-only dependencies.** A set draws against the kernel and

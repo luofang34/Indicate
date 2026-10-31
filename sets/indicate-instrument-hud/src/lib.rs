@@ -23,8 +23,8 @@ mod runway;
 mod target;
 
 pub use context::{
-    EnergyState, HudContext, HudMode, HudProfile, HudProjection, MissileEnvelope, WeaponEnvelope,
-    WeaponMode, WorldSource, hud_mode,
+    EnergyState, HUD_CONTEXT_WIRE_BYTES, HudContext, HudMode, HudProfile, HudProjection,
+    MissileEnvelope, WeaponEnvelope, WeaponMode, WorldSource, hud_mode,
 };
 pub use panel::{
     HUD_COMBINER_DESCRIPTOR, HUD_COMBINER_SET, HUD_REPEATER_DESCRIPTOR, HUD_SCREEN_DESCRIPTOR,

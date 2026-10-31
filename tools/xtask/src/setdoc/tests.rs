@@ -39,11 +39,14 @@ fn the_rendered_block_states_every_declared_field_per_panel() {
     assert!(block.contains("### Set `builtin`"));
     assert!(block.contains("#### Panel `pfd` — PFD"));
     for field in [
+        "Render space",
         "Required layers",
         "Required groups",
-        "Frame range",
-        "Canonical frames",
-        "Background",
+        "Spatial bounds",
+        "Canonical sizes",
+        "Underlay",
+        "Accepted intents",
+        "Aux channels",
         "Config keys",
         "Group regions",
         "Extreme states",
@@ -51,7 +54,7 @@ fn the_rendered_block_states_every_declared_field_per_panel() {
     ] {
         assert!(block.contains(&format!("| {field} |")), "{field} missing");
     }
-    assert!(block.contains("| Background | Cedeable |"));
+    assert!(block.contains("| Underlay | ConformalSvs3D |"));
     assert!(block.contains("`0x0001`"));
 }
 

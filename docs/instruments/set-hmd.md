@@ -91,11 +91,10 @@ and never the measured attitude or the flight-director errors.
 
 ## Known limits
 
-- The two descriptors draw with a default display context and ignore
-  the frame argument; the host-facing entry point is `draw_hwd`, which
-  the registry and the admission harness do not see.
-- The world-referenced directions leave through `directions`, outside
-  the scene IR, so they have no layer, budget, corpus, or digest.
+- Each descriptor reads `HWD_DISPLAY` from the auxiliary channel or uses
+  the default display context when the channel is absent.
+- World-referenced cues emit into the angular-sphere scene target, while
+  display-fixed text and scales emit into the overlay frame.
 - The set declares no group regions and no raster baselines, and no
   criticality band is pinned for it, so a screen composition that names
   it is refused.
@@ -112,11 +111,14 @@ Crate: `indicate-instrument-hmd`
 
 | Declared | Value |
 |---|---|
-| Required layers | Tapes, Annunciation |
+| Render space | AngularSphere |
+| Required layers | WorldCue, Annunciation, Overlay(Tapes), Overlay(Annunciation) |
 | Required groups | Attitude, Kinematics, Air, Nav, Trust, Altitude, Heading, Dynamics, FlightDirector, ApModes, ApTargets, Guidance, SpeedPresentation |
-| Frame range | 1200×600 to 1200×600, step 1×1, aspect 1.99 to 2.01 |
-| Canonical frames | 1200×600 |
-| Background | NotUsed |
+| Spatial bounds | unit sphere + overlay 1200×600 |
+| Canonical sizes | 1200×600 |
+| Underlay | None |
+| Accepted intents | none |
+| Aux channels | `HWD_DISPLAY` |
 | Config keys | none |
 | Group regions | none |
 | Extreme states | `extended-flight-guidance` |
@@ -126,11 +128,14 @@ Crate: `indicate-instrument-hmd`
 
 | Declared | Value |
 |---|---|
-| Required layers | Tapes, Annunciation |
+| Render space | AngularSphere |
+| Required layers | WorldCue, Annunciation, Overlay(Tapes), Overlay(Annunciation) |
 | Required groups | Attitude, Kinematics, Air, Nav, Trust, Altitude, Heading, Dynamics, FlightDirector, ApModes, ApTargets, Guidance, SpeedPresentation |
-| Frame range | 1200×600 to 1200×600, step 1×1, aspect 1.99 to 2.01 |
-| Canonical frames | 1200×600 |
-| Background | NotUsed |
+| Spatial bounds | unit sphere + overlay 1200×600 |
+| Canonical sizes | 1200×600 |
+| Underlay | None |
+| Accepted intents | none |
+| Aux channels | `HWD_DISPLAY` |
 | Config keys | none |
 | Group regions | none |
 | Extreme states | `extended-flight-guidance` |

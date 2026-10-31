@@ -1,7 +1,7 @@
 //! The background-contract family: the declared capability must be the
 //! Background band's actual behavior in every corpus case.
 
-use indicate_instrument_registry::{BackgroundCapability, DesignFrame, PanelDescriptor};
+use indicate_instrument_registry::{DesignFrame, PanelDescriptor, UnderlayContract};
 use indicate_instrument_scene::{Cmd, LayerId, PaintMode, SceneCmds};
 
 use super::error::AdmissionError;
@@ -29,16 +29,23 @@ pub(super) fn check_background(
             panel: panel.id,
             state: state_id,
         })?;
-    let (declared, defect) = match panel.background {
-        BackgroundCapability::NotUsed if painted => ("NotUsed", "paints"),
-        BackgroundCapability::Opaque if !covered => (
+    let (declared, defect) = match panel.underlay {
+        UnderlayContract::None if painted => ("None", "paints"),
+        UnderlayContract::Opaque if !covered => (
             "Opaque",
             "does not opaquely cover (an axis-aligned unclipped full-frame rect fill)",
         ),
-        BackgroundCapability::Cedeable if !covered => (
-            "Cedeable",
-            "does not opaquely cover (an axis-aligned unclipped full-frame rect fill)",
-        ),
+        UnderlayContract::Map2D
+        | UnderlayContract::ConformalSvs3D
+        | UnderlayContract::CalibratedVideo
+        | UnderlayContract::CombinedXvs
+            if !covered =>
+        {
+            (
+                "Cedeable",
+                "does not opaquely cover (an axis-aligned unclipped full-frame rect fill)",
+            )
+        }
         _ => return Ok(()),
     };
     Err(AdmissionError::BackgroundContract {

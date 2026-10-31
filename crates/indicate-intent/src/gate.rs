@@ -7,6 +7,7 @@ use indicate_instrument_feeder::serial_is_newer;
 use indicate_instrument_state::{AltitudeClass, HeadingReference, NavSource};
 
 use crate::error::IntentFault;
+use crate::namespace::{IntentNamespace, MAX_EXTENSION_PAYLOAD};
 use crate::request::{
     BARO_HPA_MAX, BARO_HPA_MIN, Intent, Request, SELECT_ALTITUDE_M_MAX, SELECT_ALTITUDE_M_MIN,
 };
@@ -131,7 +132,21 @@ fn check_bounds(intent: &Intent) -> Result<(), IntentFault> {
         Intent::AcknowledgeAlert(_)
         | Intent::AcknowledgeAllAlerts
         | Intent::SelectPage(_)
-        | Intent::Declutter(_) => Ok(()),
+        | Intent::Declutter(_)
+        | Intent::PressSoftkey { .. } => Ok(()),
+        Intent::Custom {
+            namespace, payload, ..
+        } => {
+            if namespace == IntentNamespace::CORE {
+                return Err(IntentFault::ReservedCoreNamespace);
+            }
+            if usize::from(payload.len) > MAX_EXTENSION_PAYLOAD {
+                return Err(IntentFault::OutOfRange {
+                    what: "extension payload",
+                });
+            }
+            Ok(())
+        }
     }
 }
 

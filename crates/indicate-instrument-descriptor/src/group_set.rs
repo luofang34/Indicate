@@ -49,6 +49,16 @@ impl GroupSet {
     pub const fn bits(&self) -> u32 {
         self.0
     }
+
+    /// Reconstructs a `GroupSet` from raw wire bits, rejecting out-of-range bits.
+    pub const fn from_bits(bits: u32) -> Option<GroupSet> {
+        let valid_mask = (1u32 << GroupId::COUNT) - 1;
+        if (bits & !valid_mask) != 0 {
+            None
+        } else {
+            Some(GroupSet(bits))
+        }
+    }
 }
 
 #[cfg(test)]

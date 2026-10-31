@@ -1,0 +1,21 @@
+[package]
+name = "indicate-plugin-host"
+description = "Safe interpreted Wasm sandbox and conformance admission host for .indpack plugins (PLUG-01)"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+indicate-alerts = { workspace = true }
+indicate-frames = { workspace = true }
+indicate-instrument-descriptor = { workspace = true }
+indicate-instrument-glyphs = { workspace = true }
+indicate-instrument-registry = { workspace = true }
+indicate-instrument-scene = { workspace = true }
+indicate-instrument-state = { workspace = true }
+indicate-plugin-abi = { workspace = true }
+thiserror = { workspace = true }
+wasmi = { workspace = true }
