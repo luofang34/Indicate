@@ -115,10 +115,13 @@ pub enum AdmissionError {
         /// The claiming run.
         text: String,
     },
-    /// A visible run claims configuration provenance under the
-    /// harness's fixed empty configuration — it derives from nothing.
+    /// A run claims configuration provenance but is not a printed
+    /// legend: its text or placement differs from the same frame's
+    /// first case, so it carries state. In the angular and volumetric
+    /// matrices, which run no invariance check, any visible
+    /// configuration claim is refused under this name.
     #[error(
-        "panel {panel} shows {text:?} in {state} claiming configuration provenance under the empty configuration"
+        "panel {panel} shows {text:?} in {state} claiming configuration provenance, but it is not the same in every case"
     )]
     ConfigClaim {
         /// The drawing panel.

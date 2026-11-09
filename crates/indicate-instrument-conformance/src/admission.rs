@@ -42,6 +42,7 @@ mod error;
 mod frame_varies;
 mod geometry;
 mod ink;
+mod legend;
 mod provenance;
 mod regions;
 mod volume;
@@ -50,7 +51,8 @@ use alerts::saturated_stack;
 use background::check_background;
 use frame_varies::check_frame_varies;
 use geometry::{Ctm, Rect, text_rect};
-use provenance::check_provenance;
+use legend::{LegendWitness, check_legends};
+use provenance::{ConfigClaims, check_provenance};
 use regions::check_non_vacuity;
 
 pub use criticality::criticality_bands;
@@ -178,8 +180,9 @@ fn admit_panel_at_frame(
     frame: DesignFrame,
     report: &mut AdmissionReport,
 ) -> Result<(), AdmissionError> {
+    let mut legends = LegendWitness::default();
     for case in case_matrix(panel) {
-        check_case(panel, &case, frame, report)?;
+        check_case(panel, &case, frame, report, &mut legends)?;
     }
     Ok(())
 }
@@ -244,11 +247,19 @@ fn check_case(
     case: &Case,
     frame: DesignFrame,
     report: &mut AdmissionReport,
+    legends: &mut LegendWitness,
 ) -> Result<(), AdmissionError> {
     let state_id = case.state_id;
     let data = resolve(&case.state, &FreshnessPolicy::default());
     let runs = draw_runs(panel, case, &data, frame)?;
-    check_provenance(panel, state_id, case.withheld, &runs)?;
+    check_provenance(
+        panel,
+        state_id,
+        case.withheld,
+        &runs,
+        ConfigClaims::InvariantAcrossCases,
+    )?;
+    check_legends(panel, state_id, &runs, legends)?;
     let bounds = Rect {
         min_x: 0.0,
         min_y: 0.0,

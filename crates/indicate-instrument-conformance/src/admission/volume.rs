@@ -14,7 +14,7 @@ use indicate_instrument_state::{FreshnessPolicy, resolve};
 
 use super::error::AdmissionError;
 use super::geometry::Rect;
-use super::provenance::check_provenance;
+use super::provenance::{ConfigClaims, check_provenance};
 use super::{AdmissionReport, Case, RunsDefect, TextRun, case_matrix};
 
 #[derive(Clone, Copy)]
@@ -138,7 +138,13 @@ fn check_volume_case(
     })?;
     check_volume_underlay(panel, state_id, &scan)?;
     check_handles_in_bounds(panel, state_id, extent_m, &scan.handles)?;
-    check_provenance(panel, state_id, case.withheld, &scan.runs)?;
+    check_provenance(
+        panel,
+        state_id,
+        case.withheld,
+        &scan.runs,
+        ConfigClaims::Refused,
+    )?;
     for run in &scan.runs {
         for ch in run.text.chars() {
             if !PANEL_VOCABULARY.contains(&ch) {

@@ -195,38 +195,6 @@ fn a_claim_outside_the_required_groups_is_refused() {
     ));
 }
 
-fn draw_config_claim(
-    _ctx: &DrawContext<'_>,
-    target: SceneTarget<'_, '_>,
-) -> Result<(), PanelDrawError> {
-    let SceneTarget::Planar2D { writer: scene, .. } = target else {
-        return Err(PanelDrawError::WrongTarget);
-    };
-    scene.begin_layer(LayerId::Tapes)?;
-    scene.fill_color(Rgba8::rgb(255, 255, 255))?;
-    scene.text_attributed(
-        indicate_instrument_scene::ATTR_CONFIG,
-        30.0,
-        30.0,
-        14.0,
-        Anchor::CENTER,
-        "V1 65",
-    )?;
-    scene.end_layer(LayerId::Tapes)?;
-    Ok(())
-}
-
-#[test]
-fn a_config_claim_is_refused_under_the_empty_config() {
-    let panels = std::boxed::Box::leak(std::boxed::Box::new(opaque_panel(draw_config_claim)));
-    panels[0].underlay = UnderlayContract::None;
-    let registry = Registry::new(panels).expect("structurally valid");
-    assert!(matches!(
-        admit(&registry),
-        Err(AdmissionError::ConfigClaim { .. })
-    ));
-}
-
 fn draw_clipped_away(
     _ctx: &DrawContext<'_>,
     target: SceneTarget<'_, '_>,
