@@ -131,7 +131,36 @@ run `verify` and declare itself ready only after it passes.
   a compile-time dependency from `indicate-instrument-panels` onto this crate
   will let the panel vocabulary be checked against the source strings directly.
   Until then the vocabulary is pinned by the static `PANEL_VOCABULARY` list.
-- **Richer outline font** is a separately-licensed upgrade behind this same
-  manifest contract. It would change the geometry fields and bitmap/outline
-  representation, bump `GLYPH_MANIFEST_VERSION`, and produce a new recorded
-  hash — consumers keep the same `verify`, ids, and metrics contract.
+- **Loaded faces** are a separate format beside this pack. This pack, its
+  version, and its recorded hash do not change. See the next section.
+
+## Loaded faces (format version 2)
+
+A loaded face is a typeface read from bytes at run time by
+`indicate_instrument_glyphs::typeface`. It does not replace the built-in
+pack. The built-in pack stays the default face, so every scene drawn in the
+default face renders as before.
+
+- **Glyph kinds.** A stroke glyph is a centreline of lines and elliptical
+  arcs, drawn with a round pen. An outline glyph is closed contours, filled
+  by the non-zero winding rule. One face can hold both kinds.
+- **Metrics.** Each glyph has its own advance. A face has kerning pairs,
+  a cap height, an ascender, a descender, and a default pen. A run's size
+  maps to the cap height. The ink box of a run is computed from the glyph
+  geometry and the pen, for the style in use.
+- **Style.** A style narrows the geometry at constant pen, sets the pen
+  width, slants the glyphs, and selects glyph alternates by tag. The host
+  binds a face and a style to a scene's face slot.
+- **Canonical bytes.** The bytes are their own canonical form: tables are
+  strictly ascending, geometry is packed in glyph order with no gap, and a
+  SHA-256 of all preceding bytes ends the face. `Typeface::parse` checks
+  every rule and the hash, and refuses the face otherwise.
+- **No substitution.** A character that the face lacks is
+  `TypefaceError::MissingGlyph`. A backend never draws another face's glyph
+  in its place.
+- **Tessellation.** `tessellate_run` turns a laid-out run into triangles
+  in the run's units, for a 3D builder or an atlas baker.
+
+The byte layout is documented in `typeface/format.rs`. A face that
+Indicate ships as test data records its provenance and licence beside its
+bytes.
