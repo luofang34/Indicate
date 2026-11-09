@@ -2,10 +2,10 @@ Indicate evidence — captured verification run (SIM / NOT FOR FLIGHT)
 scope: ATT-01
 suite: raster attitude behavior
 command: cargo test -p indicate-instrument-raster
-config-digest: c16d2eceefbf36046eecd9615b02d1e758189ba0
+config-digest: 5da6bbaf68264c93c9ca6c99b09546b0ff54f45e
 tool-version: rustc 1.99.0 (b940084d7 2026-09-28)
-run-id: local:c16d2eceefbf36046eecd9615b02d1e758189ba0
+run-id: local:5da6bbaf68264c93c9ca6c99b09546b0ff54f45e
 outcome: pass
 summary:
-test result: ok. 99 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.10s
+test result: ok. 107 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.78s
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
