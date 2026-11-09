@@ -152,6 +152,17 @@ pub struct PanelData {
     pub groups: crate::group_id::GroupStatuses,
 }
 
+impl PanelData {
+    /// Converts `track_rad` from the active rose reference to true north through [`crate::convert_heading`].
+    ///
+    /// Returns `Failed` when the rose reference is unknown or lacks a usable variation sample.
+    #[must_use]
+    pub fn true_track_rad(&self) -> Sig<f32> {
+        self.heading
+            .rose_to_true_rad(self.rose_basis, self.track_rad)
+    }
+}
+
 fn quality_status(q: EstimateQuality) -> SignalStatus {
     match q {
         EstimateQuality::Good => SignalStatus::Valid,

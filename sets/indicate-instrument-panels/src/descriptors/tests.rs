@@ -143,6 +143,7 @@ fn svs_background_cedes_exactly_like_none() {
         let cfg = PfdConfig {
             background,
             v_speeds: None,
+            ..PfdConfig::default()
         };
         let mut buf = vec![0u8; 64 * 1024];
         let mut writer = SceneWriter::new(&mut buf).expect("fits");

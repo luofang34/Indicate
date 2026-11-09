@@ -2,7 +2,7 @@
 //! quantities in the display reference (NAV-01).
 
 use crate::aircraft::AircraftState;
-use crate::heading::{HeadingReference, convert_heading, wrap_2pi};
+use crate::heading::{HeadingReference, MagneticVariation, convert_heading, wrap_2pi};
 use crate::signal::{FreshnessPolicy, Sig, SignalStatus};
 use crate::validate::StateIntegrity;
 
@@ -51,6 +51,41 @@ pub struct ResolvedHeading {
     pub value_rad: Sig<f32>,
     /// The reference every HSI angular quantity is presented in.
     pub reference: HeadingReference,
+    /// Validated magnetic variation sample paired with its freshness status.
+    pub(crate) variation: Option<(MagneticVariation, SignalStatus)>,
+}
+
+impl ResolvedHeading {
+    /// Converts the heading sample to true north through [`convert_heading`].
+    ///
+    /// Returns `Failed` when conversion from magnetic north lacks a usable variation sample.
+    #[must_use]
+    pub fn true_heading_rad(&self) -> Sig<f32> {
+        self.angle_to_true_rad(self.reference, self.value_rad)
+    }
+
+    pub(crate) fn rose_to_true_rad(&self, basis: RoseBasis, angle_rad: Sig<f32>) -> Sig<f32> {
+        self.angle_to_true_rad(basis.display_reference(self.reference), angle_rad)
+    }
+
+    fn angle_to_true_rad(&self, from: HeadingReference, angle_rad: Sig<f32>) -> Sig<f32> {
+        if !angle_rad.status.shows_value() {
+            return Sig::with_status(0.0, angle_rad.status);
+        }
+        let sample = self.variation.as_ref().map(|(sample, _)| sample);
+        match convert_heading(angle_rad.value, from, HeadingReference::True, sample) {
+            Ok(value) => {
+                let status = match (from, self.variation) {
+                    (HeadingReference::Magnetic, Some((_, var_status))) => {
+                        angle_rad.status.worst(var_status)
+                    }
+                    _ => angle_rad.status,
+                };
+                finite(Sig::with_status(value, status))
+            }
+            Err(_) => Sig::with_status(0.0, SignalStatus::Failed),
+        }
+    }
 }
 
 /// Selects the rose basis: the heading sample when it shows a value,
@@ -93,20 +128,27 @@ pub(super) fn heading_resolved(
     ResolvedHeading {
         value_rad: finite(Sig::with_status(wrap_2pi(sample.heading_rad), status)),
         reference,
+        variation: usable_variation_with_status(state, policy),
+    }
+}
+
+/// A usable variation sample paired with its freshness status, or `None` when
+/// absent, expired, or declared invalid.
+fn usable_variation_with_status(
+    state: &AircraftState,
+    policy: &FreshnessPolicy,
+) -> Option<(MagneticVariation, SignalStatus)> {
+    let fresh = policy.status_for_age(state.variation.age_ms);
+    match (state.variation.data, state.valid.variation) {
+        (Some(sample), true) if fresh.shows_value() => Some((sample, fresh)),
+        _ => None,
     }
 }
 
 /// A usable variation sample, or `None` when absent, stale, faulted, or
 /// undeclared — the caller then degrades instead of converting.
-fn usable_variation(
-    state: &AircraftState,
-    policy: &FreshnessPolicy,
-) -> Option<crate::heading::MagneticVariation> {
-    let fresh = policy.status_for_age(state.variation.age_ms);
-    match (state.variation.data, state.valid.variation) {
-        (Some(sample), true) if fresh.shows_value() => Some(sample),
-        _ => None,
-    }
+fn usable_variation(state: &AircraftState, policy: &FreshnessPolicy) -> Option<MagneticVariation> {
+    usable_variation_with_status(state, policy).map(|(sample, _)| sample)
 }
 
 /// Presents an angle expressed against its OWN declared north in the

@@ -1,8 +1,10 @@
 //! PFD configuration decoding from the shell-delivered blob (ADR-0033).
 
-use indicate_instrument_descriptor::{ConfigBlob, ConfigError, ConfigKey, DesignFrame, keys};
+use indicate_instrument_descriptor::{
+    ConfigBlob, ConfigError, ConfigKey, DesignFrame, decode_v_speeds_payload, keys,
+};
 
-use super::{BackgroundMode, PfdConfig, SvsViewport, VSpeeds};
+use super::{BackgroundMode, PfdConfig, SvsViewport, VSpeedBugs, VSpeeds};
 
 /// Every key the PFD understands; a shell refuses anything else before
 /// the blob reaches this decoder, and the decoder refuses it again.
@@ -32,9 +34,11 @@ impl PfdConfig {
         config.require_schema(PFD_CONFIG_SCHEMA)?;
         let viewport = decode_viewport(config, frame)?;
         let quality = decode_quality(config)?;
+        let (v_speeds, v_speed_bugs) = decode_v_speeds(config)?;
         Ok(PfdConfig {
             background: decode_background(config, frame, viewport, quality)?,
-            v_speeds: decode_v_speeds(config)?,
+            v_speeds,
+            v_speed_bugs,
         })
     }
 }
@@ -120,36 +124,12 @@ fn decode_quality(config: &ConfigBlob<'_>) -> Result<Option<u8>, ConfigError> {
     }
 }
 
-fn decode_v_speeds(config: &ConfigBlob<'_>) -> Result<Option<VSpeeds>, ConfigError> {
+fn decode_v_speeds(config: &ConfigBlob<'_>) -> Result<(Option<VSpeeds>, VSpeedBugs), ConfigError> {
     let Some(bytes) = config.get(keys::V_SPEEDS) else {
-        return Ok(None);
+        return Ok((None, VSpeedBugs::default()));
     };
-    let bad = || ConfigError::BadValue {
-        key: keys::V_SPEEDS.0,
-        len: bytes.len(),
-    };
-    let [vs0, vs, vfe, vno, vne] = decode_f32s::<5>(bytes).ok_or_else(bad)?;
-    let speeds = [vs0, vs, vfe, vno, vne];
-    // The tape draws bands only over a coherent ladder; a non-finite,
-    // unordered, or collapsed set (which would paint a nearly all-red
-    // tape) is refused rather than painted somewhere misleading. The
-    // band-defining speeds must be strictly ordered.
-    let sane = speeds.iter().all(|v| v.is_finite() && *v >= 0.0)
-        && vs0 <= vs
-        && vs < vfe
-        && vfe <= vno
-        && vno < vne;
-    if sane {
-        Ok(Some(VSpeeds {
-            vs0_kt: vs0,
-            vs_kt: vs,
-            vfe_kt: vfe,
-            vno_kt: vno,
-            vne_kt: vne,
-        }))
-    } else {
-        Err(bad())
-    }
+    let (speeds, bugs) = decode_v_speeds_payload(bytes)?;
+    Ok((Some(speeds), bugs))
 }
 
 fn decode_f32s<const N: usize>(bytes: &[u8]) -> Option<[f32; N]> {

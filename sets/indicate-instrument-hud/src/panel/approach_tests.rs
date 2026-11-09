@@ -16,6 +16,10 @@ const GLIDE: f32 = 3.0 * core::f32::consts::PI / 180.0;
 fn final_approach(distance: f32) -> Runway {
     Runway {
         threshold_m: [distance, 0.0, distance * libm::tanf(GLIDE)],
+        far_down_offset_m: 0.0,
+        pre_threshold_m: 0.0,
+        reciprocal_displaced_m: 0.0,
+        unpaved: false,
         course_rad: 0.0,
         length_m: 2000.0,
         width_m: 45.0,
@@ -162,5 +166,116 @@ fn the_aoa_bracket_brackets_the_flight_path_at_on_speed() {
     assert!(
         bracket[1][1] < marker.y && marker.y < bracket[2][1],
         "{bracket:?} {marker:?}"
+    );
+}
+
+#[test]
+fn rollout_draws_centreline_dashes_suppresses_gp_and_prevents_ceiling_inversion() {
+    let cx = FRAME_LANDSCAPE.width * 0.5;
+    // Simulate landed rollout 250 m past threshold where WAAS vertical error (-2.5 m) places
+    // raw threshold_m[2] = -1.1 m (1.1 m above estimated eye) on a 7 m downhill-sloped runway.
+    let runway = Runway {
+        threshold_m: [-250.0, 0.0, -1.1],
+        far_down_offset_m: 7.0,
+        pre_threshold_m: 0.0,
+        reciprocal_displaced_m: 0.0,
+        unpaved: false,
+        course_rad: 0.0,
+        length_m: 2000.0,
+        width_m: 45.0,
+        glide_path_rad: GLIDE,
+        status: SignalStatus::Valid,
+    };
+    let data = with_ils(0.0, 0.0);
+    let camera = Camera::new(&data, synthetic().value, FRAME_LANDSCAPE);
+    let horizon_y = camera.project_ned([1.0, 0.0, 0.0]).expect("horizon").y;
+    let drawn = draw(&data, &approach(runway));
+    assert!(!drawn.has("GP"), "airborne GP bar declutters on rollout");
+    let centreline_dashes = drawn
+        .lines
+        .iter()
+        .filter(|pts| {
+            pts.len() == 2
+                && (pts[0][0] - cx).abs() < 0.5
+                && (pts[1][0] - cx).abs() < 0.5
+                && pts[0][1] > horizon_y
+                && pts[1][1] > horizon_y
+        })
+        .count();
+    assert!(
+        centreline_dashes >= 20,
+        "expected conformal rollout centreline dashes below horizon, got {centreline_dashes}"
+    );
+    // Diagonal runway sidelines converge near the horizon and fan outward downward (> horizon_y),
+    // never upward into the sky (< horizon_y).
+    let inverted_sideline = drawn.lines.iter().any(|pts| {
+        pts.len() == 2
+            && (pts[0][0] - pts[1][0]).abs() > 80.0
+            && (pts[0][1] - pts[1][1]).abs() > 10.0
+            && pts[0][1].min(pts[1][1]) < horizon_y - 2.0
+    });
+    assert!(
+        !inverted_sideline,
+        "rollout sidelines must stay below horizon instead of inverting into the sky"
+    );
+}
+
+#[test]
+fn unpaved_and_displaced_threshold_runways_distinguish_surface_and_zones() {
+    let cx = FRAME_LANDSCAPE.width * 0.5;
+    let data = with_ils(0.0, 0.0);
+    let mut turf = final_approach(600.0);
+    turf.unpaved = true;
+    turf.width_m = 9.0;
+    let drawn_turf = draw(&data, &approach(turf));
+    let closed_box_turf = drawn_turf
+        .lines
+        .iter()
+        .filter(|l| l.len() == 5 && l.first() == l.last())
+        .filter(|l| (l[0][0] - l[2][0]).abs() > 0.5)
+        .count();
+    assert_eq!(
+        closed_box_turf, 0,
+        "unpaved turf strip uses dashed sidelines"
+    );
+    let camera = Camera::new(&data, synthetic().value, FRAME_LANDSCAPE);
+    let horizon_y = camera.project_ned([1.0, 0.0, 0.0]).expect("horizon").y;
+    let thr_y = camera.project_ned(turf.threshold_m).expect("thr").y;
+    let count_interior = |d: &Drawn| {
+        d.lines
+            .iter()
+            .filter(|pts| {
+                pts.len() == 2
+                    && (pts[0][0] - cx).abs() < 0.5
+                    && (pts[1][0] - cx).abs() < 0.5
+                    && pts[0][1].min(pts[1][1]) > horizon_y + 1.0
+                    && pts[0][1].max(pts[1][1]) < thr_y - 0.5
+            })
+            .count()
+    };
+    assert!(count_interior(&draw(&data, &approach(final_approach(600.0)))) >= 10);
+    assert_eq!(
+        count_interior(&drawn_turf),
+        0,
+        "unpaved strip suppresses painted interior centreline stripes"
+    );
+
+    let mut composite = final_approach(600.0);
+    composite.pre_threshold_m = 165.8;
+    composite.reciprocal_displaced_m = 402.0;
+    let drawn_comp = draw(&data, &approach(composite));
+    let closed_box_comp = drawn_comp
+        .lines
+        .iter()
+        .filter(|l| l.len() == 5 && l.first() == l.last())
+        .filter(|l| (l[0][0] - l[2][0]).abs() > 0.5)
+        .count();
+    assert_eq!(
+        closed_box_comp, 2,
+        "between-thresholds box stays solid (halo + stroke)"
+    );
+    assert!(
+        drawn_comp.lines.len() > draw(&data, &approach(final_approach(600.0))).lines.len(),
+        "displaced ends add dashed pre-threshold and reciprocal sidelines"
     );
 }

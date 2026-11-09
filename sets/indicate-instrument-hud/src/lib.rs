@@ -26,6 +26,7 @@ pub use context::{
     EnergyState, HUD_CONTEXT_WIRE_BYTES, HudContext, HudMode, HudProfile, HudProjection,
     MissileEnvelope, WeaponEnvelope, WeaponMode, WorldSource, hud_mode,
 };
+pub use indicate_instrument_state::{VSpeedBug, VSpeedBugs, VSpeeds};
 pub use panel::{
     HUD_COMBINER_DESCRIPTOR, HUD_COMBINER_SET, HUD_REPEATER_DESCRIPTOR, HUD_SCREEN_DESCRIPTOR,
     HUD_SCREEN_SET, REFERENCE_COMBINER_FOV_RAD, REFERENCE_SCREEN_FOV_RAD, draw_hud,

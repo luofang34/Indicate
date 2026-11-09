@@ -3,7 +3,7 @@ use crate::runway::Runway;
 use crate::target::TargetPicture;
 use indicate_frames::{Quat, ROTATION_NORM_TOLERANCE};
 use indicate_instrument_descriptor::{AuxChannelId, PanelDrawError};
-use indicate_instrument_state::{PanelData, Sig, SignalStatus};
+use indicate_instrument_state::{PanelData, Sig, SignalStatus, VSpeedBugs, VSpeeds};
 
 /// Fixed byte length of the compact [`HudContext`] wire header on `AuxChannelId::HUD_CONTEXT`.
 pub const HUD_CONTEXT_WIRE_BYTES: usize = 24;
@@ -210,6 +210,10 @@ pub struct HudContext {
     /// edge, radians. The bracket is body-fixed: with the wings level, the
     /// flight path marker sits inside it exactly when the angle of attack does.
     pub on_speed_aoa_rad: Option<[f32; 2]>,
+    /// Optional airframe stall/structural V-speed limits for the HUD speed tape.
+    pub v_speeds: Option<VSpeeds>,
+    /// Optional airframe POH/AFM reference speed bugs (`Vr`, `Vx`, `Vy`, `Vg`, `Va`, `Vref`).
+    pub v_speed_bugs: VSpeedBugs,
 }
 
 impl Default for HudContext {
@@ -230,6 +234,8 @@ impl Default for HudContext {
             body_rates_rps: Sig::with_status([0.0; 3], SignalStatus::Missing),
             approach: None,
             on_speed_aoa_rad: None,
+            v_speeds: None,
+            v_speed_bugs: VSpeedBugs::default(),
             terrain_elevation_m: Sig::with_status(0.0, SignalStatus::Missing),
             energy: None,
         }
