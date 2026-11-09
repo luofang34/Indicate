@@ -296,7 +296,10 @@ const BALL_LAW: ScaleLaw<'static> = ScaleLaw::Piecewise {
 /// The index each side of the neutral mark: "a 1-minute turn of 360°
 /// when the pointer is coinciding with the index" (TM 1-413 ¶127c), so
 /// 6 °/s, where the needle stands 10.56° off upright. Each mark is
-/// centred on that needle line, 1.2 from the pivot.
+/// centred on that needle line, 1.2 from the pivot. The house shape is
+/// the one the G-13's surviving panel shows; which Army type that
+/// instrument is remains unknown, and the A-5 pictured in the AEI has
+/// arrowheads instead.
 const INDEX_LEFT: &[[f32; 2]] = &[
     [-0.22, -0.68],
     [-0.17, -0.64],
