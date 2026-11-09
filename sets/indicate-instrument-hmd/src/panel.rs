@@ -63,6 +63,7 @@ pub const HMD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     extreme_states: &[indicate_instrument_descriptor::ExtremeState {
         id: "extended-flight-guidance",
         build: indicate_instrument_state::abi::v9::fixtures::extended,
+        engines: indicate_instrument_state::abi::v9::fixtures::ENGINES,
     }],
     raster_baselines: &[],
     draw,

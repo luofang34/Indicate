@@ -2,6 +2,10 @@
 //! cannot see a needle, so these are the failure-presentation proofs.
 
 use indicate_instrument_descriptor::states;
+use indicate_instrument_state::{EngineSample, EngineSamples, abi::v9};
+
+/// The corpus's engine samples, beside every state built from `typical`.
+const TYPICAL: EngineSamples<'static> = EngineSamples::Slice(states::TYPICAL_ENGINES);
 use indicate_instrument_scene::{Cmd, SceneCmds};
 use indicate_instrument_state::{GroupId, withhold_group};
 
@@ -15,15 +19,15 @@ use crate::{
 fn a_live_needle_reads_the_state_in_its_dial_units() {
     let data = data_of(&states::typical());
     // The corpus flies 53 m/s indicated: 103.0 kt, 118.6 mph.
-    let kt = reading(&AIRSPEED_KT, &data)
+    let kt = reading(&AIRSPEED_KT, &data, &TYPICAL)
         .primary
         .expect("airspeed shows");
-    let mph = reading(&AIRSPEED_MPH, &data)
+    let mph = reading(&AIRSPEED_MPH, &data, &TYPICAL)
         .primary
         .expect("airspeed shows");
     assert!((kt - 103.03).abs() < 0.05, "{kt}");
     assert!((mph / kt - 1.150_78).abs() < 1e-4);
-    let p = pose(&AIRSPEED_KT, &reading(&AIRSPEED_KT, &data));
+    let p = pose(&AIRSPEED_KT, &reading(&AIRSPEED_KT, &data, &TYPICAL));
     assert!(p.pointers[0].live && !p.flag);
     assert!((p.pointers[0].angle_rad - AIRSPEED_KT.pointers[0].law.angle_rad(kt)).abs() < 1e-6);
 }
@@ -40,11 +44,11 @@ fn every_withheld_required_group_parks_the_needle_and_raises_the_flag() {
         (&MANIFOLD_PRESSURE, &[GroupId::Engine, GroupId::Trust][..]),
         (&TACHOMETER, &[GroupId::Engine, GroupId::Trust][..]),
     ] {
-        let fed = pose(spec, &reading(spec, &data_of(&baro_cruise())));
+        let fed = pose(spec, &reading(spec, &data_of(&baro_cruise()), &TYPICAL));
         assert!(!fed.flag, "fed {:?}", spec.primary.input);
         for group in groups {
             let state = withhold_group(&baro_cruise(), *group);
-            let p = pose(spec, &reading(spec, &data_of(&state)));
+            let p = pose(spec, &reading(spec, &data_of(&state), &TYPICAL));
             assert!(p.flag, "{:?} without {group:?}", spec.primary.input);
             for (pointer, spec_pointer) in p.pointers.iter().zip(spec.pointers) {
                 if spec_pointer.channel == crate::Channel::Primary {
@@ -60,7 +64,7 @@ fn an_altimeter_shows_no_height_that_is_not_barometric() {
     // The corpus declares local height above a session origin; an
     // altimeter has no such reading, so it flags rather than show it.
     let data = data_of(&states::typical());
-    let p = pose(&ALTIMETER, &reading(&ALTIMETER, &data));
+    let p = pose(&ALTIMETER, &reading(&ALTIMETER, &data, &TYPICAL));
     assert!(p.flag);
     assert!(p.pointers.iter().take(3).all(|ptr| !ptr.live));
     assert!(p.windows[0].live, "the Kollsman setting is still applied");
@@ -69,7 +73,7 @@ fn an_altimeter_shows_no_height_that_is_not_barometric() {
 #[test]
 fn a_drum_without_its_value_draws_no_digits() {
     let state = withhold_group(&baro_cruise(), GroupId::Air);
-    let p = pose(&ALTIMETER, &reading(&ALTIMETER, &data_of(&state)));
+    let p = pose(&ALTIMETER, &reading(&ALTIMETER, &data_of(&state), &TYPICAL));
     assert!(!p.windows[0].live);
     let scene = dial_scene(&ALTIMETER, &p, Lighting::Day, 240.0);
     let air = GroupId::Air.to_u8();
@@ -86,11 +90,11 @@ fn an_engine_the_source_does_not_report_shows_nothing() {
     spec.primary.input = crate::DialInput::EngineRpm { engine: 2 };
     let data = data_of(&states::typical());
     assert_eq!(
-        reading(&spec, &data).primary,
+        reading(&spec, &data, &TYPICAL).primary,
         None,
         "the corpus has two engines"
     );
-    let second = crate::DialInput::EngineRpm { engine: 1 }.native(&data);
+    let second = crate::DialInput::EngineRpm { engine: 1 }.native(&data, &TYPICAL);
     assert_eq!(second, Some(2320.0));
 }
 
@@ -112,4 +116,56 @@ fn the_face_scene_holds_nothing_that_moves_and_claims_no_state() {
             }
         }
     }
+}
+
+#[test]
+fn an_engine_without_the_field_shows_the_failure_pose_not_zero() {
+    // A turbine-like engine reports speed and no manifold pressure.
+    const MIXED: &[EngineSample] = &[
+        EngineSample {
+            manifold_pressure_hpa: Some(812.7),
+            rpm: Some(2300.0),
+        },
+        EngineSample {
+            manifold_pressure_hpa: None,
+            rpm: Some(9100.0),
+        },
+    ];
+    let data = data_of(&states::typical());
+    let engines = EngineSamples::Slice(MIXED);
+    let mut map = MANIFOLD_PRESSURE;
+    map.primary.input = crate::DialInput::ManifoldPressure { engine: 1 };
+    let p = pose(&map, &reading(&map, &data, &engines));
+    assert!(
+        p.flag && !p.pointers[0].live,
+        "absent field parks the needle"
+    );
+    let mut tach = TACHOMETER;
+    tach.primary.input = crate::DialInput::EngineRpm { engine: 1 };
+    assert_eq!(reading(&tach, &data, &engines).primary, Some(9100.0));
+}
+
+#[test]
+fn a_gauge_reads_engine_33_from_the_admitted_frame_bytes() {
+    let samples: std::vec::Vec<EngineSample> = (0..33)
+        .map(|k| EngineSample {
+            manifold_pressure_hpa: None,
+            rpm: Some(100.0 * k as f32),
+        })
+        .collect();
+    let mut state = states::typical();
+    state.engine.data = Some(indicate_instrument_state::EngineGroup {
+        count: 33,
+        fault: None,
+    });
+    let mut frame = std::vec![0u8; v9::CAPACITY];
+    let len = v9::encode_state_with(&state, &EngineSamples::Slice(&samples), &mut frame)
+        .expect("encodes");
+    let frame = &frame[..len];
+    let decoded = v9::decode_state(frame).expect("decodes").state;
+    let engines = v9::engine_samples(frame);
+    let mut tach = TACHOMETER;
+    tach.primary.input = crate::DialInput::EngineRpm { engine: 32 };
+    let read = reading(&tach, &data_of(&decoded), &engines).primary;
+    assert_eq!(read, Some(3200.0));
 }

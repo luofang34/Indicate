@@ -204,22 +204,27 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         ExtremeState {
             id: "extended-flight-guidance",
             build: indicate_instrument_state::abi::v9::fixtures::extended,
+            engines: indicate_instrument_state::abi::v9::fixtures::ENGINES,
         },
         ExtremeState {
             id: "unusual-inverted",
             build: extreme_states::pfd_unusual_inverted,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
         },
         ExtremeState {
             id: "readout-extremes",
             build: extreme_states::pfd_readout_extremes,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
         },
         ExtremeState {
             id: "director-engaged",
             build: extreme_states::pfd_director_engaged,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
         },
         ExtremeState {
             id: "level-accelerating",
             build: extreme_states::pfd_level_accelerating,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
         },
     ],
     // Reference-rasterizer frame hash over the shared typical state, one
@@ -318,14 +323,17 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         ExtremeState {
             id: "reciprocal-course",
             build: extreme_states::hsi_reciprocal_course,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
         },
         ExtremeState {
             id: "track-up",
             build: extreme_states::hsi_track_up,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
         },
         ExtremeState {
             id: "bearing-split-references",
             build: extreme_states::hsi_bearing_split_references,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
         },
     ],
     raster_baselines: &[(

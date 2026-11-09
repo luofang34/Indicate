@@ -59,14 +59,12 @@ fn measure(
         let state_id = case.state_id;
         let data = resolve(&case.state, &FreshnessPolicy::default());
         let scene =
-            draw_scene(panel, &data, case.alerts.as_ref(), frame, buf).map_err(|source| {
-                AdmissionError::Draw {
-                    panel: panel.id,
-                    state: state_id,
-                    withheld: case.withheld,
-                    alerted: case.alerted(),
-                    source,
-                }
+            draw_scene(panel, &data, &case, frame, buf).map_err(|source| AdmissionError::Draw {
+                panel: panel.id,
+                state: state_id,
+                withheld: case.withheld,
+                alerted: case.alerted(),
+                source,
             })?;
         let report = validate_layers(scene).map_err(|_| AdmissionError::LayerContract {
             panel: panel.id,

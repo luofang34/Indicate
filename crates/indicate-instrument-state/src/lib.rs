@@ -56,7 +56,10 @@ pub use altitude::{AltitudeClass, AltitudeDeclaration, AltitudeReference, GeoidM
 pub use autopilot::{ApEngagement, ApModes, ApTargets, LateralMode, VerticalMode};
 pub use director::{FdEngagement, FdMode, FdSample};
 pub use dynamics::{DynSample, TurnBasis, TurnSample};
-pub use engine::{EngineIndication, EngineSample, MAX_ENGINES};
+pub use engine::{
+    ENGINE_FIELDS_MASK, EngineField, EngineGroup, EngineIter, EngineSample, EngineSamples,
+    parse_samples, sample_wire_bytes,
+};
 pub use group_id::{GroupId, GroupStatuses, withhold_group};
 pub use heading::{
     ConversionFault, HeadingReference, HeadingSample, MagneticVariation, VariationSourceId,

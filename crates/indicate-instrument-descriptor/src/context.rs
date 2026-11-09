@@ -7,7 +7,7 @@ mod wire;
 mod tests;
 
 use indicate_alerts::AlertOutput;
-use indicate_instrument_state::{AircraftState, PanelData};
+use indicate_instrument_state::{AircraftState, EngineSamples, PanelData};
 use indicate_intent::EchoSummary;
 use indicate_interaction::ViewPose3D;
 
@@ -31,6 +31,7 @@ pub struct DrawContext<'a> {
     view: ViewPose3D,
     underlay: UnderlayStatus,
     aux: &'a [AuxEntry<'a>],
+    engines: EngineSamples<'a>,
 }
 
 impl<'a> DrawContext<'a> {
@@ -46,6 +47,7 @@ impl<'a> DrawContext<'a> {
             view: ViewPose3D::IDENTITY,
             underlay: UnderlayStatus::UNAVAILABLE,
             aux: &[],
+            engines: EngineSamples::EMPTY,
         }
     }
 
@@ -96,6 +98,23 @@ impl<'a> DrawContext<'a> {
     pub const fn with_aux(mut self, aux: &'a [AuxEntry<'a>]) -> Self {
         self.aux = aux;
         self
+    }
+
+    /// Attaches the engine samples beside the state: a view over the
+    /// admitted frame bytes ([`indicate_instrument_state::abi::v9::engine_samples`])
+    /// or a producer's own slice. `PanelData::engine` carries their
+    /// group status; read the samples only while it shows a value.
+    #[must_use]
+    pub const fn with_engines(mut self, engines: EngineSamples<'a>) -> Self {
+        self.engines = engines;
+        self
+    }
+
+    /// The engine samples beside the state; empty unless the host
+    /// attached them.
+    #[must_use]
+    pub const fn engines(&self) -> &EngineSamples<'a> {
+        &self.engines
     }
 
     /// Resolved flight and navigation [`PanelData`].

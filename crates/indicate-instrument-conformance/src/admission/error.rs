@@ -131,6 +131,21 @@ pub enum AdmissionError {
         /// The claiming run.
         text: String,
     },
+    /// A fixture's engine samples do not number its state's engine
+    /// header, so the matrix would draw a state its samples contradict.
+    #[error(
+        "panel {panel} fixture {state} declares {declared} engines but carries {supplied} samples"
+    )]
+    FixtureEngines {
+        /// The panel whose matrix includes the fixture.
+        panel: &'static str,
+        /// The fixture.
+        state: &'static str,
+        /// The engine header's count.
+        declared: usize,
+        /// The samples the fixture carries.
+        supplied: usize,
+    },
     /// A provenance claim not immediately followed by the text run it
     /// covers — a dangling or stacked claim is structurally malformed.
     #[error("panel {panel} scene for {state} carries a provenance claim that covers no text run")]

@@ -42,7 +42,7 @@ fn draw_registered(
         return Err(PanelDrawError::WrongTarget);
     };
     ctx.config().require_schema(&[])?;
-    let dial_pose = pose(spec, &reading(spec, ctx.data()));
+    let dial_pose = pose(spec, &reading(spec, ctx.data(), ctx.engines()));
     draw_dial(spec, &dial_pose, Lighting::Day, frame, writer)
 }
 
@@ -125,10 +125,12 @@ const BARO_STATES: &[ExtremeState] = &[
     ExtremeState {
         id: "baro-cruise",
         build: baro_cruise,
+        engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
     },
     ExtremeState {
         id: "baro-high",
         build: baro_high,
+        engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
     },
 ];
 

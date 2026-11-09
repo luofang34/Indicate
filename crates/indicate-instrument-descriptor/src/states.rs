@@ -5,7 +5,7 @@
 
 use indicate_instrument_state::{
     AirData, AircraftState, AltitudeClass, AltitudeDeclaration, ApEngagement, ApModes, ApTargets,
-    Attitude, BearingPointer, BearingPointers, DynSample, EngineIndication, EngineSample,
+    Attitude, BearingPointer, BearingPointers, DynSample, EngineGroup, EngineSample,
     EstimateQuality, GeoidModelId, HeadingReference, HeadingSample, IdentStr, Kinematics,
     LateralMode, MonitorText, NavData, NavFromTo, NavSource, Quat, Selections, SnapshotCoherence,
     SnapshotMeta, Stamped, TextLine, TurnBasis, TurnSample, ValidFlags, VerticalMode, Wind,
@@ -18,6 +18,10 @@ pub struct CanonicalState {
     pub id: &'static str,
     /// Builds the state.
     pub build: fn() -> AircraftState,
+    /// The engine samples beside the state, numbering its engine
+    /// header's count: [`TYPICAL_ENGINES`] for every state built from
+    /// [`typical`], none for [`nothing_fed`].
+    pub engines: &'static [EngineSample],
 }
 
 /// The shared corpus, in digest order. Order is part of the digest
@@ -26,26 +30,32 @@ pub const CANONICAL_STATES: &[CanonicalState] = &[
     CanonicalState {
         id: "nothing-fed",
         build: nothing_fed,
+        engines: &[],
     },
     CanonicalState {
         id: "typical",
         build: typical,
+        engines: TYPICAL_ENGINES,
     },
     CanonicalState {
         id: "fully-fed",
         build: fully_fed,
+        engines: TYPICAL_ENGINES,
     },
     CanonicalState {
         id: "source-unusable",
         build: source_unusable,
+        engines: TYPICAL_ENGINES,
     },
     CanonicalState {
         id: "ias-without-tas",
         build: ias_without_tas,
+        engines: TYPICAL_ENGINES,
     },
     CanonicalState {
         id: "nav2-source",
         build: nav2_source,
+        engines: TYPICAL_ENGINES,
     },
 ];
 
@@ -144,15 +154,23 @@ pub fn typical() -> AircraftState {
 
 /// A twin at cruise power: 24 inHg and 2,300 rpm, with the engines a
 /// few rpm apart so a gauge wired to the wrong engine shows it.
-fn typical_engine() -> Stamped<EngineIndication> {
-    let cruise = |rpm: f32| EngineSample {
+pub const TYPICAL_ENGINES: &[EngineSample] = &[
+    EngineSample {
         manifold_pressure_hpa: Some(812.7),
-        rpm: Some(rpm),
-    };
-    let idle = EngineSample::default();
-    let engines = [cruise(2300.0), cruise(2320.0), idle, idle];
+        rpm: Some(2300.0),
+    },
+    EngineSample {
+        manifold_pressure_hpa: Some(812.7),
+        rpm: Some(2320.0),
+    },
+];
+
+fn typical_engine() -> Stamped<EngineGroup> {
     Stamped {
-        data: Some(EngineIndication { count: 2, engines }),
+        data: Some(EngineGroup {
+            count: TYPICAL_ENGINES.len() as u16,
+            fault: None,
+        }),
         age_ms: Some(80.0),
     }
 }

@@ -169,7 +169,10 @@ fn draw_volume_scene<'b>(
     let data = resolve(&case.state, &FreshnessPolicy::default());
     let ctx = DrawContext::new(&data)
         .with_config(EMPTY_CONFIG)
-        .with_alerts(case.alerts.as_ref());
+        .with_alerts(case.alerts.as_ref())
+        .with_engines(indicate_instrument_state::EngineSamples::Slice(
+            case.engines,
+        ));
     let mut writer = VolumeSceneWriter::new(buf).map_err(|e| AdmissionError::Draw {
         panel: panel.id,
         state: case.state_id,

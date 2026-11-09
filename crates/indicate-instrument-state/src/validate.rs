@@ -38,6 +38,10 @@ pub enum GroupFault {
     /// out-of-charset, or non-canonical padding). Text nobody vetted
     /// must not display, so the group fails.
     MalformedIdent,
+    /// A variable-length payload disagrees with itself: its length
+    /// does not match its count and presence masks, or a mask names a
+    /// field outside the group's registry.
+    MalformedPayload,
 }
 
 /// Per-group validation results; `None` means the group's received data
@@ -98,8 +102,9 @@ pub struct StateIntegrity {
     /// Airframe-configuration fault: a non-finite ratio, or one outside
     /// the range its axis is defined over.
     pub airframe: Option<GroupFault>,
-    /// Engine fault: a count past the group's capacity, or a reading
-    /// that is not a finite, non-negative number.
+    /// Engine fault: a payload that disagrees with its count and
+    /// presence masks, or a reading that is not a finite, non-negative
+    /// number.
     pub engine: Option<GroupFault>,
     /// Autoflight-mode fault: a mode or engagement byte this build
     /// cannot name.

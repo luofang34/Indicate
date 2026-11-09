@@ -62,10 +62,24 @@ pub fn scene_digest(registry: &Registry, scratch: &mut [u8]) -> Result<[u8; 32],
     for panel in registry.panels() {
         digest_panel_contract(&mut ctx, panel);
         for state in CANONICAL_STATES {
-            digest_state(&mut ctx, panel, state.id, (state.build)(), scratch)?;
+            digest_state(
+                &mut ctx,
+                panel,
+                state.id,
+                (state.build)(),
+                state.engines,
+                scratch,
+            )?;
         }
         for extreme in panel.extreme_states {
-            digest_state(&mut ctx, panel, extreme.id, (extreme.build)(), scratch)?;
+            digest_state(
+                &mut ctx,
+                panel,
+                extreme.id,
+                (extreme.build)(),
+                extreme.engines,
+                scratch,
+            )?;
         }
     }
     Ok(ctx.finalize())
@@ -150,11 +164,14 @@ fn digest_state(
     panel: &PanelDescriptor,
     state_id: &'static str,
     state: indicate_instrument_state::AircraftState,
+    engines: &'static [indicate_instrument_state::EngineSample],
     scratch: &mut [u8],
 ) -> Result<(), DigestError> {
     update_framed(ctx, ROLE_STATE, state_id.as_bytes());
     let data = resolve(&state, &FreshnessPolicy::default());
-    let draw_ctx = DrawContext::new(&data).with_raw_state(&state);
+    let draw_ctx = DrawContext::new(&data)
+        .with_raw_state(&state)
+        .with_engines(indicate_instrument_state::EngineSamples::Slice(engines));
     match panel.space {
         RenderSpace::Planar2D {
             canonical_frames, ..

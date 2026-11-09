@@ -150,7 +150,7 @@ pub struct PanelData {
     /// a flap sensor and no trim sensor shows one scale, not two.
     pub airframe: Sig<crate::aircraft::AirframeConfig>,
     /// Engine indications with the group's own status.
-    pub engine: Sig<crate::engine::EngineIndication>,
+    pub engine: Sig<crate::engine::EngineGroup>,
     /// Group-level status keyed by [`crate::GroupId`] — the surface a
     /// registry or admission harness asks generically.
     pub groups: crate::group_id::GroupStatuses,

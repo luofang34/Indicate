@@ -64,6 +64,7 @@ pub const MONITOR_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     extreme_states: &[ExtremeState {
         id: "full-channel",
         build: extreme_states::monitor_full_channel,
+        engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
     }],
     raster_baselines: &[(
         BUILTIN_FRAME,
@@ -135,14 +136,17 @@ pub const AUTOFLIGHT_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         ExtremeState {
             id: "modes-and-targets",
             build: extreme_states::autoflight_engaged,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
         },
         ExtremeState {
             id: "extended-flight-guidance",
             build: indicate_instrument_state::abi::v9::fixtures::extended,
+            engines: indicate_instrument_state::abi::v9::fixtures::ENGINES,
         },
         ExtremeState {
             id: "target-against-another-datum",
             build: extreme_states::autoflight_incomparable_target,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
         },
     ],
     raster_baselines: &[(
@@ -216,10 +220,12 @@ pub const CONFIG_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         ExtremeState {
             id: "flaps-up-trim-nose-down",
             build: extreme_states::config_low_extremes,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
         },
         ExtremeState {
             id: "flaps-full-trim-nose-up",
             build: extreme_states::config_high_extremes,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
         },
     ],
     // No baseline until the rasterizer covers this set; the contract

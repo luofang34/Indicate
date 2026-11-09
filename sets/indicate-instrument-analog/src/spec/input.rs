@@ -1,6 +1,6 @@
 //! What a dial reads and in which unit it is engraved.
 
-use indicate_instrument_state::{AltitudeClass, GroupId, PanelData};
+use indicate_instrument_state::{AltitudeClass, EngineField, EngineSamples, GroupId, PanelData};
 
 /// A state lane a dial can read. Each reads the indicated value: lag
 /// and instrument error are the source's physics.
@@ -17,13 +17,13 @@ pub enum DialInput {
     BaroSetting,
     /// Manifold pressure of one engine (Engine group), hectopascals.
     ManifoldPressure {
-        /// Zero-based engine index.
-        engine: u8,
+        /// Zero-based engine index, in the source's panel order.
+        engine: u16,
     },
     /// Speed of one engine (Engine group), revolutions per minute.
     EngineRpm {
-        /// Zero-based engine index.
-        engine: u8,
+        /// Zero-based engine index, in the source's panel order.
+        engine: u16,
     },
 }
 
@@ -62,9 +62,11 @@ impl DialInput {
     }
 
     /// The value in this input's native unit, or `None` when the state
-    /// shows no value for it.
+    /// shows no value for it. Engine inputs read `engines`, the samples
+    /// beside the state; an engine the source does not report, or one
+    /// that lacks the field, shows no value.
     #[must_use]
-    pub fn native(self, data: &PanelData) -> Option<f32> {
+    pub fn native(self, data: &PanelData, engines: &EngineSamples<'_>) -> Option<f32> {
         let shown = |sig: indicate_instrument_state::Sig<f32>| {
             sig.status.shows_value().then_some(sig.value)
         };
@@ -76,25 +78,25 @@ impl DialInput {
                 .and_then(shown),
             Self::BaroSetting => shown(data.baro_hpa),
             Self::ManifoldPressure { engine } => {
-                engine_value(data, engine, |e| e.manifold_pressure_hpa)
+                engine_value(data, engines, engine, EngineField::ManifoldPressureHpa)
             }
-            Self::EngineRpm { engine } => engine_value(data, engine, |e| e.rpm),
+            Self::EngineRpm { engine } => engine_value(data, engines, engine, EngineField::Rpm),
         }
     }
 }
 
 fn engine_value(
     data: &PanelData,
-    engine: u8,
-    field: impl Fn(&indicate_instrument_state::EngineSample) -> Option<f32>,
+    engines: &EngineSamples<'_>,
+    engine: u16,
+    field: EngineField,
 ) -> Option<f32> {
     if !data.engine.status.shows_value() {
         return None;
     }
-    data.engine
-        .value
-        .engine(usize::from(engine))
-        .and_then(field)
+    engines
+        .get(usize::from(engine))
+        .and_then(|sample| sample.field(field))
         .filter(|v| v.is_finite())
 }
 
@@ -186,8 +188,10 @@ impl DialChannel {
 
     /// The value in dial units, or `None` when the state shows none.
     #[must_use]
-    pub fn read(&self, data: &PanelData) -> Option<f32> {
-        self.input.native(data).map(|v| v * self.unit.per_native())
+    pub fn read(&self, data: &PanelData, engines: &EngineSamples<'_>) -> Option<f32> {
+        self.input
+            .native(data, engines)
+            .map(|v| v * self.unit.per_native())
     }
 }
 

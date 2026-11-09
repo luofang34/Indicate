@@ -49,8 +49,12 @@ nothing.
   indicated altitude shows; any other declared class flags the
   altimeter.
 - Manifold pressure and engine speed come from the engine group
-  (`0x0E`). No `AIR-IN` requirement covers engine indications yet, so
-  this document cites none for them.
+  (`0x0E`). The samples arrive beside the state as an `EngineSamples`
+  view, which `DrawContext::with_engines` attaches. A dial reads engine
+  N, numbered from zero, for any N that the source reports. An engine
+  that lacks the dial's field shows the failure pose, not zero. No
+  `AIR-IN` requirement covers engine indications yet, so this document
+  cites none for them.
 - Every reading folds source trust under
   [`AIR-IN-009`](requirements.md#air-in-009).
 

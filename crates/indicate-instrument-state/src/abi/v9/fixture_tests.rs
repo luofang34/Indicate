@@ -8,7 +8,7 @@
 
 #![allow(clippy::expect_used, clippy::panic)]
 
-use super::{CAPACITY, decode_state, encode_state, fixtures};
+use super::{CAPACITY, decode_state, encode_state_with, fixtures};
 use crate::aircraft::AircraftState;
 use std::string::String;
 use std::vec::Vec;
@@ -46,7 +46,8 @@ fn bytes_of(hex: &str) -> Vec<u8> {
 
 fn assert_pinned(state: &AircraftState, committed: &str, name: &str) {
     let mut buf = [0u8; CAPACITY];
-    let len = encode_state(state, &mut buf).expect("fixture fits");
+    let engines = fixtures::engine_samples(state);
+    let len = encode_state_with(state, &engines, &mut buf).expect("fixture fits");
     assert_eq!(
         hex_of(&buf[..len]),
         committed.trim(),

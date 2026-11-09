@@ -226,10 +226,12 @@ fn extreme_state_ids_must_be_unique_and_well_formed() {
             ExtremeState {
                 id: "unusual-nose-high",
                 build: nothing_fed,
+                engines: &[],
             },
             ExtremeState {
                 id: "unusual-nose-high",
                 build: nothing_fed,
+                engines: &[],
             },
         ];
         p

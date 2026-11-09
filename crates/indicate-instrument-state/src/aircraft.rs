@@ -407,8 +407,11 @@ pub struct AircraftState {
     pub bearings: Stamped<BearingPointers>,
     /// Airframe configuration: flap position and trim.
     pub airframe: Stamped<AirframeConfig>,
-    /// Engine indications: manifold pressure and speed per engine.
-    pub engine: Stamped<crate::engine::EngineIndication>,
+    /// The engine group's header: how many engines, and whether their
+    /// samples were sound. The samples travel beside the state as a
+    /// [`crate::EngineSamples`] view, so the state stays a fixed-size
+    /// value whatever the engine count.
+    pub engine: Stamped<crate::engine::EngineGroup>,
     /// Autoflight engagement and the active and armed modes
     /// (AIR-IN-015). Stamped: an annunciation that outlives its source
     /// says the automation is doing something it stopped doing.

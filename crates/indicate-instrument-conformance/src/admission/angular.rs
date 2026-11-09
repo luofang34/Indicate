@@ -49,7 +49,10 @@ fn check_angular_case(
     let data = resolve(&case.state, &FreshnessPolicy::default());
     let ctx = DrawContext::new(&data)
         .with_config(EMPTY_CONFIG)
-        .with_alerts(case.alerts.as_ref());
+        .with_alerts(case.alerts.as_ref())
+        .with_engines(indicate_instrument_state::EngineSamples::Slice(
+            case.engines,
+        ));
     let (ang_used, ov_used) = draw_angular_pair(panel, case, &ctx, overlay_frame, ang_buf, ov_buf)?;
     let ang_bytes = ang_buf.get(..ang_used).unwrap_or(&[]);
     verify_angular_stream(panel, case, ang_bytes)?;

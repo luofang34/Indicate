@@ -153,24 +153,42 @@ fn baro_altitude(sample_m: f32, origin: u32) -> AltitudeDeclaration {
     }
 }
 
-/// Two engines with every reading distinct, so a codec that swapped
-/// slots or fields changes the golden bytes.
-fn engine() -> Stamped<crate::engine::EngineIndication> {
+/// Three engines of three kinds, so the golden bytes pin the presence
+/// masks: a piston engine with both fields, an engine reporting speed
+/// only, and an engine with no indication at all. Every reading is
+/// distinct, so a codec that swapped fields changes the bytes.
+pub const ENGINES: &[crate::engine::EngineSample] = &[
+    crate::engine::EngineSample {
+        manifold_pressure_hpa: Some(812.5),
+        rpm: Some(2300.0),
+    },
+    crate::engine::EngineSample {
+        manifold_pressure_hpa: None,
+        rpm: Some(2310.0),
+    },
+    crate::engine::EngineSample {
+        manifold_pressure_hpa: None,
+        rpm: None,
+    },
+];
+
+/// The engine samples a fixture state carries: [`ENGINES`] when its
+/// engine header is present, none otherwise. Pass them to
+/// [`super::encode_state_with`] beside the state.
+#[must_use]
+pub fn engine_samples(state: &AircraftState) -> crate::engine::EngineSamples<'static> {
+    if state.engine.data.is_some() {
+        crate::engine::EngineSamples::Slice(ENGINES)
+    } else {
+        crate::engine::EngineSamples::EMPTY
+    }
+}
+
+fn engine() -> Stamped<crate::engine::EngineGroup> {
     stamped(
-        crate::engine::EngineIndication {
-            count: 2,
-            engines: [
-                crate::engine::EngineSample {
-                    manifold_pressure_hpa: Some(812.5),
-                    rpm: Some(2300.0),
-                },
-                crate::engine::EngineSample {
-                    manifold_pressure_hpa: Some(795.0),
-                    rpm: None,
-                },
-                crate::engine::EngineSample::default(),
-                crate::engine::EngineSample::default(),
-            ],
+        crate::engine::EngineGroup {
+            count: ENGINES.len() as u16,
+            fault: None,
         },
         80.0,
     )

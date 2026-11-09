@@ -46,10 +46,13 @@ values so `git show <tag>` answers the question without a checkout.
 ## [0.9.0] — 2026-11-09
 
 State ABI 9 carries the readings of mechanically modelled instruments.
-The engine group `0x0E` (`GroupId::Engine`, `EngineIndication`) reports manifold pressure and speed for up to four engines.
+The engine group `0x0E` (`GroupId::Engine`) reports any number of engines of any kind: a header (count u16, reserved u16, age f32), then each engine as a presence mask over the append-only `EngineField` registry followed by only the fields it has.
+Today's fields are manifold pressure (bit 0) and speed (bit 1); a length that disagrees with the masks, or an unregistered bit, faults the group.
+The owned `AircraftState` carries only the header (`EngineGroup`), so it stays a fixed-size `Copy` value; the samples travel beside it as `EngineSamples`, a zero-copy view (`abi::v9::engine_samples(frame)`), are encoded with `encode_state_with`, and reach panels through `DrawContext::with_engines`.
+`CanonicalState` and `ExtremeState` gain `engines`, and `CAPACITY` grows to 4,096 bytes; a source with more engines sizes its own buffer.
 The Air group appends `vsi_mps`, the rate-of-climb instrument's own reading, after `tas_mps`; its minimum payload grows from 16 to 20 bytes.
 Both carry indicated values: a source that models gauge lag and error writes what the mechanism shows.
-`PanelData` gains `vsi_indicated_fpm` and `engine`; the display never fills one vertical speed from the other.
+`PanelData` gains `vsi_indicated_fpm` and the engine group's status; the display never fills one vertical speed from the other.
 
 The module is `abi::v9`, and the golden frames are `state-abi-v9.*.hex`.
 A v8 frame is refused by version, so a producer moves to v9 and writes the 20-byte Air payload.

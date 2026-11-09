@@ -6,7 +6,7 @@
 //! into one angle per pointer and one offset per drum wheel. Nothing
 //! here draws or decodes a scene.
 
-use indicate_instrument_state::PanelData;
+use indicate_instrument_state::{EngineSamples, PanelData};
 
 use crate::law::wheel_positions;
 use crate::spec::{
@@ -34,12 +34,19 @@ impl DialReading {
     }
 }
 
-/// Reads `spec`'s channels from resolved state, in dial units.
+/// Reads `spec`'s channels from resolved state and the engine samples
+/// beside it, in dial units.
 #[must_use]
-pub fn reading(spec: &AnalogDialSpec<'_>, data: &PanelData) -> DialReading {
+pub fn reading(
+    spec: &AnalogDialSpec<'_>,
+    data: &PanelData,
+    engines: &EngineSamples<'_>,
+) -> DialReading {
     DialReading {
-        primary: spec.primary.read(data),
-        secondary: spec.secondary.and_then(|channel| channel.read(data)),
+        primary: spec.primary.read(data, engines),
+        secondary: spec
+            .secondary
+            .and_then(|channel| channel.read(data, engines)),
     }
 }
 

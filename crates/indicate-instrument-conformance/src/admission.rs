@@ -31,7 +31,8 @@ use indicate_instrument_scene::{
     Cmd, LayerError, MAX_SCENE_BYTES, SceneCmds, SceneWriter, validate_layers,
 };
 use indicate_instrument_state::{
-    AircraftState, FreshnessPolicy, GroupId, PanelData, resolve, withhold_group,
+    AircraftState, EngineSample, EngineSamples, FreshnessPolicy, GroupId, PanelData, resolve,
+    withhold_group,
 };
 
 mod alerts;
@@ -151,6 +152,7 @@ fn admit_panel(
         RenderSpace::Planar2D {
             canonical_frames, ..
         } => {
+            check_fixture_engines(panel)?;
             for frame in canonical_frames {
                 admit_panel_at_frame(panel, *frame, report)?;
             }
@@ -192,6 +194,10 @@ struct Case {
     state_id: &'static str,
     withheld: Option<GroupId>,
     state: AircraftState,
+    /// The fixture's engine samples, beside the state as a host passes
+    /// them. Withholding the engine group clears its header, so a
+    /// panel that reads them only under the group's status sees none.
+    engines: &'static [EngineSample],
     /// The alert state fed to the draw. `None` is the quiet frame; the
     /// saturated stack is the other end of the axis.
     alerts: Option<AlertOutput>,
@@ -217,11 +223,16 @@ impl Case {
 fn case_matrix(panel: &'static PanelDescriptor) -> Vec<Case> {
     let states = CANONICAL_STATES
         .iter()
-        .map(|s| (s.id, s.build))
-        .chain(panel.extreme_states.iter().map(|e| (e.id, e.build)));
+        .map(|s| (s.id, s.build, s.engines))
+        .chain(
+            panel
+                .extreme_states
+                .iter()
+                .map(|e| (e.id, e.build, e.engines)),
+        );
     let saturated = saturated_stack();
     let mut cases = Vec::new();
-    for (state_id, build) in states {
+    for (state_id, build, engines) in states {
         let mut withholdings = vec![(None, build())];
         for group in GroupId::ALL {
             if panel.required_groups.contains(group) {
@@ -234,12 +245,44 @@ fn case_matrix(panel: &'static PanelDescriptor) -> Vec<Case> {
                     state_id,
                     withheld,
                     state,
+                    engines,
                     alerts,
                 });
             }
         }
     }
     cases
+}
+
+/// Every fixture the panel is drawn over carries engine samples that
+/// number its state's engine header, so the matrix never draws a state
+/// whose samples contradict it. A host is held to the same rule by
+/// `encode_state_with`.
+fn check_fixture_engines(panel: &'static PanelDescriptor) -> Result<(), AdmissionError> {
+    let fixtures = CANONICAL_STATES
+        .iter()
+        .map(|s| (s.id, s.build, s.engines))
+        .chain(
+            panel
+                .extreme_states
+                .iter()
+                .map(|e| (e.id, e.build, e.engines)),
+        );
+    for (state, build, engines) in fixtures {
+        let declared = build()
+            .engine
+            .data
+            .map_or(0, |group| usize::from(group.count));
+        if declared != engines.len() {
+            return Err(AdmissionError::FixtureEngines {
+                panel: panel.id,
+                state,
+                declared,
+                supplied: engines.len(),
+            });
+        }
+    }
+    Ok(())
 }
 
 fn check_case(
@@ -299,14 +342,12 @@ fn draw_runs(
     let state_id = case.state_id;
     let mut buf = vec![0u8; MAX_SCENE_BYTES];
     let scene =
-        draw_scene(panel, data, case.alerts.as_ref(), frame, &mut buf).map_err(|source| {
-            AdmissionError::Draw {
-                panel: panel.id,
-                state: state_id,
-                withheld: case.withheld,
-                alerted: case.alerted(),
-                source,
-            }
+        draw_scene(panel, data, case, frame, &mut buf).map_err(|source| AdmissionError::Draw {
+            panel: panel.id,
+            state: state_id,
+            withheld: case.withheld,
+            alerted: case.alerted(),
+            source,
         })?;
     let layers = validate_layers(scene).map_err(|error| match error {
         LayerError::Decode(_) => AdmissionError::Decode {
@@ -353,14 +394,15 @@ enum RunsDefect {
 fn draw_scene<'b>(
     panel: &PanelDescriptor,
     data: &PanelData,
-    alerts: Option<&AlertOutput>,
+    case: &Case,
     frame: DesignFrame,
     buf: &'b mut [u8],
 ) -> Result<&'b [u8], PanelDrawError> {
     let mut writer = SceneWriter::new(buf)?;
     let ctx = DrawContext::new(data)
         .with_config(EMPTY_CONFIG)
-        .with_alerts(alerts);
+        .with_alerts(case.alerts.as_ref())
+        .with_engines(EngineSamples::Slice(case.engines));
     (panel.draw)(
         &ctx,
         SceneTarget::Planar2D {
