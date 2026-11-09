@@ -5,6 +5,7 @@ use crate::aircraft::{
 };
 use crate::altitude::{AltitudeClass, OriginId};
 use crate::dynamics::TurnBasis;
+use crate::group_id::GroupId;
 use crate::presentation::{AirframeDisplayProfile, AttitudePresentation, UnusualAttitudeState};
 use crate::signal::{FreshnessPolicy, Sig, SignalStatus};
 use crate::validate::{StateIntegrity, validate_quat, validate_state};
@@ -77,6 +78,10 @@ pub struct PanelData {
     pub roll_rad: Sig<f32>,
     /// Pitch angle, radians, positive nose-up.
     pub pitch_rad: Sig<f32>,
+    /// Body yaw rate, radians per second, positive nose right: what a
+    /// rate gyro about the yaw axis senses, under the attitude group's
+    /// declared body-rate validity. [`Self::turn`] is never fed from it.
+    pub yaw_rate_rps: Sig<f32>,
     /// Independent, reference-typed heading.
     pub heading: ResolvedHeading,
     /// What orients the rose and which reference the angular
@@ -153,6 +158,8 @@ pub struct PanelData {
     pub engine: Sig<crate::engine::EngineGroup>,
     /// The fuel tank group's header, with the group's own status.
     pub fuel_tanks: Sig<crate::tank::TankGroup>,
+    /// The time of day the cockpit clock shows, seconds after midnight.
+    pub clock_s: Sig<f32>,
     /// Group-level status keyed by [`crate::GroupId`] — the surface a
     /// registry or admission harness asks generically.
     pub groups: crate::group_id::GroupStatuses,
@@ -294,6 +301,7 @@ pub fn resolve_stateful(
         ),
         roll_rad: finite(Sig::with_status(presentation.bank_rad, att_status)),
         pitch_rad: finite(Sig::with_status(presentation.pitch_rad, att_status)),
+        yaw_rate_rps: finite(group_status::yaw_rate(state, policy, &trust, &integrity)),
         heading,
         rose_basis: basis,
         heading_bug_rose_rad: finite(bug),
@@ -315,22 +323,19 @@ pub fn resolve_stateful(
         presentation,
         require_dynamics_cue: profile.require_dynamics_cue,
         sources: crate::source_monitor::SourceSelection::default(),
-        monitor_text: Sig::with_status(
-            state.monitor_text.data.unwrap_or_default(),
-            groups.status(crate::group_id::GroupId::MonitorText),
+        monitor_text: group_status::group_sig(
+            state.monitor_text.data,
+            &groups,
+            GroupId::MonitorText,
         ),
-        airframe: Sig::with_status(
-            state.airframe.data.unwrap_or_default(),
-            groups.status(crate::group_id::GroupId::AirframeConfig),
-        ),
-        engine: Sig::with_status(
-            state.engine.data.unwrap_or_default(),
-            groups.status(crate::group_id::GroupId::Engine),
-        ),
-        fuel_tanks: Sig::with_status(
-            state.fuel_tanks.data.unwrap_or_default(),
-            groups.status(crate::group_id::GroupId::FuelTanks),
-        ),
+        airframe: group_status::group_sig(state.airframe.data, &groups, GroupId::AirframeConfig),
+        engine: group_status::group_sig(state.engine.data, &groups, GroupId::Engine),
+        fuel_tanks: group_status::group_sig(state.fuel_tanks.data, &groups, GroupId::FuelTanks),
+        clock_s: finite(group_status::group_sig(
+            state.clock.data.map(|c| c.time_of_day_s),
+            &groups,
+            GroupId::Clock,
+        )),
         groups,
     }
 }

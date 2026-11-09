@@ -50,7 +50,7 @@ mod v_speeds;
 mod validate;
 
 pub use aircraft::{
-    AirData, AircraftState, AirframeConfig, Attitude, BearingPointer, BearingPointers,
+    AirData, AircraftState, AirframeConfig, Attitude, BearingPointer, BearingPointers, ClockSample,
     EstimateQuality, Kinematics, NavData, NavFromTo, NavScale, NavSource, Selections,
     SnapshotCoherence, SnapshotMeta, Stamped, ValidFlags, Wind,
 };

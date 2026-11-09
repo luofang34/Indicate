@@ -109,6 +109,9 @@ pub struct StateIntegrity {
     /// Fuel tank fault: a payload that disagrees with its count and
     /// presence masks, or a negative or non-finite reading.
     pub fuel_tanks: Option<GroupFault>,
+    /// Clock fault: a time of day that is not a finite number of
+    /// seconds in `[0, 86400)`.
+    pub clock: Option<GroupFault>,
     /// Autoflight-mode fault: a mode or engagement byte this build
     /// cannot name.
     pub ap_modes: Option<GroupFault>,
@@ -300,6 +303,7 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
         .as_ref()
         .and_then(crate::engine::engine_fault);
     integrity.fuel_tanks = state.fuel_tanks.data.and_then(|group| group.fault);
+    integrity.clock = state.clock.data.and_then(|clock| clock_fault(&clock));
     if let Some(nav) = &state.nav.data {
         integrity.nav = nav_fault(nav);
     }
@@ -437,6 +441,12 @@ fn altitude_fault(state: &AircraftState) -> Option<GroupFault> {
         }
         AltitudeClass::Unknown => Some(GroupFault::UnknownEnum),
     }
+}
+
+/// A time of day that is not a finite number of seconds in the day.
+fn clock_fault(clock: &crate::aircraft::ClockSample) -> Option<GroupFault> {
+    let t = clock.time_of_day_s;
+    (!(t.is_finite() && (0.0..86_400.0).contains(&t))).then_some(GroupFault::NonFinite)
 }
 
 #[cfg(test)]

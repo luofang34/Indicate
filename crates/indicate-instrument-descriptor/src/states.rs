@@ -159,6 +159,7 @@ pub fn typical() -> AircraftState {
         bearings: typical_bearings(),
         engine: typical_engine(),
         fuel_tanks: typical_tanks(),
+        clock: typical_clock(),
         ap_modes: Stamped::default(),
         ap_targets: ApTargets::default(),
     }
@@ -169,11 +170,14 @@ pub fn typical() -> AircraftState {
 /// 105 °C and carburettor air at 18 °C. The engines differ a little in
 /// every reading, so a gauge wired to the wrong engine shows it.
 pub const TYPICAL_ENGINES: &[EngineSample] = &[
-    cruise_engine(2300.0, 75.0, 517.0, 105.0),
-    cruise_engine(2320.0, 77.0, 510.0, 103.0),
+    cruise_engine(2300.0, [75.0, 517.0, 105.0], 40.0),
+    cruise_engine(2320.0, [77.0, 510.0, 103.0], 95.0),
 ];
 
-const fn cruise_engine(rpm: f32, oil_c: f32, oil_kpa: f32, coolant_c: f32) -> EngineSample {
+/// `liquids` is oil °C, oil kPa and coolant °C; the shaft angles stand
+/// 55° apart, so a synchroscope reads a phase.
+const fn cruise_engine(rpm: f32, liquids: [f32; 3], shaft_deg: f32) -> EngineSample {
+    let [oil_c, oil_kpa, coolant_c] = liquids;
     EngineSample {
         manifold_pressure_hpa: Some(812.7),
         rpm: Some(rpm),
@@ -182,6 +186,7 @@ const fn cruise_engine(rpm: f32, oil_c: f32, oil_kpa: f32, coolant_c: f32) -> En
         fuel_pressure_kpa: Some(110.0),
         coolant_temperature_c: Some(coolant_c),
         carburettor_air_temperature_c: Some(18.0),
+        shaft_angle_deg: Some(shaft_deg),
         ..EngineSample::EMPTY
     }
 }
@@ -201,6 +206,16 @@ const fn tank(quantity_l: f32, capacity_l: f32) -> TankSample {
         quantity_l: Some(quantity_l),
         capacity_l: Some(capacity_l),
         ..TankSample::EMPTY
+    }
+}
+
+/// 10:30:15 by the cockpit clock.
+fn typical_clock() -> Stamped<indicate_instrument_state::ClockSample> {
+    Stamped {
+        data: Some(indicate_instrument_state::ClockSample {
+            time_of_day_s: 37_815.0,
+        }),
+        age_ms: Some(80.0),
     }
 }
 

@@ -9,7 +9,7 @@
 
 use crate::aircraft::AircraftState;
 use crate::group_id::{GroupId, GroupStatuses};
-use crate::signal::{FreshnessPolicy, SignalStatus};
+use crate::signal::{FreshnessPolicy, Sig, SignalStatus};
 use crate::validate::StateIntegrity;
 
 use super::{Trust, fault_status, group_freshness};
@@ -160,6 +160,7 @@ fn group_status(
         | GroupId::AirframeConfig
         | GroupId::Engine
         | GroupId::FuelTanks
+        | GroupId::Clock
         | GroupId::ApModes
         | GroupId::FlightDirector => equipment_status(state, policy, trust, integrity, id),
         // Targets fold no source trust, mirroring selections: a target
@@ -212,6 +213,9 @@ fn equipment_status(
             integrity.fuel_tanks,
             true,
         ),
+        // So does the clock: a time from a source the state does not
+        // trust is not shown.
+        GroupId::Clock => fold(&Ctx::of(policy, trust, &state.clock), integrity.clock, true),
         // Autoflight modes fold source trust like the director: an
         // annunciation sourced from a state nobody trusts must not say
         // the automation is holding something.
@@ -262,6 +266,34 @@ fn flight_status(
             true,
         )
     }
+}
+
+/// A group's data, or its default behind a hidden status, with the
+/// group's own status.
+pub(super) fn group_sig<T: Default>(
+    data: Option<T>,
+    groups: &GroupStatuses,
+    id: GroupId,
+) -> Sig<T> {
+    Sig::with_status(data.unwrap_or_default(), groups.status(id))
+}
+
+/// The body yaw rate, under the attitude group's freshness and trust
+/// and its own declared body-rate validity: a source that declares no
+/// rates shows no turn needle, rather than a needle at zero.
+pub(super) fn yaw_rate(
+    state: &AircraftState,
+    policy: &FreshnessPolicy,
+    trust: &Trust,
+    integrity: &StateIntegrity,
+) -> Sig<f32> {
+    let has = state.attitude.data.is_some();
+    let fresh = group_freshness(policy, has, state.attitude.age_ms);
+    let fault = integrity.attitude.or(integrity.rates);
+    Sig::with_status(
+        state.attitude.data.map_or(0.0, |a| a.rates_rps[2]),
+        trust.fold(has, fresh, fault, state.valid.rates),
+    )
 }
 
 #[cfg(test)]

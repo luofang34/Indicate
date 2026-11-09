@@ -45,17 +45,17 @@ fn heterogeneous_engines_carry_only_their_own_fields() {
     let frame = encode_full();
     let (at, len) = engine_payload(&frame);
     let p = &frame[at..at + len];
-    // Header 8, then a mask with all eight fields, 2 + 4, and a bare
+    // Header 8, then a mask with all nine fields, 2 + 4, and a bare
     // 2-byte mask.
-    assert_eq!(len, 8 + 34 + 6 + 2);
+    assert_eq!(len, 8 + 38 + 6 + 2);
     assert_eq!(u16::from_le_bytes([p[0], p[1]]), 3, "count");
     assert_eq!(
         u16::from_le_bytes([p[8], p[9]]),
-        0xFF,
-        "piston: every registered gauge"
+        0x1FF,
+        "piston: every registered field"
     );
-    assert_eq!(u16::from_le_bytes([p[42], p[43]]), 0b10, "speed only");
-    assert_eq!(u16::from_le_bytes([p[48], p[49]]), 0b00, "no indication");
+    assert_eq!(u16::from_le_bytes([p[46], p[47]]), 0b10, "speed only");
+    assert_eq!(u16::from_le_bytes([p[52], p[53]]), 0b00, "no indication");
 
     let report = decode_state(&frame).expect("decodes");
     assert_eq!(report.extended_groups, 0, "the samples are not a tail");
@@ -122,8 +122,8 @@ fn an_unregistered_bit_or_reserved_word_faults_the_group() {
     let frame = encode_full();
     let (at, len) = engine_payload(&frame);
     let mut unknown = frame[at..at + len].to_vec();
-    // The bare third sample claims bit 8, which no field owns.
-    unknown[49] = 0b1;
+    // The bare third sample claims bit 9, which no field owns.
+    unknown[53] = 0b10;
     assert_faulted(
         &with_engine_payload(&frame, &unknown),
         GroupFault::MalformedPayload,

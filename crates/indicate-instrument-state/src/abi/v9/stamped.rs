@@ -23,7 +23,9 @@
 
 use super::{AbiError, get_f32, get_u8, put_f32, put_u8};
 use crate::abi::{opt, or_nan};
-use crate::aircraft::{AirData, AircraftState, Attitude, Kinematics, NavData, Stamped, Wind};
+use crate::aircraft::{
+    AirData, AircraftState, Attitude, ClockSample, Kinematics, NavData, Stamped, Wind,
+};
 use crate::aircraft::{NavFromTo, NavSource};
 use crate::dynamics::{DynSample, TurnBasis, TurnSample};
 use crate::heading::{HeadingReference, HeadingSample, MagneticVariation, VariationSourceId};
@@ -318,6 +320,30 @@ pub(super) fn encode_variation(
     );
     put_f32(p, 8, or_nan(state.variation.age_ms));
     Ok(Some(12))
+}
+
+/// Clock payload: time of day f32 @0 (NaN absent), age f32 @4.
+pub(super) fn decode_clock(state: &mut AircraftState, p: &[u8]) {
+    let age = opt(get_f32(p, 4));
+    state.clock = Stamped {
+        data: age
+            .and(opt(get_f32(p, 0)))
+            .map(|time_of_day_s| ClockSample { time_of_day_s }),
+        age_ms: age,
+    };
+}
+
+pub(super) fn encode_clock(
+    state: &AircraftState,
+    out: &mut [u8],
+) -> Result<Option<usize>, AbiError> {
+    if absent(&state.clock) {
+        return Ok(None);
+    }
+    let p = sized(out, 8)?;
+    put_f32(p, 0, or_nan(state.clock.data.map(|c| c.time_of_day_s)));
+    put_f32(p, 4, or_nan(state.clock.age_ms));
+    Ok(Some(8))
 }
 
 pub(super) fn decode_dynamics(state: &mut AircraftState, p: &[u8]) {

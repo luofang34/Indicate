@@ -250,6 +250,17 @@ pub struct AirframeConfig {
     pub rudder_trim_ratio: Option<f32>,
 }
 
+/// What the cockpit clock shows.
+///
+/// A clock is an instrument: it reads the time it was set to, gaining
+/// or losing as it runs. The source writes that reading, so the display
+/// never derives a time of day from a simulation or system clock.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct ClockSample {
+    /// Seconds after midnight, in `[0, 86400)`.
+    pub time_of_day_s: f32,
+}
+
 /// Wind estimate.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Wind {
@@ -415,6 +426,8 @@ pub struct AircraftState {
     /// The fuel tank group's header; the tank samples travel beside the
     /// state as a [`crate::TankSamples`] view.
     pub fuel_tanks: Stamped<crate::tank::TankGroup>,
+    /// What the cockpit clock shows.
+    pub clock: Stamped<ClockSample>,
     /// Autoflight engagement and the active and armed modes
     /// (AIR-IN-015). Stamped: an annunciation that outlives its source
     /// says the automation is doing something it stopped doing.

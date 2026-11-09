@@ -62,6 +62,8 @@ mod equipment;
 mod flight;
 #[cfg(test)]
 mod flight_tests;
+#[cfg(test)]
+mod instrument_tests;
 mod masked;
 mod monitor;
 mod speed;
@@ -170,6 +172,7 @@ const fn min_len(id: GroupId) -> usize {
         GroupId::ApTargets => 20,
         GroupId::Guidance => flight::GUIDANCE_LEN,
         GroupId::SpeedPresentation => speed::SPEED_LEN,
+        GroupId::Clock => 8,
     }
 }
 
@@ -200,6 +203,7 @@ fn decode_group(state: &mut AircraftState, id: GroupId, payload: &[u8]) {
         GroupId::ApTargets => declared::decode_ap_targets(state, payload),
         GroupId::Guidance => flight::decode_guidance(state, payload),
         GroupId::SpeedPresentation => speed::decode_speed(state, payload),
+        GroupId::Clock => stamped::decode_clock(state, payload),
     }
 }
 
@@ -248,6 +252,7 @@ fn encode_group(
         GroupId::ApTargets => declared::encode_ap_targets(state, out),
         GroupId::Guidance => flight::encode_guidance(state, out),
         GroupId::SpeedPresentation => speed::encode_speed(state, out),
+        GroupId::Clock => stamped::encode_clock(state, out),
     }
 }
 

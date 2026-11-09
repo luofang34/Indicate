@@ -61,24 +61,41 @@ impl ResolvedHeading {
     /// Returns `Failed` when conversion from magnetic north lacks a usable variation sample.
     #[must_use]
     pub fn true_heading_rad(&self) -> Sig<f32> {
-        self.angle_to_true_rad(self.reference, self.value_rad)
+        self.angle_to_rad(self.reference, HeadingReference::True, self.value_rad)
+    }
+
+    /// Converts the heading sample to magnetic north through
+    /// [`convert_heading`]: what a magnetic compass card shows.
+    ///
+    /// Returns `Failed` when conversion from true north lacks a usable variation sample.
+    #[must_use]
+    pub fn magnetic_heading_rad(&self) -> Sig<f32> {
+        self.angle_to_rad(self.reference, HeadingReference::Magnetic, self.value_rad)
     }
 
     pub(crate) fn rose_to_true_rad(&self, basis: RoseBasis, angle_rad: Sig<f32>) -> Sig<f32> {
-        self.angle_to_true_rad(basis.display_reference(self.reference), angle_rad)
+        let from = basis.display_reference(self.reference);
+        self.angle_to_rad(from, HeadingReference::True, angle_rad)
     }
 
-    fn angle_to_true_rad(&self, from: HeadingReference, angle_rad: Sig<f32>) -> Sig<f32> {
+    /// `angle_rad` in `from` converted to `to`. A conversion across
+    /// magnetic north folds the variation sample's status in.
+    fn angle_to_rad(
+        &self,
+        from: HeadingReference,
+        to: HeadingReference,
+        angle_rad: Sig<f32>,
+    ) -> Sig<f32> {
         if !angle_rad.status.shows_value() {
             return Sig::with_status(0.0, angle_rad.status);
         }
         let sample = self.variation.as_ref().map(|(sample, _)| sample);
-        match convert_heading(angle_rad.value, from, HeadingReference::True, sample) {
+        match convert_heading(angle_rad.value, from, to, sample) {
             Ok(value) => {
-                let status = match (from, self.variation) {
-                    (HeadingReference::Magnetic, Some((_, var_status))) => {
-                        angle_rad.status.worst(var_status)
-                    }
+                let crosses =
+                    (from == HeadingReference::Magnetic) != (to == HeadingReference::Magnetic);
+                let status = match self.variation {
+                    Some((_, var_status)) if crosses => angle_rad.status.worst(var_status),
                     _ => angle_rad.status,
                 };
                 finite(Sig::with_status(value, status))

@@ -155,7 +155,7 @@ fn baro_altitude(sample_m: f32, origin: u32) -> AltitudeDeclaration {
 
 /// Three engines of three kinds, so the golden bytes pin the presence
 /// masks: a piston engine with a full set of gauges (one temperature
-/// below zero, which a temperature field admits), an engine reporting
+/// below zero, which a temperature field admits) and its shaft angle, an engine reporting
 /// speed only, and an engine with no indication at all. Every reading
 /// is distinct, so a codec that swapped fields changes the bytes.
 pub const ENGINES: &[crate::engine::EngineSample] = &[
@@ -168,6 +168,7 @@ pub const ENGINES: &[crate::engine::EngineSample] = &[
         coolant_temperature_c: Some(104.0),
         cylinder_head_temperature_c: Some(187.0),
         carburettor_air_temperature_c: Some(-3.5),
+        shaft_angle_deg: Some(127.5),
     },
     crate::engine::EngineSample {
         rpm: Some(2310.0),
@@ -224,6 +225,16 @@ fn engine() -> Stamped<crate::engine::EngineGroup> {
     )
 }
 
+/// 10:30:15.5, so the golden bytes pin a fractional second.
+fn clock() -> Stamped<crate::aircraft::ClockSample> {
+    stamped(
+        crate::aircraft::ClockSample {
+            time_of_day_s: 37_815.5,
+        },
+        80.0,
+    )
+}
+
 fn tanks() -> Stamped<crate::tank::TankGroup> {
     stamped(
         crate::tank::TankGroup {
@@ -264,6 +275,7 @@ fn equipment() -> AircraftState {
         ),
         engine: engine(),
         fuel_tanks: tanks(),
+        clock: clock(),
         bearings: stamped(
             crate::aircraft::BearingPointers {
                 first: crate::aircraft::BearingPointer {

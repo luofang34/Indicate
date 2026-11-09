@@ -41,12 +41,17 @@ pub enum EngineField {
     CylinderHeadTemperatureC = 6,
     /// Carburettor air temperature, degrees Celsius.
     CarburettorAirTemperatureC = 7,
+    /// The shaft's angle of rotation, degrees in `[0, 360)`: the source
+    /// integrates its speed. Two engines' angles give their phase, which
+    /// is what a synchroscope shows; a display cannot integrate a speed
+    /// difference itself, because a pose holds no memory between frames.
+    ShaftAngleDeg = 8,
 }
 
 impl EngineField {
     /// Every registered field, in bit order: the order a sample's
     /// present fields follow on the wire.
-    pub const ALL: [EngineField; 8] = [
+    pub const ALL: [EngineField; 9] = [
         EngineField::ManifoldPressureHpa,
         EngineField::Rpm,
         EngineField::OilTemperatureC,
@@ -55,6 +60,7 @@ impl EngineField {
         EngineField::CoolantTemperatureC,
         EngineField::CylinderHeadTemperatureC,
         EngineField::CarburettorAirTemperatureC,
+        EngineField::ShaftAngleDeg,
     ];
 
     /// This field's bit in a presence mask.
@@ -70,25 +76,27 @@ impl EngineField {
     }
 
     /// Whether `v` is a value this field can hold: a temperature at or
-    /// above absolute zero, any other reading not negative.
+    /// above absolute zero, a shaft angle in `[0, 360)`, any other
+    /// reading not negative.
     #[must_use]
     pub fn admits(self, v: f32) -> bool {
-        let floor = match self {
+        let (floor, below) = match self {
             Self::OilTemperatureC
             | Self::CoolantTemperatureC
             | Self::CylinderHeadTemperatureC
-            | Self::CarburettorAirTemperatureC => -273.15,
+            | Self::CarburettorAirTemperatureC => (-273.15, f32::INFINITY),
+            Self::ShaftAngleDeg => (0.0, 360.0),
             Self::ManifoldPressureHpa
             | Self::Rpm
             | Self::OilPressureKpa
-            | Self::FuelPressureKpa => 0.0,
+            | Self::FuelPressureKpa => (0.0, f32::INFINITY),
         };
-        v.is_finite() && v >= floor
+        v.is_finite() && v >= floor && v < below
     }
 }
 
 /// Every bit the registry assigns; any other bit faults the group.
-pub const ENGINE_FIELDS_MASK: u16 = 0x00FF;
+pub const ENGINE_FIELDS_MASK: u16 = 0x01FF;
 
 /// Wire bytes of an engine sample whose presence mask is `mask`; `None`
 /// when the mask names a field outside the registry.
@@ -126,6 +134,8 @@ pub struct EngineSample {
     pub cylinder_head_temperature_c: Option<f32>,
     /// Carburettor air temperature, degrees Celsius.
     pub carburettor_air_temperature_c: Option<f32>,
+    /// Shaft angle, degrees in `[0, 360)`.
+    pub shaft_angle_deg: Option<f32>,
 }
 
 impl EngineSample {
@@ -140,6 +150,7 @@ impl EngineSample {
         coolant_temperature_c: None,
         cylinder_head_temperature_c: None,
         carburettor_air_temperature_c: None,
+        shaft_angle_deg: None,
     };
 
     /// The reading of `field`, if this engine has it.
@@ -154,6 +165,7 @@ impl EngineSample {
             EngineField::CoolantTemperatureC => self.coolant_temperature_c,
             EngineField::CylinderHeadTemperatureC => self.cylinder_head_temperature_c,
             EngineField::CarburettorAirTemperatureC => self.carburettor_air_temperature_c,
+            EngineField::ShaftAngleDeg => self.shaft_angle_deg,
         }
     }
 
@@ -167,6 +179,7 @@ impl EngineSample {
             EngineField::CoolantTemperatureC => &mut self.coolant_temperature_c,
             EngineField::CylinderHeadTemperatureC => &mut self.cylinder_head_temperature_c,
             EngineField::CarburettorAirTemperatureC => &mut self.carburettor_air_temperature_c,
+            EngineField::ShaftAngleDeg => &mut self.shaft_angle_deg,
         }
     }
 
