@@ -37,6 +37,11 @@ pub struct AirData {
     /// does not supply it leaves it absent and the readout shows
     /// `Missing`, never a number computed from indicated airspeed.
     pub tas_mps: Option<f32>,
+    /// Indicated vertical speed in meters/second, positive climbing: what
+    /// the source's rate-of-climb instrument reads, its leak lag and
+    /// error included. It is not the kinematic vertical velocity, and
+    /// the display never substitutes one for the other.
+    pub vsi_mps: Option<f32>,
 }
 
 /// The selected lateral navigation source.
@@ -245,6 +250,17 @@ pub struct AirframeConfig {
     pub rudder_trim_ratio: Option<f32>,
 }
 
+/// What the cockpit clock shows.
+///
+/// A clock is an instrument: it reads the time it was set to, gaining
+/// or losing as it runs. The source writes that reading, so the display
+/// never derives a time of day from a simulation or system clock.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct ClockSample {
+    /// Seconds after midnight, in `[0, 86400)`.
+    pub time_of_day_s: f32,
+}
+
 /// Wind estimate.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Wind {
@@ -402,6 +418,16 @@ pub struct AircraftState {
     pub bearings: Stamped<BearingPointers>,
     /// Airframe configuration: flap position and trim.
     pub airframe: Stamped<AirframeConfig>,
+    /// The engine group's header: how many engines, and whether their
+    /// samples were sound. The samples travel beside the state as a
+    /// [`crate::EngineSamples`] view, so the state stays a fixed-size
+    /// value whatever the engine count.
+    pub engine: Stamped<crate::engine::EngineGroup>,
+    /// The fuel tank group's header; the tank samples travel beside the
+    /// state as a [`crate::TankSamples`] view.
+    pub fuel_tanks: Stamped<crate::tank::TankGroup>,
+    /// What the cockpit clock shows.
+    pub clock: Stamped<ClockSample>,
     /// Autoflight engagement and the active and armed modes
     /// (AIR-IN-015). Stamped: an annunciation that outlives its source
     /// says the automation is doing something it stopped doing.

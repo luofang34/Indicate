@@ -115,10 +115,13 @@ pub enum AdmissionError {
         /// The claiming run.
         text: String,
     },
-    /// A visible run claims configuration provenance under the
-    /// harness's fixed empty configuration — it derives from nothing.
+    /// A run claims configuration provenance but is not a printed
+    /// legend: its text or placement differs from the same frame's
+    /// first case, so it carries state. In the angular and volumetric
+    /// matrices, which run no invariance check, any visible
+    /// configuration claim is refused under this name.
     #[error(
-        "panel {panel} shows {text:?} in {state} claiming configuration provenance under the empty configuration"
+        "panel {panel} shows {text:?} in {state} claiming configuration provenance, but it is not the same in every case"
     )]
     ConfigClaim {
         /// The drawing panel.
@@ -127,6 +130,21 @@ pub enum AdmissionError {
         state: &'static str,
         /// The claiming run.
         text: String,
+    },
+    /// A fixture's engine samples do not number its state's engine
+    /// header, so the matrix would draw a state its samples contradict.
+    #[error(
+        "panel {panel} fixture {state} declares {declared} records but carries {supplied} samples"
+    )]
+    FixtureEngines {
+        /// The panel whose matrix includes the fixture.
+        panel: &'static str,
+        /// The fixture.
+        state: &'static str,
+        /// The engine header's count.
+        declared: usize,
+        /// The samples the fixture carries.
+        supplied: usize,
     },
     /// A provenance claim not immediately followed by the text run it
     /// covers — a dangling or stacked claim is structurally malformed.

@@ -203,23 +203,38 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     extreme_states: &[
         ExtremeState {
             id: "extended-flight-guidance",
-            build: indicate_instrument_state::abi::v8::fixtures::extended,
+            build: indicate_instrument_state::abi::v9::fixtures::extended,
+            engines: indicate_instrument_state::abi::v9::fixtures::ENGINES,
+
+            tanks: indicate_instrument_state::abi::v9::fixtures::TANKS,
         },
         ExtremeState {
             id: "unusual-inverted",
             build: extreme_states::pfd_unusual_inverted,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
+
+            tanks: indicate_instrument_descriptor::states::TYPICAL_TANKS,
         },
         ExtremeState {
             id: "readout-extremes",
             build: extreme_states::pfd_readout_extremes,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
+
+            tanks: indicate_instrument_descriptor::states::TYPICAL_TANKS,
         },
         ExtremeState {
             id: "director-engaged",
             build: extreme_states::pfd_director_engaged,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
+
+            tanks: indicate_instrument_descriptor::states::TYPICAL_TANKS,
         },
         ExtremeState {
             id: "level-accelerating",
             build: extreme_states::pfd_level_accelerating,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
+
+            tanks: indicate_instrument_descriptor::states::TYPICAL_TANKS,
         },
     ],
     // Reference-rasterizer frame hash over the shared typical state, one
@@ -318,14 +333,23 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         ExtremeState {
             id: "reciprocal-course",
             build: extreme_states::hsi_reciprocal_course,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
+
+            tanks: indicate_instrument_descriptor::states::TYPICAL_TANKS,
         },
         ExtremeState {
             id: "track-up",
             build: extreme_states::hsi_track_up,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
+
+            tanks: indicate_instrument_descriptor::states::TYPICAL_TANKS,
         },
         ExtremeState {
             id: "bearing-split-references",
             build: extreme_states::hsi_bearing_split_references,
+            engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
+
+            tanks: indicate_instrument_descriptor::states::TYPICAL_TANKS,
         },
     ],
     raster_baselines: &[(
@@ -372,7 +396,7 @@ pub const ALL_SETS: &[PanelSet] = &[BUILTIN_SET, CONFIG_SET];
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "dae6c3a97550e2a5bb05f308444ca7b6f8af19924b3bb5cf864e45539d128ec6";
+    "c61cb54b60c31a2cbc614e809c29e7c8d363178d3c30bc01c55552092d236459";
 
 pub use criticality_bands::BUILTIN_CRITICALITY_BANDS;
 pub use supplementary::{

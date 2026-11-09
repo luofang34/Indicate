@@ -4,7 +4,7 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 use super::{GroupId, withhold_group};
-use crate::abi::v8::fixtures;
+use crate::abi::v9::fixtures;
 use crate::signal::{FreshnessPolicy, SignalStatus};
 
 #[test]
@@ -21,25 +21,65 @@ fn all_is_ascending_and_bijective_with_from_u8() {
 #[test]
 fn unassigned_tags_do_not_resolve() {
     assert_eq!(GroupId::from_u8(0x00), None);
-    for value in 0x18u8..=0xFF {
+    for value in 0x1Au8..=0xFF {
         assert_eq!(GroupId::from_u8(value), None, "tag {value:#04x}");
     }
 }
 
 #[test]
 fn reserved_and_allocated_tags_have_no_status_slot_yet() {
-    // 0x0E–0x11 are planned, with their layouts not yet fixed. Until
+    // 0x0F–0x11 are planned, with their layouts not yet fixed. Until
     // one lands, no such tag resolves to a variant, so none can key a
     // `GroupStatuses` slot.
-    for value in 0x0Eu8..=0x11 {
+    for value in 0x0Fu8..=0x11 {
         assert_eq!(GroupId::from_u8(value), None, "tag {value:#04x}");
     }
 }
 
 #[test]
-fn index_is_dense_over_all() {
-    for (position, id) in GroupId::ALL.iter().enumerate() {
-        assert_eq!(id.index(), position);
+fn index_is_a_dense_permutation_over_all() {
+    let mut seen = [false; GroupId::COUNT];
+    for id in GroupId::ALL {
+        let slot = seen.get_mut(id.index()).expect("slot inside the table");
+        assert!(!*slot, "{id:?} shares a slot");
+        *slot = true;
+    }
+    assert!(seen.iter().all(|s| *s));
+}
+
+#[test]
+fn slots_are_append_only() {
+    // Pinned because a `GroupSet` travels as raw bits inside signed
+    // plugin descriptors: a group whose slot moved would change what
+    // an existing package declares without any byte of it changing.
+    // A new group takes the next slot; no entry here ever changes.
+    let pinned = [
+        (GroupId::Attitude, 0),
+        (GroupId::Kinematics, 1),
+        (GroupId::Air, 2),
+        (GroupId::Nav, 3),
+        (GroupId::Wind, 4),
+        (GroupId::Selections, 5),
+        (GroupId::Trust, 6),
+        (GroupId::Altitude, 7),
+        (GroupId::Heading, 8),
+        (GroupId::Variation, 9),
+        (GroupId::Dynamics, 10),
+        (GroupId::MonitorText, 11),
+        (GroupId::FlightDirector, 12),
+        (GroupId::BearingPointers, 13),
+        (GroupId::AirframeConfig, 14),
+        (GroupId::ApModes, 15),
+        (GroupId::ApTargets, 16),
+        (GroupId::Guidance, 17),
+        (GroupId::SpeedPresentation, 18),
+        (GroupId::Engine, 19),
+        (GroupId::FuelTanks, 20),
+        (GroupId::Clock, 21),
+    ];
+    assert_eq!(pinned.len(), GroupId::COUNT);
+    for (id, slot) in pinned {
+        assert_eq!(id.index(), slot, "{id:?} moved slot");
     }
 }
 
@@ -91,6 +131,9 @@ fn withholding_a_stamped_group_resolves_missing() {
             | GroupId::Dynamics
             | GroupId::BearingPointers
             | GroupId::AirframeConfig
+            | GroupId::Engine
+            | GroupId::FuelTanks
+            | GroupId::Clock
             | GroupId::ApModes
             | GroupId::FlightDirector
             | GroupId::Guidance

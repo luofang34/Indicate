@@ -45,6 +45,11 @@ const DOCUMENTED: &[Documented] = &[
         ],
     },
     Documented {
+        document: "set-analog.md",
+        package: "indicate-instrument-analog",
+        sets: &[&indicate_instrument_analog::ANALOG_SET],
+    },
+    Documented {
         document: "set-template.md",
         package: "indicate-instrument-template",
         sets: &[&indicate_instrument_template::TEMPLATE_SET],

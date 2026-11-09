@@ -53,7 +53,7 @@ The dependency closure contains no wire protocol, no host, no client:
 consumers (the Pilotage cockpit, avionics-link, native shells) pin this
 repository by git rev and integrate through three published surfaces:
 
-- the state ABI (`indicate-instrument-state::abi::v8`) — a
+- the state ABI (`indicate-instrument-state::abi::v9`) — a
   self-delimiting tagged-group frame; presence is meaning, sources with
   different group sets drive the same panels;
 - the scene IR (`indicate-instrument-scene`) — the opcode vocabulary a

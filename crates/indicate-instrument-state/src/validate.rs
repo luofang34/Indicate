@@ -38,6 +38,10 @@ pub enum GroupFault {
     /// out-of-charset, or non-canonical padding). Text nobody vetted
     /// must not display, so the group fails.
     MalformedIdent,
+    /// A variable-length payload disagrees with itself: its length
+    /// does not match its count and presence masks, or a mask names a
+    /// field outside the group's registry.
+    MalformedPayload,
 }
 
 /// Per-group validation results; `None` means the group's received data
@@ -98,6 +102,16 @@ pub struct StateIntegrity {
     /// Airframe-configuration fault: a non-finite ratio, or one outside
     /// the range its axis is defined over.
     pub airframe: Option<GroupFault>,
+    /// Engine fault: a payload that disagrees with its count and
+    /// presence masks, or a reading that is not a finite, non-negative
+    /// number.
+    pub engine: Option<GroupFault>,
+    /// Fuel tank fault: a payload that disagrees with its count and
+    /// presence masks, or a negative or non-finite reading.
+    pub fuel_tanks: Option<GroupFault>,
+    /// Clock fault: a time of day that is not a finite number of
+    /// seconds in `[0, 86400)`.
+    pub clock: Option<GroupFault>,
     /// Autoflight-mode fault: a mode or engagement byte this build
     /// cannot name.
     pub ap_modes: Option<GroupFault>,
@@ -187,6 +201,14 @@ fn bearings_fault(pointers: &crate::aircraft::BearingPointers) -> Option<GroupFa
     None
 }
 
+/// The Air group's own fault: any reading present but not a number.
+fn air_fault(air: &crate::aircraft::AirData) -> Option<GroupFault> {
+    let finite = [air.ias_mps, air.baro_setting_hpa, air.tas_mps, air.vsi_mps]
+        .into_iter()
+        .all(opt_finite);
+    (!finite).then_some(GroupFault::NonFinite)
+}
+
 /// The airframe group's own fault, if it has one.
 ///
 /// A ratio outside the range its axis is defined over is not a reading
@@ -268,17 +290,20 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
     };
     validate_state_estimates(state, &mut integrity);
 
-    if let Some(air) = &state.air.data
-        && !(opt_finite(air.ias_mps) && opt_finite(air.baro_setting_hpa) && opt_finite(air.tas_mps))
-    {
-        integrity.air = Some(GroupFault::NonFinite);
-    }
+    integrity.air = state.air.data.as_ref().and_then(air_fault);
     if let Some(pointers) = &state.bearings.data {
         integrity.bearings = bearings_fault(pointers);
     }
     if let Some(config) = &state.airframe.data {
         integrity.airframe = airframe_fault(config);
     }
+    integrity.engine = state
+        .engine
+        .data
+        .as_ref()
+        .and_then(crate::engine::engine_fault);
+    integrity.fuel_tanks = state.fuel_tanks.data.and_then(|group| group.fault);
+    integrity.clock = state.clock.data.and_then(|clock| clock_fault(&clock));
     if let Some(nav) = &state.nav.data {
         integrity.nav = nav_fault(nav);
     }
@@ -416,6 +441,12 @@ fn altitude_fault(state: &AircraftState) -> Option<GroupFault> {
         }
         AltitudeClass::Unknown => Some(GroupFault::UnknownEnum),
     }
+}
+
+/// A time of day that is not a finite number of seconds in the day.
+fn clock_fault(clock: &crate::aircraft::ClockSample) -> Option<GroupFault> {
+    let t = clock.time_of_day_s;
+    (!(t.is_finite() && (0.0..86_400.0).contains(&t))).then_some(GroupFault::NonFinite)
 }
 
 #[cfg(test)]

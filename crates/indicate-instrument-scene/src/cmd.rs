@@ -134,10 +134,12 @@ impl Anchor {
     }
 }
 
-/// The reserved [`Cmd::Attribute`] tag claiming a value derives from
+/// The reserved [`Cmd::Attribute`] tag claiming a run derives from
 /// panel configuration or static content rather than any state group.
-/// Under the admission harness's fixed empty configuration, a visible
-/// run carrying this claim is a fabrication by definition.
+/// A planar panel uses it for printed legends, such as the graduations
+/// on a dial face. The admission harness admits such a run only when
+/// every case of its matrix draws it with the same text and placement,
+/// so the claim cannot carry state.
 pub const ATTR_CONFIG: u8 = 0;
 
 /// One decoded drawing command.

@@ -76,14 +76,12 @@ fn draw_at<'b>(
     buf: &'b mut [u8],
 ) -> Result<&'b [u8], AdmissionError> {
     let data = resolve(&case.state, &FreshnessPolicy::default());
-    draw_scene(panel, &data, case.alerts.as_ref(), frame, buf).map_err(|source| {
-        AdmissionError::Draw {
-            panel: panel.id,
-            state: case.state_id,
-            withheld: case.withheld,
-            alerted: case.alerts.is_some(),
-            source,
-        }
+    draw_scene(panel, &data, case, frame, buf).map_err(|source| AdmissionError::Draw {
+        panel: panel.id,
+        state: case.state_id,
+        withheld: case.withheld,
+        alerted: case.alerts.is_some(),
+        source,
     })
 }
 

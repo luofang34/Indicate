@@ -13,7 +13,7 @@ use indicate_instrument_state::{FreshnessPolicy, resolve};
 use super::background::check_background;
 use super::error::AdmissionError;
 use super::geometry::Rect;
-use super::provenance::check_provenance;
+use super::provenance::{ConfigClaims, check_provenance};
 use super::{
     AdmissionReport, AdmissionWarning, Case, RunsDefect, TextRun, case_matrix, collect_runs,
 };
@@ -49,7 +49,11 @@ fn check_angular_case(
     let data = resolve(&case.state, &FreshnessPolicy::default());
     let ctx = DrawContext::new(&data)
         .with_config(EMPTY_CONFIG)
-        .with_alerts(case.alerts.as_ref());
+        .with_alerts(case.alerts.as_ref())
+        .with_engines(indicate_instrument_state::EngineSamples::Slice(
+            case.engines,
+        ))
+        .with_tanks(indicate_instrument_state::TankSamples::Slice(case.tanks));
     let (ang_used, ov_used) = draw_angular_pair(panel, case, &ctx, overlay_frame, ang_buf, ov_buf)?;
     let ang_bytes = ang_buf.get(..ang_used).unwrap_or(&[]);
     verify_angular_stream(panel, case, ang_bytes)?;
@@ -157,7 +161,7 @@ fn verify_angular_stream(
             state: state_id,
         },
     })?;
-    check_provenance(panel, state_id, case.withheld, &runs)?;
+    check_provenance(panel, state_id, case.withheld, &runs, ConfigClaims::Refused)?;
     for run in &runs {
         for ch in run.text.chars() {
             if !PANEL_VOCABULARY.contains(&ch) {
@@ -214,7 +218,7 @@ fn verify_overlay_stream(
             state: state_id,
         },
     })?;
-    check_provenance(panel, state_id, case.withheld, &runs)?;
+    check_provenance(panel, state_id, case.withheld, &runs, ConfigClaims::Refused)?;
     let bounds = Rect {
         min_x: 0.0,
         min_y: 0.0,

@@ -84,6 +84,8 @@ cited requirement, and a block that no longer matches the descriptors.
   set.
 - [Head-up instruments](set-hud.md): the screen and combiner sets of
   `indicate-instrument-hud`.
+- [Analog instruments](set-analog.md): the round instruments of
+  `indicate-instrument-analog`, for a flat display or a physical 3D gauge.
 - [The template set](set-template.md): the smallest set that passes
   admission, written to be copied.
 

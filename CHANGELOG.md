@@ -43,6 +43,55 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.9.0] — 2026-11-09
+
+State ABI 9 carries the readings of mechanically modelled instruments.
+The engine group `0x0E` (`GroupId::Engine`) reports any number of engines of any kind: a header (count u16, reserved u16, age f32), then each engine as a presence mask over the append-only `EngineField` registry followed by only the fields it has.
+Engine fields are manifold pressure hPa (bit 0), speed rpm (1), oil temperature °C (2), oil pressure kPa (3), fuel pressure kPa (4), coolant temperature °C (5), cylinder-head temperature °C (6), carburettor air temperature °C (7) and shaft angle in degrees `[0, 360)` (8); a length that disagrees with the masks, or an unregistered bit, faults the group.
+A synchroscope reads two engines' shaft angles: their difference is the phase it shows, which the source integrates from the speed it already has.
+The owned `AircraftState` carries only the header (`EngineGroup`), so it stays a fixed-size `Copy` value; the samples travel beside it as `EngineSamples`, a zero-copy view (`abi::v9::engine_samples(frame)`), are encoded with `encode_state_with`, and reach panels through `DrawContext::with_engines`.
+The fuel tank group `0x18` (`GroupId::FuelTanks`) has the same layout over its own registry: quantity and capacity in litres (bits 0, 1) and in kilograms (bits 2, 3), one sample per tank in the source's order, beside the state as `TankSamples` (`abi::v9::tank_samples(frame)`, `DrawContext::with_tanks`).
+`encode_state_samples` encodes a state with every record group beside it (`BesideSamples`).
+The clock group `0x19` (`GroupId::Clock`) carries the time of day the cockpit clock shows, seconds after midnight in `[0, 86400)`, then its age: 8 bytes. It resolves to `PanelData.clock_s`.
+`PanelData.yaw_rate_rps` is the body yaw rate from the Attitude group, shown only under the source's declared body-rate validity; the typed turn rate never reads it.
+`ResolvedHeading::magnetic_heading_rad` converts the heading sample to magnetic north, beside `true_heading_rad`: what a magnetic compass card shows.
+`CanonicalState` and `ExtremeState` gain `engines` and `tanks`, and `CAPACITY` grows to 4,096 bytes; a source with more engines sizes its own buffer.
+The Air group appends `vsi_mps`, the rate-of-climb instrument's own reading, after `tas_mps`; its minimum payload grows from 16 to 20 bytes.
+Both carry indicated values: a source that models gauge lag and error writes what the mechanism shows.
+`PanelData` gains `vsi_indicated_fpm` and the engine group's status; the display never fills one vertical speed from the other.
+
+The module is `abi::v9`, and the golden frames are `state-abi-v9.*.hex`.
+A v8 frame is refused by version, so a producer moves to v9 and writes the 20-byte Air payload.
+`AirData`, `AircraftState` (`clock`) and `EngineSample` (`shaft_angle_deg`) gain fields, so a struct literal without `..` stops compiling.
+
+`GroupId::index` slots are append-only: `Engine`, `FuelTanks` and `Clock` take slots 19, 20 and 21, and no existing slot moves.
+A `GroupSet` travels as raw bits in signed plugin descriptors, so a moved slot would change what an existing package declares.
+
+The new `indicate-instrument-analog` set draws round instruments from one `AnalogDialSpec`: airspeed in knots and in miles per hour, a sensitive altimeter with three hands and a Kollsman window, vertical speed, manifold pressure, and a tachometer.
+The same spec gives a 3D backend a `PhysicalBuild` (pointer outlines, pivots, stack heights, paints, drums) and `pose`, the pure function from state to every pointer angle and drum offset.
+The set also draws the gyro and period instruments of a 1943 fighter panel: a gyro horizon, a drum-window directional gyro, a turn and bank indicator, a panel magnetic compass, a clock, and an engine synchroscope.
+A spec can carry printed marks, moving cards (a horizon bar that turns with bank and slides with pitch), tapes (a heading card read through a window, built as a drum), and fixed overlays in front of the moving parts; the `Index` and `Ball` pointer shapes give a bank index and a turn indicator's ball.
+New inputs read bank, pitch, declared and magnetic heading, body yaw rate, lateral specific force, clock time, and shaft phase, in degrees, degrees per second, metres per second squared and seconds.
+`AnalogDialSpec` gains `marks`, `cards`, `tapes` and `overlays`, `DialPose` gains `cards` and `tapes`, and `PhysicalBuild` gains `cards`, `tapes` and `overlays`, so a literal without `..` stops compiling.
+The set has no ammeter, suction gauge or hydraulic pressure gauge: the state carries no lane for them.
+The set ships outside the flight set, so the shipped panel set does not change.
+
+Admission now accepts printed legends: a configuration-claimed text run is admitted in the planar matrix when every case at a frame draws it with the same text, ink rectangle, and clip.
+A configuration-claimed run that changes, moves, appears, or disappears still fails as `ConfigClaim`, and the angular and volumetric matrices still refuse it.
+
+The composition digest and the screen-composition digest move because the scene digest hashes the ABI version byte.
+No paint changed: every raster baseline, the criticality bands, the glyph pack, and the corpus are byte-identical.
+
+| Value | This release |
+|---|---|
+| State ABI | 9 |
+| Scene format | 1 |
+| Corpus | 8 |
+| Composition digest | `c61cb54b60c31a2cbc614e809c29e7c8d363178d3c30bc01c55552092d236459` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
+
+Panel set changed since the previous release: no.
+
 ## [0.8.0] — 2026-10-31
 
 The instrument descriptor contract generalizes across planar two-dimensional, angular-sphere, and three-dimensional volumetric render spaces (`RenderSpace`, `UnderlayContract`, `SceneTarget`, `DrawContext`).

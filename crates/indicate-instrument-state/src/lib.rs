@@ -32,6 +32,7 @@ mod altitude;
 mod autopilot;
 mod director;
 mod dynamics;
+mod engine;
 pub mod flight;
 mod group_id;
 mod heading;
@@ -39,15 +40,17 @@ mod ident;
 mod monitor_text;
 mod presentation;
 mod resolve;
+pub mod samples;
 mod signal;
 mod source_compare;
 mod source_monitor;
+mod tank;
 pub mod units;
 mod v_speeds;
 mod validate;
 
 pub use aircraft::{
-    AirData, AircraftState, AirframeConfig, Attitude, BearingPointer, BearingPointers,
+    AirData, AircraftState, AirframeConfig, Attitude, BearingPointer, BearingPointers, ClockSample,
     EstimateQuality, Kinematics, NavData, NavFromTo, NavScale, NavSource, Selections,
     SnapshotCoherence, SnapshotMeta, Stamped, ValidFlags, Wind,
 };
@@ -55,6 +58,10 @@ pub use altitude::{AltitudeClass, AltitudeDeclaration, AltitudeReference, GeoidM
 pub use autopilot::{ApEngagement, ApModes, ApTargets, LateralMode, VerticalMode};
 pub use director::{FdEngagement, FdMode, FdSample};
 pub use dynamics::{DynSample, TurnBasis, TurnSample};
+pub use engine::{
+    ENGINE_FIELDS_MASK, EngineField, EngineGroup, EngineIter, EngineSample, EngineSamples,
+    parse_samples, sample_wire_bytes,
+};
 pub use group_id::{GroupId, GroupStatuses, withhold_group};
 pub use heading::{
     ConversionFault, HeadingReference, HeadingSample, MagneticVariation, VariationSourceId,
@@ -71,6 +78,7 @@ pub use resolve::{
     ApTargetsResolved, BARO_SETTING_TOLERANCE_HPA, NavResolved, PanelData, ResolvedAltitude,
     ResolvedDirector, ResolvedHeading, RoseBasis, resolve, resolve_stateful,
 };
+pub use samples::{BesideSamples, RawSample, Sample, SampleGroup, SampleIter, Samples};
 pub use signal::{FreshnessPolicy, PolicyError, Sig, SignalStatus};
 pub use source_compare::{
     AirframeSourcePolicy, AttitudeMeasure, Candidate, Comparable, ComparisonState, FrameTag,
@@ -81,6 +89,10 @@ pub use source_compare::{
 pub use source_monitor::{
     SourceInputs, SourceMonitorReport, SourceMonitors, SourcePolicies, SourceSelection, SourceStep,
     Sourced, SourcedFunction, resolve_with_sources,
+};
+pub use tank::{
+    TANK_FIELDS_MASK, TankField, TankGroup, TankIter, TankSample, TankSamples, parse_tank_samples,
+    tank_sample_wire_bytes,
 };
 pub use v_speeds::{VSpeedBug, VSpeedBugs, VSpeeds};
 pub use validate::{

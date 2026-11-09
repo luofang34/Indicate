@@ -3,13 +3,14 @@
 
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_instrument_state::abi::v8::{CAPACITY, decode_state, encode_state, fixtures};
+use indicate_instrument_state::abi::v9::{CAPACITY, decode_state, encode_state_samples, fixtures};
 
 #[test]
 fn a_canonical_frame_reports_no_trailing_bytes() {
     let state = fixtures::full();
     let mut buf = [0u8; CAPACITY];
-    let len = encode_state(&state, &mut buf).expect("fits");
+    let len =
+        encode_state_samples(&state, &fixtures::beside_samples(&state), &mut buf).expect("fits");
     let report = decode_state(&buf[..len]).expect("decodes");
     assert_eq!(report.trailing_bytes, 0);
     assert_eq!(report.state, state);
@@ -19,7 +20,8 @@ fn a_canonical_frame_reports_no_trailing_bytes() {
 fn bytes_past_the_last_announced_group_are_counted_and_never_read() {
     let state = fixtures::full();
     let mut buf = [0u8; CAPACITY];
-    let len = encode_state(&state, &mut buf).expect("fits");
+    let len =
+        encode_state_samples(&state, &fixtures::beside_samples(&state), &mut buf).expect("fits");
     // Three bytes a producer wrote but did not announce; a tag-shaped
     // tail must not be interpreted as a group.
     buf[len] = 0x01;

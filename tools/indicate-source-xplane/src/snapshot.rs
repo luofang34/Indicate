@@ -144,6 +144,7 @@ impl XPlaneSource {
                     ias_mps: self.get(Dataref::IasKt).map(|kt| kt * MPS_PER_KT),
                     baro_setting_hpa: self.get(Dataref::BaroInHg).map(|inhg| inhg * HPA_PER_INHG),
                     tas_mps: self.get(Dataref::TasMps),
+                    vsi_mps: None,
                 }),
                 age_ms: Some(age_ms),
             };

@@ -106,6 +106,7 @@ fn fill_air_and_altitude(state: &mut AircraftState, data: &PanelData) {
                 ias_mps: Some(f32::INFINITY),
                 baro_setting_hpa: None,
                 tas_mps: None,
+                vsi_mps: None,
             }
         } else {
             AirData {
@@ -115,6 +116,8 @@ fn fill_air_and_altitude(state: &mut AircraftState, data: &PanelData) {
                     .then_some(data.baro_hpa.value),
                 tas_mps: (data.tas_kt.status != SignalStatus::Missing)
                     .then_some(data.tas_kt.value / MPS_TO_KT),
+                vsi_mps: (data.vsi_indicated_fpm.status != SignalStatus::Missing)
+                    .then_some(data.vsi_indicated_fpm.value / MPS_TO_FPM),
             }
         };
         state.air = Stamped {
@@ -212,6 +215,18 @@ fn fill_equipment_and_flight(state: &mut AircraftState, data: &PanelData) {
     if let Some(age) = age_for_status(data.groups.status(GroupId::AirframeConfig)) {
         state.airframe = Stamped {
             data: Some(data.airframe.value),
+            age_ms: Some(age),
+        };
+    }
+    if let Some(age) = age_for_status(data.groups.status(GroupId::FuelTanks)) {
+        state.fuel_tanks = Stamped {
+            data: Some(data.fuel_tanks.value),
+            age_ms: Some(age),
+        };
+    }
+    if let Some(age) = age_for_status(data.groups.status(GroupId::Engine)) {
+        state.engine = Stamped {
+            data: Some(data.engine.value),
             age_ms: Some(age),
         };
     }

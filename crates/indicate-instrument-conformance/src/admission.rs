@@ -31,7 +31,8 @@ use indicate_instrument_scene::{
     Cmd, LayerError, MAX_SCENE_BYTES, SceneCmds, SceneWriter, validate_layers,
 };
 use indicate_instrument_state::{
-    AircraftState, FreshnessPolicy, GroupId, PanelData, resolve, withhold_group,
+    AircraftState, EngineSample, EngineSamples, FreshnessPolicy, GroupId, PanelData, TankSample,
+    TankSamples, resolve, withhold_group,
 };
 
 mod alerts;
@@ -39,18 +40,22 @@ mod angular;
 mod background;
 mod criticality;
 mod error;
+mod fixtures;
 mod frame_varies;
 mod geometry;
 mod ink;
+mod legend;
 mod provenance;
 mod regions;
 mod volume;
 
 use alerts::saturated_stack;
 use background::check_background;
+use fixtures::check_fixture_engines;
 use frame_varies::check_frame_varies;
 use geometry::{Ctm, Rect, text_rect};
-use provenance::check_provenance;
+use legend::{LegendWitness, check_legends};
+use provenance::{ConfigClaims, check_provenance};
 use regions::check_non_vacuity;
 
 pub use criticality::criticality_bands;
@@ -149,6 +154,7 @@ fn admit_panel(
         RenderSpace::Planar2D {
             canonical_frames, ..
         } => {
+            check_fixture_engines(panel)?;
             for frame in canonical_frames {
                 admit_panel_at_frame(panel, *frame, report)?;
             }
@@ -178,8 +184,9 @@ fn admit_panel_at_frame(
     frame: DesignFrame,
     report: &mut AdmissionReport,
 ) -> Result<(), AdmissionError> {
+    let mut legends = LegendWitness::default();
     for case in case_matrix(panel) {
-        check_case(panel, &case, frame, report)?;
+        check_case(panel, &case, frame, report, &mut legends)?;
     }
     Ok(())
 }
@@ -189,6 +196,12 @@ struct Case {
     state_id: &'static str,
     withheld: Option<GroupId>,
     state: AircraftState,
+    /// The fixture's engine samples, beside the state as a host passes
+    /// them. Withholding the engine group clears its header, so a
+    /// panel that reads them only under the group's status sees none.
+    engines: &'static [EngineSample],
+    /// The fixture's fuel tank samples, on the same terms.
+    tanks: &'static [TankSample],
     /// The alert state fed to the draw. `None` is the quiet frame; the
     /// saturated stack is the other end of the axis.
     alerts: Option<AlertOutput>,
@@ -214,11 +227,16 @@ impl Case {
 fn case_matrix(panel: &'static PanelDescriptor) -> Vec<Case> {
     let states = CANONICAL_STATES
         .iter()
-        .map(|s| (s.id, s.build))
-        .chain(panel.extreme_states.iter().map(|e| (e.id, e.build)));
+        .map(|s| (s.id, s.build, s.engines, s.tanks))
+        .chain(
+            panel
+                .extreme_states
+                .iter()
+                .map(|e| (e.id, e.build, e.engines, e.tanks)),
+        );
     let saturated = saturated_stack();
     let mut cases = Vec::new();
-    for (state_id, build) in states {
+    for (state_id, build, engines, tanks) in states {
         let mut withholdings = vec![(None, build())];
         for group in GroupId::ALL {
             if panel.required_groups.contains(group) {
@@ -231,6 +249,8 @@ fn case_matrix(panel: &'static PanelDescriptor) -> Vec<Case> {
                     state_id,
                     withheld,
                     state,
+                    engines,
+                    tanks,
                     alerts,
                 });
             }
@@ -244,11 +264,19 @@ fn check_case(
     case: &Case,
     frame: DesignFrame,
     report: &mut AdmissionReport,
+    legends: &mut LegendWitness,
 ) -> Result<(), AdmissionError> {
     let state_id = case.state_id;
     let data = resolve(&case.state, &FreshnessPolicy::default());
     let runs = draw_runs(panel, case, &data, frame)?;
-    check_provenance(panel, state_id, case.withheld, &runs)?;
+    check_provenance(
+        panel,
+        state_id,
+        case.withheld,
+        &runs,
+        ConfigClaims::InvariantAcrossCases,
+    )?;
+    check_legends(panel, state_id, &runs, legends)?;
     let bounds = Rect {
         min_x: 0.0,
         min_y: 0.0,
@@ -288,14 +316,12 @@ fn draw_runs(
     let state_id = case.state_id;
     let mut buf = vec![0u8; MAX_SCENE_BYTES];
     let scene =
-        draw_scene(panel, data, case.alerts.as_ref(), frame, &mut buf).map_err(|source| {
-            AdmissionError::Draw {
-                panel: panel.id,
-                state: state_id,
-                withheld: case.withheld,
-                alerted: case.alerted(),
-                source,
-            }
+        draw_scene(panel, data, case, frame, &mut buf).map_err(|source| AdmissionError::Draw {
+            panel: panel.id,
+            state: state_id,
+            withheld: case.withheld,
+            alerted: case.alerted(),
+            source,
         })?;
     let layers = validate_layers(scene).map_err(|error| match error {
         LayerError::Decode(_) => AdmissionError::Decode {
@@ -342,14 +368,16 @@ enum RunsDefect {
 fn draw_scene<'b>(
     panel: &PanelDescriptor,
     data: &PanelData,
-    alerts: Option<&AlertOutput>,
+    case: &Case,
     frame: DesignFrame,
     buf: &'b mut [u8],
 ) -> Result<&'b [u8], PanelDrawError> {
     let mut writer = SceneWriter::new(buf)?;
     let ctx = DrawContext::new(data)
         .with_config(EMPTY_CONFIG)
-        .with_alerts(alerts);
+        .with_alerts(case.alerts.as_ref())
+        .with_engines(EngineSamples::Slice(case.engines))
+        .with_tanks(TankSamples::Slice(case.tanks));
     (panel.draw)(
         &ctx,
         SceneTarget::Planar2D {

@@ -14,7 +14,7 @@ use indicate_instrument_state::{FreshnessPolicy, resolve};
 
 use super::error::AdmissionError;
 use super::geometry::Rect;
-use super::provenance::check_provenance;
+use super::provenance::{ConfigClaims, check_provenance};
 use super::{AdmissionReport, Case, RunsDefect, TextRun, case_matrix};
 
 #[derive(Clone, Copy)]
@@ -138,7 +138,13 @@ fn check_volume_case(
     })?;
     check_volume_underlay(panel, state_id, &scan)?;
     check_handles_in_bounds(panel, state_id, extent_m, &scan.handles)?;
-    check_provenance(panel, state_id, case.withheld, &scan.runs)?;
+    check_provenance(
+        panel,
+        state_id,
+        case.withheld,
+        &scan.runs,
+        ConfigClaims::Refused,
+    )?;
     for run in &scan.runs {
         for ch in run.text.chars() {
             if !PANEL_VOCABULARY.contains(&ch) {
@@ -163,7 +169,11 @@ fn draw_volume_scene<'b>(
     let data = resolve(&case.state, &FreshnessPolicy::default());
     let ctx = DrawContext::new(&data)
         .with_config(EMPTY_CONFIG)
-        .with_alerts(case.alerts.as_ref());
+        .with_alerts(case.alerts.as_ref())
+        .with_engines(indicate_instrument_state::EngineSamples::Slice(
+            case.engines,
+        ))
+        .with_tanks(indicate_instrument_state::TankSamples::Slice(case.tanks));
     let mut writer = VolumeSceneWriter::new(buf).map_err(|e| AdmissionError::Draw {
         panel: panel.id,
         state: case.state_id,

@@ -165,6 +165,21 @@ Frame generation, snapshot identity, transport integrity, and panel selection
 remain outside the scene bytes. A consumer combines those transport checks
 with the required-layer mask and `validate_layers` before commit.
 
+## Instruments with moving parts
+
+An analog instrument needs no band of its own. Its static face and its
+moving parts share the `Tapes` band: the face first, then each drum
+window, then each pointer in ascending stack height. Each moving part
+has its own `Save`, `Translate`, `Rotate`, and `Restore`. Its failure
+flag is in `Annunciation`.
+
+A band is not a moving part. A dial can have more moving parts than the
+six bands, and a band appears once in a scene. A backend that renders a
+physical instrument does not separate parts from the scene. It takes
+the face from the face-only scene and the moving parts from the set's
+physical build, so the scene format and the layer vocabulary do not
+change.
+
 ## Background and SVS boundary
 
 `Background` is the only replaceable band. An SVS raster or depth compositor

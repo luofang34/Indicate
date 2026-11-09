@@ -9,7 +9,7 @@
 
 use crate::aircraft::AircraftState;
 use crate::group_id::{GroupId, GroupStatuses};
-use crate::signal::{FreshnessPolicy, SignalStatus};
+use crate::signal::{FreshnessPolicy, Sig, SignalStatus};
 use crate::validate::StateIntegrity;
 
 use super::{Trust, fault_status, group_freshness};
@@ -156,6 +156,32 @@ fn group_status(
             integrity.dynamics,
             state.valid.turn && state.valid.slip && state.valid.ias_trend,
         ),
+        GroupId::BearingPointers
+        | GroupId::AirframeConfig
+        | GroupId::Engine
+        | GroupId::FuelTanks
+        | GroupId::Clock
+        | GroupId::ApModes
+        | GroupId::FlightDirector => equipment_status(state, policy, trust, integrity, id),
+        // Targets fold no source trust, mirroring selections: a target
+        // is UI state, and it carries no age to grow stale.
+        GroupId::ApTargets => fault_status(integrity.ap_targets),
+        // Advisory machine text folds no flight-source trust and runs
+        // its own slow freshness policy, mirroring wind's independence.
+        GroupId::MonitorText => monitor_status(state, integrity),
+    }
+}
+
+/// The stamped groups that describe equipment. Each folds source trust
+/// and declares no validity bit of its own.
+fn equipment_status(
+    state: &AircraftState,
+    policy: &FreshnessPolicy,
+    trust: &Trust,
+    integrity: &StateIntegrity,
+    id: GroupId,
+) -> SignalStatus {
+    match id {
         // Bearings fold source trust like nav: a needle from a source
         // the state does not trust must not point anywhere. Their own
         // per-pointer validity is a second gate the panel applies.
@@ -174,6 +200,22 @@ fn group_status(
             integrity.airframe,
             true,
         ),
+        // Engine readings fold source trust like airframe configuration:
+        // a gauge fed by a source the state does not trust shows nothing.
+        GroupId::Engine => fold(
+            &Ctx::of(policy, trust, &state.engine),
+            integrity.engine,
+            true,
+        ),
+        // Fuel quantity folds source trust the same way.
+        GroupId::FuelTanks => fold(
+            &Ctx::of(policy, trust, &state.fuel_tanks),
+            integrity.fuel_tanks,
+            true,
+        ),
+        // So does the clock: a time from a source the state does not
+        // trust is not shown.
+        GroupId::Clock => fold(&Ctx::of(policy, trust, &state.clock), integrity.clock, true),
         // Autoflight modes fold source trust like the director: an
         // annunciation sourced from a state nobody trusts must not say
         // the automation is holding something.
@@ -182,9 +224,6 @@ fn group_status(
             integrity.ap_modes,
             true,
         ),
-        // Targets fold no source trust, mirroring selections: a target
-        // is UI state, and it carries no age to grow stale.
-        GroupId::ApTargets => fault_status(integrity.ap_targets),
         // The director folds source trust like nav: a command from an
         // untrusted source must not draw bars.
         GroupId::FlightDirector => fold(
@@ -192,9 +231,9 @@ fn group_status(
             integrity.director,
             true,
         ),
-        // Advisory machine text folds no flight-source trust and runs
-        // its own slow freshness policy, mirroring wind's independence.
-        GroupId::MonitorText => monitor_status(state, integrity),
+        // `group_status` routes only the arms above here; any other id
+        // fails closed rather than borrowing a neighbour's status.
+        _ => SignalStatus::Failed,
     }
 }
 
@@ -227,6 +266,34 @@ fn flight_status(
             true,
         )
     }
+}
+
+/// A group's data, or its default behind a hidden status, with the
+/// group's own status.
+pub(super) fn group_sig<T: Default>(
+    data: Option<T>,
+    groups: &GroupStatuses,
+    id: GroupId,
+) -> Sig<T> {
+    Sig::with_status(data.unwrap_or_default(), groups.status(id))
+}
+
+/// The body yaw rate, under the attitude group's freshness and trust
+/// and its own declared body-rate validity: a source that declares no
+/// rates shows no turn needle, rather than a needle at zero.
+pub(super) fn yaw_rate(
+    state: &AircraftState,
+    policy: &FreshnessPolicy,
+    trust: &Trust,
+    integrity: &StateIntegrity,
+) -> Sig<f32> {
+    let has = state.attitude.data.is_some();
+    let fresh = group_freshness(policy, has, state.attitude.age_ms);
+    let fault = integrity.attitude.or(integrity.rates);
+    Sig::with_status(
+        state.attitude.data.map_or(0.0, |a| a.rates_rps[2]),
+        trust.fold(has, fresh, fault, state.valid.rates),
+    )
 }
 
 #[cfg(test)]

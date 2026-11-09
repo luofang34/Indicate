@@ -1,5 +1,5 @@
 //! Golden-frame pinning: the committed hex fixtures in
-//! `crates/indicate-instrument-state/fixtures/` are the canonical v8
+//! `crates/indicate-instrument-state/fixtures/` are the canonical v9
 //! encodings of the shared
 //! posture fixtures, byte for byte. The JS state writer is pinned
 //! against the same files, so a drift on either side of the boundary
@@ -8,22 +8,22 @@
 
 #![allow(clippy::expect_used, clippy::panic)]
 
-use super::{CAPACITY, decode_state, encode_state, fixtures};
+use super::{CAPACITY, decode_state, encode_state_samples, fixtures};
 use crate::aircraft::AircraftState;
 use std::string::String;
 use std::vec::Vec;
 
 const FULL_HEX: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/fixtures/state-abi-v8.full.hex"
+    "/fixtures/state-abi-v9.full.hex"
 ));
 const GATEWAY_HEX: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/fixtures/state-abi-v8.data-gateway.hex"
+    "/fixtures/state-abi-v9.data-gateway.hex"
 ));
 const FC_HEX: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/fixtures/state-abi-v8.flight-controller.hex"
+    "/fixtures/state-abi-v9.flight-controller.hex"
 ));
 
 fn hex_of(bytes: &[u8]) -> String {
@@ -46,7 +46,8 @@ fn bytes_of(hex: &str) -> Vec<u8> {
 
 fn assert_pinned(state: &AircraftState, committed: &str, name: &str) {
     let mut buf = [0u8; CAPACITY];
-    let len = encode_state(state, &mut buf).expect("fixture fits");
+    let beside = fixtures::beside_samples(state);
+    let len = encode_state_samples(state, &beside, &mut buf).expect("fixture fits");
     assert_eq!(
         hex_of(&buf[..len]),
         committed.trim(),
@@ -80,7 +81,7 @@ fn extended_flight_frame_is_pinned() {
         &fixtures::extended(),
         include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/fixtures/state-abi-v8.extended-flight.hex"
+            "/fixtures/state-abi-v9.extended-flight.hex"
         )),
         "extended-flight",
     );
@@ -99,15 +100,15 @@ fn the_fixture_names_carry_the_compiled_version() {
     for path in [
         concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/fixtures/state-abi-v8.full.hex"
+            "/fixtures/state-abi-v9.full.hex"
         ),
         concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/fixtures/state-abi-v8.data-gateway.hex"
+            "/fixtures/state-abi-v9.data-gateway.hex"
         ),
         concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/fixtures/state-abi-v8.flight-controller.hex"
+            "/fixtures/state-abi-v9.flight-controller.hex"
         ),
     ] {
         assert!(

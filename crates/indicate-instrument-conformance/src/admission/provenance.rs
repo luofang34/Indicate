@@ -18,6 +18,16 @@ use indicate_instrument_state::GroupId;
 
 use super::{AdmissionError, TextRun};
 
+/// How a caller's matrix treats a visible configuration claim.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ConfigClaims {
+    /// Refused in every case: the caller runs no invariance check.
+    Refused,
+    /// Admitted here because the caller runs the legend family over
+    /// the whole matrix ([`super::legend::check_legends`]).
+    InvariantAcrossCases,
+}
+
 /// Checks every run of one drawn case: claims are total over numerals,
 /// bounded to the panel's required groups, and a run claiming the
 /// withheld group may not be visible. The test is against withholding,
@@ -31,6 +41,7 @@ pub(super) fn check_provenance(
     state_id: &'static str,
     withheld: Option<GroupId>,
     runs: &[TextRun],
+    config_claims: ConfigClaims,
 ) -> Result<(), AdmissionError> {
     for run in runs {
         let Some(tag) = run.attribution else {
@@ -51,12 +62,15 @@ pub(super) fn check_provenance(
         if !run.visible {
             continue;
         }
+        if tag == ATTR_CONFIG && config_claims == ConfigClaims::InvariantAcrossCases {
+            // A printed legend: the legend family proves it is the same
+            // in every case, which is what makes the claim honest.
+            continue;
+        }
         if tag == ATTR_CONFIG {
-            // The harness draws the fixed empty configuration, so a
-            // visible run claiming configuration provenance derives
-            // from nothing. Consequence, stated plainly: a panel whose
-            // numeral legitimately derives from configuration cannot
-            // pass admission as drawn today.
+            // This matrix proves no invariance, and the harness draws
+            // the fixed empty configuration, so a visible run claiming
+            // configuration provenance could carry anything.
             return Err(AdmissionError::ConfigClaim {
                 panel: panel.id,
                 state: state_id,

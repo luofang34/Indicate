@@ -142,6 +142,7 @@ jobs:
                  indicate-instrument-scene indicate-instrument-state \
                  indicate-instrument-glyphs indicate-instrument-symbology \
                  indicate-instrument-panels indicate-instrument-template \
+                 indicate-instrument-analog \
                  indicate-instrument-hmd indicate-instrument-hud \
                  indicate-instrument-volumes \
                  indicate-instrument-raster \
@@ -202,6 +203,7 @@ jobs:
           -p indicate-instrument-descriptor
           -p indicate-instrument-panels
           -p indicate-instrument-template
+          -p indicate-instrument-analog
           -p indicate-instrument-hmd
           -p indicate-instrument-hud
           -p indicate-instrument-volumes

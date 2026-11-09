@@ -62,7 +62,7 @@ kernel only.
 | `indicate-frames` | Frame and rotation vocabulary (`Quat`); dependency-free leaf. |
 | `indicate-alerts` | Alert model (`AlertOutput`, stack semantics); leaf. |
 | `indicate-sha256` | Streaming SHA-256 (`Sha256Ctx`) for `no_std` digest pinning; leaf. |
-| `indicate-instrument-state` | Aircraft display state, the self-delimiting tagged-group ABI (`abi::v8`), group statuses, posture fixtures. |
+| `indicate-instrument-state` | Aircraft display state, the self-delimiting tagged-group ABI (`abi::v9`), group statuses, posture fixtures. |
 | `indicate-instrument-scene` | Scene IR: layers, opcodes, budgets, structural validation; owns the scene-conformance corpus (`corpus/`). |
 | `indicate-instrument-glyphs` | Controlled glyph pack: manifest, integrity hashes, coverage requirements. |
 | `indicate-instrument-symbology` | Shared symbology: palette, never-skinnable safety constants, status paint, annunciations. |
@@ -109,6 +109,7 @@ passes admission — copy it rather than starting from a shipped panel.
 | `indicate-instrument-hmd` | Head-worn instruments with shared flight semantics and [display policy](../docs/instruments/hwd-presentation-policy.md). |
 | `indicate-instrument-hud` | Head-up symbology in two profiles: a screen over a host-rendered world, with simulated contacts, and a reflective combiner design. |
 | `indicate-instrument-volumes` | Three-dimensional volumetric instruments (`terrain-volume`, `globe-volume`, `orrery-volume`) emitting `VolumeScene` geometry and status overlays. |
+| `indicate-instrument-analog` | Round analog instruments (airspeed, sensitive altimeter, vertical speed, manifold pressure, tachometer) from one dial description: a 2D scene, and a physical build a 3D backend extrudes and poses per frame by angle alone. |
 | `indicate-instrument-template` | The smallest set that passes admission, written to be read and copied; its own test admits it, so the worked example cannot drift from the contract. |
 
 ### Tools — `tools/`

@@ -2,7 +2,7 @@
 //!
 //! Every stamped group's minimum layout ends with its `age_ms`
 //! (NaN = never); a batch field append lands AFTER that trailing age
-//! (see `crate::group_id` for the v8 allocation contract), so the age
+//! (see `crate::group_id` for the allocation contract), so the age
 //! keeps its offset and the new field is the new tail. Presence
 //! semantics: data decodes only when the age is present, and
 //! the encoder omits the tag entirely when the [`Stamped`] carries
@@ -14,7 +14,7 @@
 //! |-------|--------|----:|
 //! | attitude | quat w x y z f32×4; rates p q r f32×3; age f32 | 32 |
 //! | kinematics | pos NED f32×3; vel NED f32×3; age f32 | 28 |
-//! | air | ias f32; baro f32; age f32; tas f32 | 16 |
+//! | air | ias f32; baro f32; age f32; tas f32; indicated vs f32 | 20 |
 //! | nav | source u8; fromto u8; course ref u8; 0; course f32; cdi f32; vdev f32; dist f32; age f32; to ident 9; from ident 9; scale u8 | 43 |
 //! | wind | from f32; speed f32; age f32 | 12 |
 //! | heading | reference u8; 0×3; heading f32; age f32 | 12 |
@@ -23,7 +23,9 @@
 
 use super::{AbiError, get_f32, get_u8, put_f32, put_u8};
 use crate::abi::{opt, or_nan};
-use crate::aircraft::{AirData, AircraftState, Attitude, Kinematics, NavData, Stamped, Wind};
+use crate::aircraft::{
+    AirData, AircraftState, Attitude, ClockSample, Kinematics, NavData, Stamped, Wind,
+};
 use crate::aircraft::{NavFromTo, NavSource};
 use crate::dynamics::{DynSample, TurnBasis, TurnSample};
 use crate::heading::{HeadingReference, HeadingSample, MagneticVariation, VariationSourceId};
@@ -119,6 +121,7 @@ pub(super) fn decode_air(state: &mut AircraftState, p: &[u8]) {
             ias_mps: opt(get_f32(p, 0)),
             baro_setting_hpa: opt(get_f32(p, 4)),
             tas_mps: opt(get_f32(p, 12)),
+            vsi_mps: opt(get_f32(p, 16)),
         }),
         age_ms: age,
     };
@@ -128,13 +131,14 @@ pub(super) fn encode_air(state: &AircraftState, out: &mut [u8]) -> Result<Option
     if absent(&state.air) {
         return Ok(None);
     }
-    let p = sized(out, 16)?;
+    let p = sized(out, 20)?;
     let air = state.air.data.unwrap_or_default();
     put_f32(p, 0, or_nan(air.ias_mps));
     put_f32(p, 4, or_nan(air.baro_setting_hpa));
     put_f32(p, 8, or_nan(state.air.age_ms));
     put_f32(p, 12, or_nan(air.tas_mps));
-    Ok(Some(16))
+    put_f32(p, 16, or_nan(air.vsi_mps));
+    Ok(Some(20))
 }
 
 fn ident_at(p: &[u8], off: usize) -> IdentStr {
@@ -316,6 +320,30 @@ pub(super) fn encode_variation(
     );
     put_f32(p, 8, or_nan(state.variation.age_ms));
     Ok(Some(12))
+}
+
+/// Clock payload: time of day f32 @0 (NaN absent), age f32 @4.
+pub(super) fn decode_clock(state: &mut AircraftState, p: &[u8]) {
+    let age = opt(get_f32(p, 4));
+    state.clock = Stamped {
+        data: age
+            .and(opt(get_f32(p, 0)))
+            .map(|time_of_day_s| ClockSample { time_of_day_s }),
+        age_ms: age,
+    };
+}
+
+pub(super) fn encode_clock(
+    state: &AircraftState,
+    out: &mut [u8],
+) -> Result<Option<usize>, AbiError> {
+    if absent(&state.clock) {
+        return Ok(None);
+    }
+    let p = sized(out, 8)?;
+    put_f32(p, 0, or_nan(state.clock.data.map(|c| c.time_of_day_s)));
+    put_f32(p, 4, or_nan(state.clock.age_ms));
+    Ok(Some(8))
 }
 
 pub(super) fn decode_dynamics(state: &mut AircraftState, p: &[u8]) {

@@ -132,6 +132,12 @@ pub struct ExtremeState {
     pub id: &'static str,
     /// Builds the state; a plain fn keeps descriptors `static`.
     pub build: fn() -> AircraftState,
+    /// The engine samples beside the state, numbering its engine
+    /// header's count; empty when the state carries no engine group.
+    pub engines: &'static [indicate_instrument_state::EngineSample],
+    /// The fuel tank samples beside the state, numbering its tank
+    /// header's count; empty when the state carries no tank group.
+    pub tanks: &'static [indicate_instrument_state::TankSample],
 }
 
 /// One instrument, as static data (ADR-0029).

@@ -179,9 +179,30 @@ Two corollaries fall out of the same machinery:
 
 - A claim naming a group outside `required_groups` fails as
   `ForeignClaim`. The mask is the vocabulary of claims you may make.
-- A numeral derived from configuration is unadmittable by construction.
-  Admission draws the empty config deliberately, so a visible
-  config-sourced claim fails as `ConfigClaim`. Values come from state.
+- A numeral that changes with configuration is not admitted. Admission
+  draws the empty config only, so it cannot test such a value. Values
+  come from state.
+
+### Printed legends
+
+A dial face carries numerals that are not data: the graduations and the
+units legend. A failed source does not erase them on a real instrument.
+The pointer, an `OFF` flag, or both show the failure instead.
+
+- Claim a printed legend with `ATTR_CONFIG`.
+- Draw it in every case, with the same text and the same placement.
+- Do not move it with a transform that depends on state.
+
+Admission records the configuration-claimed runs of the first case at
+each canonical frame. Every later case at that frame must repeat them
+exactly: the same text, ink rectangle, and clip, in the same order. A
+run that changes, moves, appears, or disappears fails as `ConfigClaim`.
+A legend that is identical in every state can carry no information
+about state, so the claim cannot hide a value.
+
+The angular and volumetric matrices run no such comparison. There, a
+visible `ATTR_CONFIG` claim still fails as `ConfigClaim`. The plugin
+host's scene scan also still refuses it.
 
 ### `background` — an `Opaque` claim is checked exactly
 

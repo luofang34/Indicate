@@ -5,9 +5,9 @@ use crate::aircraft::{
 };
 use crate::altitude::{AltitudeClass, OriginId};
 use crate::dynamics::TurnBasis;
+use crate::group_id::GroupId;
 use crate::presentation::{AirframeDisplayProfile, AttitudePresentation, UnusualAttitudeState};
 use crate::signal::{FreshnessPolicy, Sig, SignalStatus};
-use crate::units::MPS_TO_KT;
 use crate::validate::{StateIntegrity, validate_quat, validate_state};
 
 /// Resolved navigation guidance for the HSI.
@@ -78,6 +78,10 @@ pub struct PanelData {
     pub roll_rad: Sig<f32>,
     /// Pitch angle, radians, positive nose-up.
     pub pitch_rad: Sig<f32>,
+    /// Body yaw rate, radians per second, positive nose right: what a
+    /// rate gyro about the yaw axis senses, under the attitude group's
+    /// declared body-rate validity. [`Self::turn`] is never fed from it.
+    pub yaw_rate_rps: Sig<f32>,
     /// Independent, reference-typed heading.
     pub heading: ResolvedHeading,
     /// What orients the rose and which reference the angular
@@ -115,6 +119,9 @@ pub struct PanelData {
     pub altitude: ResolvedAltitude,
     /// Vertical speed, feet/minute, positive climbing.
     pub vsi_fpm: Sig<f32>,
+    /// The rate-of-climb instrument's own reading from the Air group,
+    /// feet/minute, positive climbing; never filled from `vsi_fpm`.
+    pub vsi_indicated_fpm: Sig<f32>,
     /// Ground track, radians clockwise from north.
     pub track_rad: Sig<f32>,
     /// Altimeter setting, hectopascals.
@@ -147,6 +154,12 @@ pub struct PanelData {
     /// own status. Each ratio stays optional inside it — a vehicle with
     /// a flap sensor and no trim sensor shows one scale, not two.
     pub airframe: Sig<crate::aircraft::AirframeConfig>,
+    /// Engine indications with the group's own status.
+    pub engine: Sig<crate::engine::EngineGroup>,
+    /// The fuel tank group's header, with the group's own status.
+    pub fuel_tanks: Sig<crate::tank::TankGroup>,
+    /// The time of day the cockpit clock shows, seconds after midnight.
+    pub clock_s: Sig<f32>,
     /// Group-level status keyed by [`crate::GroupId`] — the surface a
     /// registry or admission harness asks generically.
     pub groups: crate::group_id::GroupStatuses,
@@ -270,7 +283,7 @@ pub fn resolve_stateful(
 
     let kin = kinematic_signals(state, policy, &trust, &integrity);
 
-    let (ias, tas, baro) = air_signals(state, policy, trust.quality, &integrity);
+    let air = air_signal::air_signals(state, policy, trust.quality, &integrity);
     let heading = heading_resolved(state, policy, &trust, &integrity);
     let basis = rose_basis(&heading, kin.track_rad.status.shows_value());
     let rose = basis.display_reference(heading.reference);
@@ -288,19 +301,21 @@ pub fn resolve_stateful(
         ),
         roll_rad: finite(Sig::with_status(presentation.bank_rad, att_status)),
         pitch_rad: finite(Sig::with_status(presentation.pitch_rad, att_status)),
+        yaw_rate_rps: finite(group_status::yaw_rate(state, policy, &trust, &integrity)),
         heading,
         rose_basis: basis,
         heading_bug_rose_rad: finite(bug),
         turn: turn_resolved(state, policy, &trust, &integrity),
         slip_lat_mps2: slip_resolved(state, policy, &trust, &integrity),
         ias_trend_kt_s: ias_trend_resolved(state, policy, &trust, &integrity),
-        ias_kt: finite(ias),
-        tas_kt: finite(tas),
+        ias_kt: finite(air.ias_kt),
+        tas_kt: finite(air.tas_kt),
         gs_kt: finite(kin.gs_kt),
         altitude: equipment.altitude,
         vsi_fpm: finite(kin.vsi_fpm),
+        vsi_indicated_fpm: finite(air.vsi_indicated_fpm),
         track_rad: finite(track),
-        baro_hpa: finite(baro),
+        baro_hpa: finite(air.baro_hpa),
         wind,
         nav: nav_resolved(state, policy, &integrity, rose, trust),
         selections: sanitized_selections(state.selections),
@@ -308,14 +323,19 @@ pub fn resolve_stateful(
         presentation,
         require_dynamics_cue: profile.require_dynamics_cue,
         sources: crate::source_monitor::SourceSelection::default(),
-        monitor_text: Sig::with_status(
-            state.monitor_text.data.unwrap_or_default(),
-            groups.status(crate::group_id::GroupId::MonitorText),
+        monitor_text: group_status::group_sig(
+            state.monitor_text.data,
+            &groups,
+            GroupId::MonitorText,
         ),
-        airframe: Sig::with_status(
-            state.airframe.data.unwrap_or_default(),
-            groups.status(crate::group_id::GroupId::AirframeConfig),
-        ),
+        airframe: group_status::group_sig(state.airframe.data, &groups, GroupId::AirframeConfig),
+        engine: group_status::group_sig(state.engine.data, &groups, GroupId::Engine),
+        fuel_tanks: group_status::group_sig(state.fuel_tanks.data, &groups, GroupId::FuelTanks),
+        clock_s: finite(group_status::group_sig(
+            state.clock.data.map(|c| c.time_of_day_s),
+            &groups,
+            GroupId::Clock,
+        )),
         groups,
     }
 }
@@ -396,33 +416,6 @@ fn attitude_geometry(
     }
 }
 
-fn air_signals(
-    state: &AircraftState,
-    policy: &FreshnessPolicy,
-    quality: SignalStatus,
-    integrity: &StateIntegrity,
-) -> (Sig<f32>, Sig<f32>, Sig<f32>) {
-    let air_fresh = policy.status_for_age(state.air.age_ms);
-    let air_fault = fault_status(integrity.air);
-    let air = state.air.data.unwrap_or_default();
-    // Sensed air-data values fold source quality; the applied altimeter
-    // setting does not, because a setting is a dialed configuration
-    // value and an estimate's quality says nothing about it.
-    let ias = match air.ias_mps {
-        Some(v) => Sig::with_status(v * MPS_TO_KT, air_fresh.worst(quality).worst(air_fault)),
-        None => Sig::missing(),
-    };
-    let tas = match air.tas_mps {
-        Some(v) => Sig::with_status(v * MPS_TO_KT, air_fresh.worst(quality).worst(air_fault)),
-        None => Sig::missing(),
-    };
-    let baro = match air.baro_setting_hpa {
-        Some(v) => Sig::with_status(v, air_fresh.worst(air_fault)),
-        None => Sig::missing(),
-    };
-    (ias, tas, baro)
-}
-
 fn nav_resolved(
     state: &AircraftState,
     policy: &FreshnessPolicy,
@@ -469,6 +462,7 @@ fn nav_resolved(
     }
 }
 
+mod air_signal;
 mod altitude_signal;
 mod autoflight_signal;
 mod bearings_signal;

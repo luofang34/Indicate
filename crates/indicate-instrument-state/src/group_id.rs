@@ -17,7 +17,7 @@
 //! |----|-------|
 //! | 0x00 | never assigned (guards zeroed memory) |
 //! | 0x01–0x0D | the variants below |
-//! | 0x0E | engine (planned) |
+//! | 0x0E | engine indications (stamped) |
 //! | 0x0F | traffic (planned) |
 //! | 0x10 | projection view (synthetic vision; planned) |
 //! | 0x11 | terrain bands (planned) |
@@ -27,7 +27,9 @@
 //! | 0x15 | autopilot targets (declared) |
 //! | 0x16 | coherent flight guidance (stamped) |
 //! | 0x17 | speed presentation and conditional envelope (stamped) |
-//! | 0x18–0xDF | future standard groups |
+//! | 0x18 | fuel tanks (stamped, variable) |
+//! | 0x19 | cockpit clock (stamped) |
+//! | 0x1A–0xDF | future standard groups |
 //! | 0xE0–0xEF | experimentation; never in committed fixtures |
 //! | 0xF0–0xFF | never assigned |
 //!
@@ -51,6 +53,9 @@
 //! | 0x13 | AirframeConfig | stamped | Flap position ratio plus an optional selected detent (sensed and selected are never conflated), and per-axis trim ratios (elevator first). Every field is optional and NaN-absent. Configuration takes its own id: flap and trim are airframe configuration, not engine, so 0x0E keeps its engine charter. |
 //! | 0x14 | ApModes | stamped | Engagement (Off/FD/AP, Unknown fail-closed), active and armed lateral mode, active and armed vertical mode. Each mode enum has a None value distinct from Unknown. Stamped because a stale "AP engaged" annunciation is the failure the freshness discipline exists to prevent (the `fc_state.rs` precedent). |
 //! | 0x15 | ApTargets | declared | Selected airspeed m/s, selected vertical speed m/s, and an altitude target with the same reference-identity trio as `altitude_sel` (class, origin, geoid model). Declared per the issue's stamped-versus-declared analysis: the targets are defensibly UI-like state, while modes and engagement are telemetry. |
+//! | 0x0E | Engine | stamped, variable | count u16, reserved u16 (zero), age f32, then `count` samples packed back to back. Each sample is a presence mask u16 over the append-only `EngineField` registry, then its present fields in bit order, each an f32: bit 0 manifold pressure hPa, 1 rpm, 2 oil temperature °C, 3 oil pressure kPa, 4 fuel pressure kPa, 5 coolant temperature °C, 6 cylinder-head temperature °C, 7 carburettor air temperature °C, 8 shaft angle degrees in `[0, 360)`. The length must equal the header plus every sample's size; an unknown bit or a disagreeing length faults the group. There is no engine capacity: the samples travel beside the owned state as an `EngineSamples` view. Readings are indicated values: gauge lag and error are the source's physics. Allocated in ABI v9. |
+//! | 0x18 | FuelTanks | stamped, variable | The engine group's layout over the `TankField` registry, one sample per tank in the source's tank order: bit 0 quantity L, 1 capacity L, 2 quantity kg, 3 capacity kg. Fuel is per tank, not per engine, so tanks are their own group; the instrument model maps an index to FRONT L, REAR R and so on. Allocated in ABI v9. |
+//! | 0x19 | Clock | stamped | The time of day the cockpit clock shows, seconds after midnight in `[0, 86400)`, then the age: 8 bytes. A clock is an instrument with its own error and the time it was set to, so the source writes what its clock reads, not a time the display derives. Allocated in ABI v9. |
 //!
 //! Field appends to existing groups follow the stamped lane growth
 //! policy: a new field appends AFTER the trailing `age_ms`, and an older
@@ -59,6 +64,7 @@
 //! | group | append |
 //! |-------|--------|
 //! | Air (0x03) | `tas_mps f32`, NaN-absent (12 to 16 bytes) |
+//! | Air (0x03) | `vsi_mps f32`, the rate-of-climb instrument's reading, NaN-absent (16 to 20 bytes; ABI v9) |
 //! | Dynamics (0x0B) | `ias_trend f32` (d(IAS)/dt), NaN-absent, plus Trust valid bit 9 (16 to 20 bytes) |
 //! | Nav (0x04) | `scale_mode u8` (Enroute/Terminal/Approach, 255 fail-closed Unknown) and `facility_type u8`, both after the group's existing tail (42 to 43 to 44 bytes) |
 
@@ -97,6 +103,8 @@ pub enum GroupId {
     MonitorText = 0x0C,
     /// Flight-director commanded attitude, mode, and engagement.
     FlightDirector = 0x0D,
+    /// Engine indications: manifold pressure and speed per engine.
+    Engine = 0x0E,
     /// Bearing pointers, independent of the selected nav source.
     BearingPointers = 0x12,
     /// Airframe configuration: flap position and trim.
@@ -109,14 +117,18 @@ pub enum GroupId {
     Guidance = 0x16,
     /// Typed speed values and source-supplied target and envelope projections.
     SpeedPresentation = 0x17,
+    /// Fuel quantity per tank, presence-masked and variable in length.
+    FuelTanks = 0x18,
+    /// The time of day the cockpit clock shows.
+    Clock = 0x19,
 }
 
 impl GroupId {
     /// Number of defined groups.
-    pub const COUNT: usize = 19;
+    pub const COUNT: usize = 22;
 
-    /// Every defined group in ascending id order — the canonical wire
-    /// order and the index order of [`GroupStatuses`].
+    /// Every defined group in ascending id order: the canonical wire
+    /// order. Table slots come from [`Self::index`], not from here.
     pub const ALL: [GroupId; Self::COUNT] = [
         GroupId::Attitude,
         GroupId::Kinematics,
@@ -131,12 +143,15 @@ impl GroupId {
         GroupId::Dynamics,
         GroupId::MonitorText,
         GroupId::FlightDirector,
+        GroupId::Engine,
         GroupId::BearingPointers,
         GroupId::AirframeConfig,
         GroupId::ApModes,
         GroupId::ApTargets,
         GroupId::Guidance,
         GroupId::SpeedPresentation,
+        GroupId::FuelTanks,
+        GroupId::Clock,
     ];
 
     /// The wire tag.
@@ -161,23 +176,30 @@ impl GroupId {
             0x0B => Some(GroupId::Dynamics),
             0x0C => Some(GroupId::MonitorText),
             0x0D => Some(GroupId::FlightDirector),
+            0x0E => Some(GroupId::Engine),
             0x12 => Some(GroupId::BearingPointers),
             0x13 => Some(GroupId::AirframeConfig),
             0x14 => Some(GroupId::ApModes),
             0x15 => Some(GroupId::ApTargets),
             0x16 => Some(GroupId::Guidance),
             0x17 => Some(GroupId::SpeedPresentation),
+            0x18 => Some(GroupId::FuelTanks),
+            0x19 => Some(GroupId::Clock),
             _ => None,
         }
     }
 
-    /// Position in [`Self::ALL`], for dense per-group tables.
+    /// The group's slot in dense per-group tables: [`GroupStatuses`]
+    /// and the descriptor `GroupSet` bitset.
     ///
-    /// The mapping is a match, not arithmetic on the wire tag. The
-    /// assigned ids are not contiguous — the planned range 0x0E to
-    /// 0x11 has no variants — so `tag - 1` indexes past the table. The
-    /// exhaustive match also fails to compile when a new variant has no
-    /// slot, which arithmetic cannot do.
+    /// Slots are append-only, like wire tags. A slot is assigned when
+    /// its group lands and never moves, because a `GroupSet` is written
+    /// into signed plugin descriptors as raw bits: renumbering a slot
+    /// would change what an already-signed package declares. So a slot
+    /// is neither the wire tag minus one nor the position in
+    /// [`Self::ALL`]; [`Self::ALL`] keeps wire order, and the slots are
+    /// a dense permutation of `0..COUNT`. The exhaustive match also
+    /// fails to compile when a new variant has no slot.
     pub const fn index(self) -> usize {
         match self {
             GroupId::Attitude => 0,
@@ -199,6 +221,9 @@ impl GroupId {
             GroupId::ApTargets => 16,
             GroupId::Guidance => 17,
             GroupId::SpeedPresentation => 18,
+            GroupId::Engine => 19,
+            GroupId::FuelTanks => 20,
+            GroupId::Clock => 21,
         }
     }
 }
@@ -250,6 +275,9 @@ pub fn withhold_group(state: &AircraftState, group: GroupId) -> AircraftState {
         }
         GroupId::BearingPointers => out.bearings = Default::default(),
         GroupId::AirframeConfig => out.airframe = Default::default(),
+        GroupId::Engine => out.engine = Default::default(),
+        GroupId::FuelTanks => out.fuel_tanks = Default::default(),
+        GroupId::Clock => out.clock = Default::default(),
         GroupId::Altitude => out.altitude = Default::default(),
         GroupId::Heading => {
             out.heading = Default::default();

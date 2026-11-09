@@ -10,7 +10,7 @@ use indicate_instrument_scene::{
     angular::{ANGULAR_SCENE_VERSION, AngularSceneWriter},
     volume::{Extent3D, VOLUME_SCENE_VERSION, VolumeSceneWriter},
 };
-use indicate_instrument_state::{FreshnessPolicy, abi::v8, resolve};
+use indicate_instrument_state::{FreshnessPolicy, abi::v9, resolve};
 use indicate_sha256::Sha256Ctx;
 
 use crate::registry::Registry;
@@ -57,15 +57,29 @@ pub fn scene_digest(registry: &Registry, scratch: &mut [u8]) -> Result<[u8; 32],
         SCENE_FORMAT_VERSION,
         ANGULAR_SCENE_VERSION,
         VOLUME_SCENE_VERSION,
-        v8::VERSION,
+        v9::VERSION,
     ]);
     for panel in registry.panels() {
         digest_panel_contract(&mut ctx, panel);
         for state in CANONICAL_STATES {
-            digest_state(&mut ctx, panel, state.id, (state.build)(), scratch)?;
+            digest_state(
+                &mut ctx,
+                panel,
+                state.id,
+                (state.build)(),
+                (state.engines, state.tanks),
+                scratch,
+            )?;
         }
         for extreme in panel.extreme_states {
-            digest_state(&mut ctx, panel, extreme.id, (extreme.build)(), scratch)?;
+            digest_state(
+                &mut ctx,
+                panel,
+                extreme.id,
+                (extreme.build)(),
+                (extreme.engines, extreme.tanks),
+                scratch,
+            )?;
         }
     }
     Ok(ctx.finalize())
@@ -150,11 +164,18 @@ fn digest_state(
     panel: &PanelDescriptor,
     state_id: &'static str,
     state: indicate_instrument_state::AircraftState,
+    (engines, tanks): (
+        &'static [indicate_instrument_state::EngineSample],
+        &'static [indicate_instrument_state::TankSample],
+    ),
     scratch: &mut [u8],
 ) -> Result<(), DigestError> {
     update_framed(ctx, ROLE_STATE, state_id.as_bytes());
     let data = resolve(&state, &FreshnessPolicy::default());
-    let draw_ctx = DrawContext::new(&data).with_raw_state(&state);
+    let draw_ctx = DrawContext::new(&data)
+        .with_raw_state(&state)
+        .with_engines(indicate_instrument_state::EngineSamples::Slice(engines))
+        .with_tanks(indicate_instrument_state::TankSamples::Slice(tanks));
     match panel.space {
         RenderSpace::Planar2D {
             canonical_frames, ..

@@ -127,6 +127,7 @@ pub(super) fn pfd_readout_extremes() -> AircraftState {
             ias_mps: Some(199.0),
             baro_setting_hpa: Some(1049.7),
             tas_mps: Some(221.0),
+            vsi_mps: None,
         }),
         age_ms: Some(40.0),
     };

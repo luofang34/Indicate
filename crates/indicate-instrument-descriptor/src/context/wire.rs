@@ -3,7 +3,7 @@
 use indicate_alerts::{AlertOutput, AlertWireError, decode_alerts, encode_alerts};
 use indicate_instrument_state::{
     AircraftState, FreshnessPolicy, PanelData,
-    abi::v8::{self, AbiError},
+    abi::v9::{self, AbiError},
     resolve,
 };
 use indicate_intent::{
@@ -14,7 +14,8 @@ use indicate_interaction::{
 };
 
 use super::DrawContext;
-use super::synth::synthesize_aircraft_state;
+
+mod state;
 use crate::aux::{AuxChannelId, AuxEntry, MAX_AUX_ENTRIES};
 use crate::config::{ConfigBlob, ConfigError};
 use crate::space::UnderlayStatus;
@@ -70,10 +71,10 @@ pub enum DrawContextWireError {
     /// Section or payload length overflows wire width.
     #[error("section length overflows wire integer width")]
     LengthOverflow,
-    /// State v8 codec failed or left trailing bytes.
+    /// State v9 codec failed or left trailing bytes.
     #[error("state wire error: {0}")]
     State(#[from] AbiError),
-    /// State v8 frame carried unannounced trailing bytes.
+    /// State v9 frame carried unannounced trailing bytes.
     #[error("state frame carried {0} trailing bytes")]
     StateTrailingBytes(u16),
     /// Config TLV blob failed validation.
@@ -94,6 +95,8 @@ pub enum DrawContextWireError {
 #[derive(Debug, Clone, Copy)]
 pub struct DecodedDrawContext<'a> {
     state: AircraftState,
+    engines: indicate_instrument_state::EngineSamples<'a>,
+    tanks: indicate_instrument_state::TankSamples<'a>,
     data: PanelData,
     config: ConfigBlob<'a>,
     alerts: Option<AlertOutput>,
@@ -113,6 +116,8 @@ impl<'a> DecodedDrawContext<'a> {
     {
         DrawContext::new(&self.data)
             .with_raw_state(&self.state)
+            .with_engines(self.engines)
+            .with_tanks(self.tanks)
             .with_config(self.config)
             .with_alerts(self.alerts.as_ref())
             .with_echo(self.echo)
@@ -158,14 +163,7 @@ pub fn encode_draw_context(
     encode_view_pose(ctx.view(), &mut view_buf)?;
 
     let mut off = DRAW_CONTEXT_HEADER_BYTES;
-    let synthesized;
-    let state_ref = if let Some(s) = ctx.raw_state() {
-        s
-    } else {
-        synthesized = synthesize_aircraft_state(ctx.data());
-        &synthesized
-    };
-    let state_len = encode_state_section(state_ref, out, &mut off)?;
+    let state_len = state::encode_state_section(ctx, out, &mut off)?;
     let config_len = encode_config_section(ctx.config().as_bytes(), out, &mut off)?;
     let (has_alerts, alerts_len) = encode_alerts_section(ctx.alerts(), out, &mut off)?;
     encode_aux_section(ctx.aux_entries(), &sorted_aux, out, &mut off)?;
@@ -235,29 +233,6 @@ fn sorted_aux_indices(
     }
     let count = u16::try_from(entries.len()).map_err(|_| DrawContextWireError::LengthOverflow)?;
     Ok((idx, count))
-}
-
-fn encode_state_section(
-    state: &AircraftState,
-    out: &mut [u8],
-    off: &mut usize,
-) -> Result<u16, DrawContextWireError> {
-    let avail = out.len();
-    let tail = out
-        .get_mut(*off..)
-        .ok_or(DrawContextWireError::BufferTooSmall {
-            needed: *off + 2,
-            available: avail,
-        })?;
-    let written = v8::encode_state(state, tail).map_err(|err| match err {
-        AbiError::Truncated => DrawContextWireError::BufferTooSmall {
-            needed: avail.saturating_add(64),
-            available: avail,
-        },
-        other => DrawContextWireError::State(other),
-    })?;
-    *off += written;
-    u16::try_from(written).map_err(|_| DrawContextWireError::LengthOverflow)
 }
 
 fn encode_config_section(
@@ -405,7 +380,10 @@ fn decode_sections<'a>(
     }
     let s_end = DRAW_CONTEXT_HEADER_BYTES + state_len;
     let c_end = s_end + config_len;
-    let report = v8::decode_state(&bytes[DRAW_CONTEXT_HEADER_BYTES..s_end])?;
+    let state_bytes = &bytes[DRAW_CONTEXT_HEADER_BYTES..s_end];
+    let report = v9::decode_state(state_bytes)?;
+    let engines = v9::engine_samples(state_bytes);
+    let tanks = v9::tank_samples(state_bytes);
     if report.trailing_bytes != 0 {
         return Err(DrawContextWireError::StateTrailingBytes(
             report.trailing_bytes,
@@ -427,6 +405,8 @@ fn decode_sections<'a>(
     }
     Ok(DecodedDrawContext {
         state: report.state,
+        engines,
+        tanks,
         data,
         config,
         alerts,
