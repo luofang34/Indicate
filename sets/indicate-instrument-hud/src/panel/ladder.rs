@@ -4,22 +4,11 @@ use super::*;
 
 const DEG: f32 = core::f32::consts::PI / 180.0;
 
-/// The level-frame azimuth of the ladder centre: the ground track when the
-/// flight path is known, so the ladder and the flight path marker share a column.
-fn ladder_azimuth(data: &PanelData, camera: &Camera) -> f32 {
-    let view_azimuth = camera.view_azimuth_from_heading().unwrap_or(0.0);
-    let (Some(heading), Some(track), Some(speed)) = (
-        camera.true_heading(),
-        live(data.track_rad),
-        live(data.gs_kt),
-    ) else {
-        return view_azimuth;
-    };
-    if speed < 20.0 {
-        return view_azimuth;
-    }
-    let drift = libm::remainderf(track - heading - view_azimuth, 2.0 * core::f32::consts::PI);
-    view_azimuth + drift.clamp(-0.35, 0.35)
+/// The level-frame azimuth of the ladder centre: caged to the camera's
+/// horizontal look direction so the pitch ladder stays centred on the display
+/// while the flight path marker moves laterally with wind drift and sideslip.
+fn ladder_azimuth(camera: &Camera) -> f32 {
+    camera.view_azimuth_from_heading().unwrap_or(0.0)
 }
 
 fn elevation(azimuth: f32, angle: f32) -> [f32; 3] {
@@ -46,7 +35,7 @@ pub(super) fn draw(
     // The top band of the field holds the heading readout.
     let top = cy - hh + 34.0 * layout.unit;
     scene.clip_rect(cx - hw, top, hw * 2.0, cy + hh - top)?;
-    let azimuth = ladder_azimuth(data, camera);
+    let azimuth = ladder_azimuth(camera);
     for degrees in (-90..=90).step_by(5) {
         rung(camera, layout, azimuth, degrees, scene)?;
     }
@@ -103,10 +92,16 @@ fn rung(
             .level_to_body(azimuth, elevation(a, e))
             .and_then(|v| camera.project_body(v))
     };
+    let reach = layout.field[0].max(layout.field[1]) * 1.6;
     if degrees.abs() == 90 {
         return match at(0.0, angle) {
-            Some(p) => rung::pole([p.x, p.y], degrees > 0, layout, scene),
-            None => Ok(()),
+            Some(p)
+                if (p.x - layout.centre[0]).abs() <= reach
+                    && (p.y - layout.centre[1]).abs() <= reach =>
+            {
+                rung::pole([p.x, p.y], degrees > 0, layout, scene)
+            }
+            _ => Ok(()),
         };
     }
     let (Some(centre), Some(left), Some(right)) = (at(0.0, angle), at(-DEG, angle), at(DEG, angle))
@@ -116,7 +111,6 @@ fn rung(
     let Some(along) = unit([right.x - left.x, right.y - left.y]) else {
         return Ok(());
     };
-    let reach = layout.field[0].max(layout.field[1]) * 1.6;
     if (centre.x - layout.centre[0]).abs() > reach || (centre.y - layout.centre[1]).abs() > reach {
         return Ok(());
     }
@@ -194,7 +188,7 @@ fn unit(v: [f32; 2]) -> Option<[f32; 2]> {
 pub(super) fn velocity_ned(data: &PanelData) -> Option<[f32; 3]> {
     let (speed, track, climb) = (
         live(data.gs_kt)?,
-        live(data.track_rad)?,
+        live(data.true_track_rad())?,
         live(data.vsi_fpm)?,
     );
     let climb_kt = climb / 101.268_6;

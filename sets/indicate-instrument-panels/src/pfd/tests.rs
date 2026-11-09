@@ -158,6 +158,52 @@ fn v_speed_bands_add_rects_not_errors() {
 }
 
 #[test]
+fn c172_v_speed_bugs_render_on_pfd_and_round_trip_via_config_blob() {
+    use super::VSpeedBugs;
+    use indicate_instrument_descriptor::{ConfigBlob, encode_v_speeds_payload, keys};
+
+    let speeds = VSpeeds {
+        vs0_kt: 40.0,
+        vs_kt: 48.0,
+        vfe_kt: 85.0,
+        vno_kt: 129.0,
+        vne_kt: 163.0,
+    };
+    let bugs = VSpeedBugs {
+        vr_kt: Some(55.0),
+        vx_kt: Some(62.0),
+        vy_kt: Some(74.0),
+        vg_kt: Some(68.0),
+        va_kt: Some(102.9),
+        vref_kt: Some(61.0),
+    };
+    let payload = encode_v_speeds_payload(&speeds, &bugs);
+    let mut wire = Vec::new();
+    wire.extend_from_slice(&keys::V_SPEEDS.0.to_le_bytes());
+    wire.extend_from_slice(&(payload.len() as u16).to_le_bytes());
+    wire.extend_from_slice(&payload);
+    let blob = ConfigBlob::parse(&wire).expect("valid 44B V_SPEEDS blob");
+    let decoded = PfdConfig::from_config(&blob, BUILTIN_FRAME).expect("decodes 44B V_SPEEDS");
+    assert_eq!(decoded.v_speeds, Some(speeds));
+    assert_eq!(decoded.v_speed_bugs, bugs);
+
+    let mut data = flying();
+    data.ias_kt = indicate_instrument_state::Sig::with_status(
+        68.0,
+        indicate_instrument_state::SignalStatus::Valid,
+    );
+    let scene = render(&data, &decoded);
+    assert_eq!(save_restore_balance(&scene), 0);
+    let labels = texts(&scene);
+    for tag in ["R", "REF", "X", "G", "Y"] {
+        assert!(
+            labels.iter().any(|t| t == tag),
+            "missing bug {tag} in {labels:?}"
+        );
+    }
+}
+
+#[test]
 fn empty_state_still_renders_a_scene() {
     let data = resolve(&AircraftState::default(), &FreshnessPolicy::default());
     let scene = render(&data, &PfdConfig::default());

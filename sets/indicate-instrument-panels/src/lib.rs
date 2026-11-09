@@ -40,7 +40,10 @@ pub use descriptors::{
 };
 pub use hsi::draw_hsi;
 pub use monitor::draw_monitor;
-pub use pfd::{BackgroundMode, PFD_CONFIG_SCHEMA, PfdConfig, SvsViewport, VSpeeds, draw_pfd};
+pub use pfd::{
+    BackgroundMode, PFD_CONFIG_SCHEMA, PfdConfig, SvsViewport, VSpeedBug, VSpeedBugs, VSpeeds,
+    draw_pfd,
+};
 
 /// Logical width of [`BUILTIN_FRAME`].
 pub const PANEL_W: f32 = 480.0;

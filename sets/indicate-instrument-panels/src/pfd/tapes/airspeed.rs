@@ -2,24 +2,40 @@
 //! bar, and the true-airspeed and groundspeed boxes at its head and
 //! foot.
 
-use indicate_instrument_scene::{Anchor, PaintMode, Rgba8, SceneError, SceneWriter};
+use indicate_instrument_scene::{Anchor, PaintMode, SceneError, SceneWriter};
 use indicate_instrument_state::{GroupId, PanelData};
-use indicate_instrument_symbology::{fmt_label, palette, safety, status_paint};
+use indicate_instrument_symbology::v_speeds::{
+    LinearVSpeedScale, draw_linear_bands, draw_linear_bugs,
+};
+use indicate_instrument_symbology::{fmt_label, palette, status_paint};
 
 use super::{
     CENTER_Y, IAS_READOUT, SPEED_TAPE_TOP, TAPE_BOTTOM, fitted_readout_size, ladder_label_fits,
     pointed_readout,
 };
-use crate::pfd::VSpeeds;
+use crate::pfd::{VSpeedBugs, VSpeeds};
 
 const PX_PER_KT: f32 = 7.2;
 
-/// Left-edge airspeed tape with bands, readout, and the TAS and
-/// groundspeed boxes at its head and foot.
+const PFD_SPEED_SCALE: LinearVSpeedScale = LinearVSpeedScale {
+    edge_x: 90.0,
+    center_y: CENTER_Y,
+    top_y: SPEED_TAPE_TOP,
+    bottom_y: TAPE_BOTTOM,
+    px_per_kt: PX_PER_KT,
+    outer_band_x: 86.0,
+    inner_band_x: 82.0,
+    band_width: 4.0,
+    bug_side: 1.0,
+};
+
+/// Left-edge airspeed tape with bands, reference bugs, readout, and the TAS
+/// and groundspeed boxes at its head and foot.
 pub fn speed_tape(
     scene: &mut SceneWriter<'_>,
     data: &PanelData,
     v: Option<&VSpeeds>,
+    bugs: &VSpeedBugs,
     declutter: bool,
 ) -> Result<(), SceneError> {
     if data.flight.speed_present {
@@ -38,7 +54,7 @@ pub fn speed_tape(
 
     if ias.status.shows_value() {
         if let Some(v) = v {
-            speed_bands(scene, ias.value, v)?;
+            draw_linear_bands(scene, ias.value, v, &PFD_SPEED_SCALE)?;
         }
         scene.save()?;
         scene.clip_rect(0.0, SPEED_TAPE_TOP, 90.0, TAPE_BOTTOM - SPEED_TAPE_TOP)?;
@@ -80,6 +96,9 @@ pub fn speed_tape(
 
     if !declutter {
         trend_bar(scene, data)?;
+        if ias.status.shows_value() {
+            draw_linear_bugs(scene, ias.value, bugs, &PFD_SPEED_SCALE)?;
+        }
     }
 
     legacy_targets_or_tas(scene, data)?;
@@ -219,35 +238,4 @@ fn gs_box(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneErro
         fitted_readout_size(90.0, gs_text.as_str(), 16.0, gs.status),
         gs.status,
     )
-}
-
-fn speed_bands(scene: &mut SceneWriter<'_>, ias: f32, v: &VSpeeds) -> Result<(), SceneError> {
-    let segs: [(f32, f32, Rgba8); 3] = [
-        (v.vs_kt, v.vno_kt, palette::BAND_GREEN),
-        (v.vno_kt, v.vne_kt, safety::BAND_CAUTION),
-        (v.vne_kt, v.vne_kt + 1000.0, safety::FAILURE_RED),
-    ];
-    for (lo, hi, color) in segs {
-        band_rect(scene, ias, lo, hi, 86.0, 4.0, color)?;
-    }
-    band_rect(scene, ias, v.vs0_kt, v.vfe_kt, 82.0, 4.0, palette::WHITE)?;
-    Ok(())
-}
-
-fn band_rect(
-    scene: &mut SceneWriter<'_>,
-    ias: f32,
-    lo_kt: f32,
-    hi_kt: f32,
-    x: f32,
-    w: f32,
-    color: Rgba8,
-) -> Result<(), SceneError> {
-    let y_top = (CENTER_Y - (hi_kt - ias) * PX_PER_KT).max(SPEED_TAPE_TOP);
-    let y_bot = (CENTER_Y - (lo_kt - ias) * PX_PER_KT).min(TAPE_BOTTOM);
-    if y_bot > y_top {
-        scene.fill_color(color)?;
-        scene.rect(PaintMode::Fill, x, y_top, w, y_bot - y_top)?;
-    }
-    Ok(())
 }

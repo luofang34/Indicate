@@ -8,6 +8,10 @@ use super::*;
 use crate::runway::Runway;
 use indicate_instrument_state::{NavFromTo, NavScale, NavSource};
 
+mod outline;
+
+use outline::{is_on_rollout, outline};
+
 const DEG: f32 = core::f32::consts::PI / 180.0;
 
 pub(super) fn draw(
@@ -22,8 +26,11 @@ pub(super) fn draw(
     let [hw, hh] = layout.field;
     scene.save()?;
     scene.clip_rect(cx - hw, cy - hh, hw * 2.0, hh * 2.0)?;
+    let rollout = is_on_rollout(runway);
     outline(runway, camera, layout, scene)?;
-    glide_path(runway, camera, layout, scene)?;
+    if !rollout {
+        glide_path(runway, camera, layout, scene)?;
+    }
     scene.restore()?;
     if let Some(band) = aoa_band {
         aoa_bracket(data, band, camera, layout, scene)?;
@@ -76,45 +83,6 @@ fn aoa_bracket(
 
 fn point(camera: &Camera, v: [f32; 3]) -> Option<[f32; 2]> {
     camera.project_ned(v).map(|p| [p.x, p.y])
-}
-
-/// The runway edges and threshold, and dashes along the extended centreline.
-fn outline(
-    runway: &Runway,
-    camera: &Camera,
-    layout: &Layout,
-    scene: &mut SceneWriter<'_>,
-) -> Result<(), PanelDrawError> {
-    let u = layout.unit;
-    let (along, right) = runway.axes();
-    let t = runway.threshold_m;
-    let at = |a: f32, r: f32| {
-        [
-            t[0] + along[0] * a + right[0] * r,
-            t[1] + along[1] * a + right[1] * r,
-            t[2],
-        ]
-    };
-    let half = runway.width_m * 0.5;
-    let corners = [
-        at(0.0, -half),
-        at(0.0, half),
-        at(runway.length_m, half),
-        at(runway.length_m, -half),
-    ];
-    if let [Some(a), Some(b), Some(c), Some(d)] = corners.map(|v| point(camera, v)) {
-        halo_polyline(layout, scene, &[a, b, c, d, a], HUD_GREEN, 1.8 * u)?;
-    }
-    for k in 1..=6 {
-        let start = -150.0 * k as f32;
-        if let (Some(a), Some(b)) = (
-            point(camera, at(start, 0.0)),
-            point(camera, at(start + 60.0, 0.0)),
-        ) {
-            halo_polyline(layout, scene, &[a, b], HUD_GREEN, 1.4 * u)?;
-        }
-    }
-    Ok(())
 }
 
 /// A dashed line at the glide path angle below the horizon, along the runway course.

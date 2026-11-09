@@ -15,22 +15,8 @@ mod horizon;
 mod panel_config;
 mod tapes;
 
+pub use indicate_instrument_state::{VSpeedBug, VSpeedBugs, VSpeeds};
 pub use panel_config::PFD_CONFIG_SCHEMA;
-
-/// Airframe reference speeds (knots) driving the speed-tape color bands.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct VSpeeds {
-    /// Stall, landing configuration (bottom of white arc).
-    pub vs0_kt: f32,
-    /// Stall, clean (bottom of green arc).
-    pub vs_kt: f32,
-    /// Maximum flap-extended (top of white arc).
-    pub vfe_kt: f32,
-    /// Maximum structural cruise (top of green arc).
-    pub vno_kt: f32,
-    /// Never exceed (red line).
-    pub vne_kt: f32,
-}
 
 /// What fills the attitude background.
 ///
@@ -76,8 +62,10 @@ pub struct SvsViewport {
 pub struct PfdConfig {
     /// Attitude background selection.
     pub background: BackgroundMode,
-    /// Speed-tape bands; `None` draws a bandless tape.
+    /// Speed-tape operating-range color bands; `None` draws a bandless tape.
     pub v_speeds: Option<VSpeeds>,
+    /// Optional airframe POH/AFM reference speed bugs (`Vr`, `Vx`, `Vy`, `Vg`, `Va`, `Vref`).
+    pub v_speed_bugs: VSpeedBugs,
 }
 
 /// Draws the PFD from resolved state in the scene-layer bands:
@@ -136,23 +124,7 @@ pub fn draw_pfd(
     }
     scene.end_layer(LayerId::Attitude)?;
 
-    scene.begin_layer(LayerId::Tapes)?;
-    tapes::speed_tape(
-        scene,
-        data,
-        if declutter {
-            None
-        } else {
-            cfg.v_speeds.as_ref()
-        },
-        declutter,
-    )?;
-    tapes::altitude_tape(scene, data)?;
-    tapes::vsi(scene, data)?;
-    if !declutter {
-        draw_turn_rate(scene, data)?;
-    }
-    scene.end_layer(LayerId::Tapes)?;
+    tapes_band(scene, data, cfg, declutter)?;
 
     scene.begin_layer(LayerId::Guidance)?;
     director::draw(
@@ -169,6 +141,31 @@ pub fn draw_pfd(
     scene.end_layer(LayerId::Guidance)?;
 
     annunciation_band(scene, data, alerts, att_status)?;
+    Ok(())
+}
+
+/// The Tapes band. Declutter removes the speed-tape references and bugs
+/// with the turn-rate cue; the tapes and VSI themselves always remain.
+fn tapes_band(
+    scene: &mut SceneWriter<'_>,
+    data: &PanelData,
+    cfg: &PfdConfig,
+    declutter: bool,
+) -> Result<(), SceneError> {
+    scene.begin_layer(LayerId::Tapes)?;
+    let empty_bugs = VSpeedBugs::default();
+    let (v_speeds, bugs) = if declutter {
+        (None, &empty_bugs)
+    } else {
+        (cfg.v_speeds.as_ref(), &cfg.v_speed_bugs)
+    };
+    tapes::speed_tape(scene, data, v_speeds, bugs, declutter)?;
+    tapes::altitude_tape(scene, data)?;
+    tapes::vsi(scene, data)?;
+    if !declutter {
+        draw_turn_rate(scene, data)?;
+    }
+    scene.end_layer(LayerId::Tapes)?;
     Ok(())
 }
 

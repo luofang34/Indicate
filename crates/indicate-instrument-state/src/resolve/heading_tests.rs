@@ -403,3 +403,55 @@ fn variation_astride_the_threshold_fails_every_converted_quantity_together() {
         "only conversion-dependent quantities follow the variation"
     );
 }
+
+#[test]
+fn true_heading_resolves_from_magnetic_sample_only_with_valid_variation() {
+    let without_var = resolve(
+        &with_heading(HeadingReference::Magnetic, 1.0),
+        &FreshnessPolicy::default(),
+    );
+    assert_eq!(
+        without_var.heading.true_heading_rad().status,
+        SignalStatus::Failed
+    );
+    assert_eq!(without_var.heading.true_heading_rad().value, 0.0);
+
+    let mut undeclared = with_heading(HeadingReference::Magnetic, 1.0);
+    undeclared.variation = Stamped {
+        data: Some(MagneticVariation {
+            east_positive_rad: 0.2,
+            source: VariationSourceId::UNDECLARED,
+        }),
+        age_ms: Some(10.0),
+    };
+    undeclared.valid.variation = true;
+    let undeclared = resolve(&undeclared, &FreshnessPolicy::default());
+    assert_eq!(
+        undeclared.heading.true_heading_rad().status,
+        SignalStatus::Failed
+    );
+
+    let mut with_east_var = with_heading(HeadingReference::Magnetic, 1.0);
+    with_east_var.variation = Stamped {
+        data: Some(MagneticVariation {
+            east_positive_rad: 0.2,
+            source: VariationSourceId(1),
+        }),
+        age_ms: Some(10.0),
+    };
+    with_east_var.valid.variation = true;
+    let resolved = resolve(&with_east_var, &FreshnessPolicy::default());
+    let true_hdg = resolved.heading.true_heading_rad();
+    assert_eq!(true_hdg.status, SignalStatus::Valid);
+    assert!(
+        (true_hdg.value - 1.2).abs() < 1e-6,
+        "got {}",
+        true_hdg.value
+    );
+
+    // Stale variation degrades true_heading_rad to Stale, so conformal consumers
+    // requiring SignalStatus::Valid fail closed.
+    with_east_var.variation.age_ms = Some(900.0);
+    let stale = resolve(&with_east_var, &FreshnessPolicy::default());
+    assert_eq!(stale.heading.true_heading_rad().status, SignalStatus::Stale);
+}

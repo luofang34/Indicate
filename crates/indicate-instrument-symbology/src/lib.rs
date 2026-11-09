@@ -16,6 +16,9 @@
 
 #![no_std]
 
+#[cfg(test)]
+extern crate std;
+
 pub mod annunciation;
 pub mod fixed_str;
 pub mod flight;
@@ -24,3 +27,4 @@ pub mod safety;
 pub mod source_label;
 pub mod status_paint;
 pub mod theme;
+pub mod v_speeds;

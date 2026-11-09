@@ -29,7 +29,13 @@ cp Cargo.lock "$lock_backup"
 citation_backup="$(mktemp)"
 cp CONTRIBUTING.md "$citation_backup"
 
+condition_file="crates/indicate-alerts/src/condition.rs"
+condition_backup="$(mktemp)"
+cp "$condition_file" "$condition_backup"
+
 cleanup() {
+    cp "$condition_backup" "$condition_file"
+    rm -f "$condition_backup"
     rm -rf "$probe_dir"
     rm -rf "$worktree_probe_dir"
     rm -rf "$agent_probe_dir"
@@ -43,6 +49,15 @@ trap cleanup EXIT
 
 passed=0
 failed=0
+
+# The acceptance cases below read the gate's exit status, so they can
+# only judge a probe against a tree that passes unprobed. On a failing
+# tree they would blame the probe for findings it did not cause.
+if ! baseline_output="$(INDICATE_STRUCTURE_SELFTEST_CHILD=1 bash scripts/check-structure.sh 2>&1)"; then
+    printf '%s\n' "$baseline_output" >&2
+    echo "structure-selftest: the unprobed tree fails the gate; fix the findings above first" >&2
+    exit 1
+fi
 
 # $1 = case name, $2 = the dependency stanza under test.
 expect_refusal() {
@@ -159,9 +174,6 @@ expect_term_refusal "Swift SceneKit backend" "Swift SceneKit backend"
 # The display-reason completeness check: a variant outside `ALL` takes a
 # code no Rust test can see, and a duplicated slot then collides with an
 # existing reason's identity. Probe it by adding exactly that variant.
-condition_file="crates/indicate-alerts/src/condition.rs"
-condition_backup="$(mktemp)"
-cp "$condition_file" "$condition_backup"
 python3 - "$condition_file" <<'PROBE'
 import sys
 p = sys.argv[1]
@@ -192,7 +204,6 @@ else
     failed=$((failed + 1))
 fi
 cp "$condition_backup" "$condition_file"
-rm -f "$condition_backup"
 
 # A linked worktree is a checkout, not content, and the gate walks the
 # tree with `find`, which reads no ignore file. Without the prune the

@@ -12,6 +12,13 @@
 /// Maximum encoded size of a configuration blob.
 pub const CONFIG_BLOB_MAX: usize = 256;
 
+/// Wire byte length of [`keys::V_SPEEDS`] when carrying only the five arc-limit speeds.
+pub const V_SPEEDS_BANDS_BYTES: usize = 20;
+
+/// Wire byte length of [`keys::V_SPEEDS`] when carrying both the five arc-limit
+/// speeds and the six optional reference bugs (`[vs0, vs, vfe, vno, vne, vr, vx, vy, vg, va, vref]`).
+pub const V_SPEEDS_EXTENDED_BYTES: usize = 44;
+
 /// A configuration key. Well-known assignments live in [`keys`];
 /// out-of-repo panels take keys from `0x8000` up.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -25,7 +32,9 @@ pub mod keys {
     /// band), `[2]` synthetic vision (accept-and-cede until the SVS
     /// renderer lands).
     pub const BACKGROUND_MODE: ConfigKey = ConfigKey(0x0001);
-    /// Speed-tape bands: five `f32` LE (vs0, vs, vfe, vno, vne) knots.
+    /// Airspeed color bands (`20 B`: five `f32` LE `vs0, vs, vfe, vno, vne` knots)
+    /// or bands plus reference speed bugs (`44 B`: eleven `f32` LE appending
+    /// `vr, vx, vy, vg, va, vref`, with `NaN` encoding an absent bug).
     pub const V_SPEEDS: ConfigKey = ConfigKey(0x0002);
     /// SVS viewport within the design frame: four `f32` LE (x, y,
     /// width, height).
@@ -164,6 +173,94 @@ fn entry_header(bytes: &[u8], off: usize) -> Result<(u16, usize), ConfigError> {
         return Err(ConfigError::Truncated { key });
     }
     Ok((key, len))
+}
+
+/// Encodes `(speeds, bugs)` into the canonical `44`-byte [`keys::V_SPEEDS`] payload.
+#[must_use]
+pub fn encode_v_speeds_payload(
+    speeds: &indicate_instrument_state::VSpeeds,
+    bugs: &indicate_instrument_state::VSpeedBugs,
+) -> [u8; V_SPEEDS_EXTENDED_BYTES] {
+    let opt = |v: Option<f32>| v.unwrap_or(f32::NAN);
+    let words = [
+        speeds.vs0_kt,
+        speeds.vs_kt,
+        speeds.vfe_kt,
+        speeds.vno_kt,
+        speeds.vne_kt,
+        opt(bugs.vr_kt),
+        opt(bugs.vx_kt),
+        opt(bugs.vy_kt),
+        opt(bugs.vg_kt),
+        opt(bugs.va_kt),
+        opt(bugs.vref_kt),
+    ];
+    let mut out = [0u8; V_SPEEDS_EXTENDED_BYTES];
+    for (i, val) in words.iter().enumerate() {
+        if let Some(slot) = out.get_mut(i * 4..i * 4 + 4) {
+            slot.copy_from_slice(&val.to_le_bytes());
+        }
+    }
+    out
+}
+
+/// Decodes a `20`-byte (bands only) or `44`-byte (bands + reference bugs)
+/// [`keys::V_SPEEDS`] payload fail-closed.
+pub fn decode_v_speeds_payload(
+    bytes: &[u8],
+) -> Result<
+    (
+        indicate_instrument_state::VSpeeds,
+        indicate_instrument_state::VSpeedBugs,
+    ),
+    ConfigError,
+> {
+    let bad = || ConfigError::BadValue {
+        key: keys::V_SPEEDS.0,
+        len: bytes.len(),
+    };
+    let word = |idx: usize| -> Option<f32> {
+        let raw: [u8; 4] = bytes.get(idx * 4..idx * 4 + 4)?.try_into().ok()?;
+        Some(f32::from_le_bytes(raw))
+    };
+    if bytes.len() != V_SPEEDS_BANDS_BYTES && bytes.len() != V_SPEEDS_EXTENDED_BYTES {
+        return Err(bad());
+    }
+    let speeds = indicate_instrument_state::VSpeeds {
+        vs0_kt: word(0).ok_or_else(bad)?,
+        vs_kt: word(1).ok_or_else(bad)?,
+        vfe_kt: word(2).ok_or_else(bad)?,
+        vno_kt: word(3).ok_or_else(bad)?,
+        vne_kt: word(4).ok_or_else(bad)?,
+    };
+    if !speeds.is_valid() {
+        return Err(bad());
+    }
+    if bytes.len() == V_SPEEDS_BANDS_BYTES {
+        return Ok((speeds, indicate_instrument_state::VSpeedBugs::default()));
+    }
+    let bug = |idx: usize| -> Result<Option<f32>, ConfigError> {
+        let v = word(idx).ok_or_else(bad)?;
+        if v.is_nan() {
+            Ok(None)
+        } else if v.is_finite() && v > 0.0 && v <= speeds.vne_kt {
+            Ok(Some(v))
+        } else {
+            Err(bad())
+        }
+    };
+    let bugs = indicate_instrument_state::VSpeedBugs {
+        vr_kt: bug(5)?,
+        vx_kt: bug(6)?,
+        vy_kt: bug(7)?,
+        vg_kt: bug(8)?,
+        va_kt: bug(9)?,
+        vref_kt: bug(10)?,
+    };
+    if !bugs.is_valid_for(Some(&speeds)) {
+        return Err(bad());
+    }
+    Ok((speeds, bugs))
 }
 
 #[cfg(test)]
