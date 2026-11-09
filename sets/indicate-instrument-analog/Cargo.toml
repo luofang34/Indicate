@@ -20,5 +20,6 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 indicate-instrument-conformance = { workspace = true }
+indicate-instrument-glyphs = { workspace = true }
 indicate-instrument-raster = { workspace = true }
 indicate-instrument-registry = { workspace = true }

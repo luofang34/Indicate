@@ -5,6 +5,7 @@ mod admission;
 mod behaviour;
 mod build;
 mod instruments;
+mod lettering;
 mod png;
 mod render;
 mod systems;
@@ -13,7 +14,8 @@ use std::vec;
 use std::vec::Vec;
 
 use indicate_instrument_descriptor::DesignFrame;
-use indicate_instrument_raster::{FrameId, FramebufferDims, render};
+use indicate_instrument_glyphs::typeface::FaceTable;
+use indicate_instrument_raster::{FrameId, FramebufferDims, render, render_with_faces};
 use indicate_instrument_scene::{MAX_SCENE_BYTES, SceneWriter};
 use indicate_instrument_state::{AircraftState, FreshnessPolicy, PanelData, resolve};
 
@@ -74,6 +76,23 @@ pub(crate) fn pixels(scene: &[u8], side: u32) -> Vec<u8> {
             frame_generation: 1,
             render_generation: 1,
         },
+    )
+    .expect("renders");
+    out
+}
+
+/// RGBA8 pixels of `scene` with `faces` bound to its face slots.
+pub(crate) fn pixels_with_faces(scene: &[u8], side: u32, faces: &FaceTable<'_>) -> Vec<u8> {
+    let mut out = vec![0u8; (side * side * 4) as usize];
+    render_with_faces(
+        scene,
+        &mut out,
+        FramebufferDims::tight(side, side),
+        FrameId {
+            frame_generation: 1,
+            render_generation: 1,
+        },
+        faces,
     )
     .expect("renders");
     out

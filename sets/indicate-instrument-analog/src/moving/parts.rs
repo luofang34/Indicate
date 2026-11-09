@@ -1,7 +1,7 @@
 //! Cards, tapes, and the fixed overlays in front of the moving parts.
 
 use indicate_instrument_descriptor::PanelDrawError;
-use indicate_instrument_scene::{Anchor, PaintMode, SceneWriter};
+use indicate_instrument_scene::{Anchor, FaceSlot, PaintMode, SceneWriter};
 
 use crate::face::Placement;
 use crate::pose::{DialPose, TapePose};
@@ -49,15 +49,24 @@ pub(super) fn draw_tapes(
         let group = spec
             .channel(tape.channel)
             .map_or(0, |channel| channel.input.group().to_u8());
-        draw_tape(tape, tape_pose, group, lighting, place, scene)?;
+        draw_tape(
+            tape,
+            tape_pose,
+            (group, spec.lettering.numerals),
+            lighting,
+            place,
+            scene,
+        )?;
     }
     Ok(())
 }
 
+/// `claim` is the group the numerals claim and the face slot they are
+/// lettered in, the dial's numeral slot.
 fn draw_tape(
     tape: &TapeSpec<'_>,
     pose: &TapePose,
-    group: u8,
+    claim: (u8, FaceSlot),
     lighting: Lighting,
     place: &Placement,
     scene: &mut SceneWriter<'_>,
@@ -81,8 +90,12 @@ fn draw_tape(
     // a numeral is let in half a numeral early so it slides in whole.
     let reach = (w * 0.5 + size * 2.0) / per_unit;
     let along = |value: f32| sign * (pose.value + nearest(value - pose.value, tape.period));
+    let (group, face) = claim;
     scene.save()?;
     scene.clip_rect(x, y, w, h)?;
+    if face != FaceSlot::DEFAULT {
+        scene.font(face)?;
+    }
     // The strip moves by one translate: the reading point at the
     // window's centre.
     scene.translate(x + w * 0.5 - sign * pose.value * per_unit, y)?;

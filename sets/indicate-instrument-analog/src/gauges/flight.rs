@@ -214,6 +214,8 @@ pub const GYRO_HORIZON: AnalogDialSpec<'static> = AnalogDialSpec {
         shapes: MINIATURE_AIRCRAFT,
         stack_height_mm: 2.5,
     }],
+    lettering: crate::spec::Lettering::DEFAULT,
+    arc_legends: &[],
 };
 
 /// The needle's pivot, below the tube: the needle rises through it.
@@ -457,4 +459,6 @@ pub const TURN_AND_BANK: AnalogDialSpec<'static> = AnalogDialSpec {
         shapes: TUBE,
         stack_height_mm: 1.0,
     }],
+    lettering: crate::spec::Lettering::DEFAULT,
+    arc_legends: &[],
 };

@@ -148,6 +148,8 @@ pub const MANIFOLD_PRESSURE: AnalogDialSpec<'static> = AnalogDialSpec {
     cards: &[],
     tapes: &[],
     overlays: &[],
+    lettering: crate::spec::Lettering::DEFAULT,
+    arc_legends: &[],
 };
 
 const RPM_POINTS: [ScalePoint; 2] = [
@@ -286,4 +288,6 @@ pub const TACHOMETER: AnalogDialSpec<'static> = AnalogDialSpec {
     cards: &[],
     tapes: &[],
     overlays: &[],
+    lettering: crate::spec::Lettering::DEFAULT,
+    arc_legends: &[],
 };

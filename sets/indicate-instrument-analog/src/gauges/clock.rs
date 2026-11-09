@@ -147,6 +147,8 @@ pub const CLOCK: AnalogDialSpec<'static> = AnalogDialSpec {
     cards: &[],
     tapes: &[],
     overlays: &[],
+    lettering: crate::spec::Lettering::DEFAULT,
+    arc_legends: &[],
 };
 
 /// The arrows beside SLOW and FAST: the way the pointer turns when the
@@ -252,4 +254,6 @@ pub const SYNCHROSCOPE: AnalogDialSpec<'static> = AnalogDialSpec {
     cards: &[],
     tapes: &[],
     overlays: &[],
+    lettering: crate::spec::Lettering::DEFAULT,
+    arc_legends: &[],
 };

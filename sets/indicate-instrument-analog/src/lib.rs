@@ -51,11 +51,11 @@ pub use pose::{CardPose, DialPose, DialReading, PointerPose, TapePose, WindowPos
 pub use scene::{draw_dial, draw_face_scene};
 pub use shape::MAX_SHAPE_POINTS;
 pub use spec::{
-    AnalogDialSpec, CardSpec, CardTurn, Channel, DialChannel, DialInput, DialUnit, FailurePose,
-    Legend, Lighting, MAX_CARDS, MAX_EXTRA_CHANNELS, MAX_OUTLINE_POINTS, MAX_POINTERS, MAX_TAPES,
-    MAX_WHEELS, MAX_WINDOWS, Mark, MarkArc, MarkColour, Numeral, OffFlag, OverlaySpec, Paint,
-    PointerShape, PointerSpec, PointerStyle, Radial, ScaleLaw, ScalePoint, ScaleRing, Shape,
-    SpecError, TapeSense, TapeSpec, TapeTicks, TickSet, Travel, WindowSpec,
+    AnalogDialSpec, ArcLegend, CardSpec, CardTurn, Channel, DialChannel, DialInput, DialUnit,
+    FailurePose, Legend, Lettering, Lighting, MAX_CARDS, MAX_EXTRA_CHANNELS, MAX_OUTLINE_POINTS,
+    MAX_POINTERS, MAX_TAPES, MAX_WHEELS, MAX_WINDOWS, Mark, MarkArc, MarkColour, Numeral, OffFlag,
+    OverlaySpec, Paint, PointerShape, PointerSpec, PointerStyle, Radial, ScaleLaw, ScalePoint,
+    ScaleRing, Shape, SpecError, TapeSense, TapeSpec, TapeTicks, TickSet, Travel, WindowSpec,
 };
 
 #[cfg(test)]

@@ -7,7 +7,9 @@
 //! case).
 
 use indicate_instrument_descriptor::{DesignFrame, PanelDrawError};
-use indicate_instrument_scene::{ATTR_CONFIG, Anchor, PaintMode, SceneWriter};
+use indicate_instrument_scene::{
+    ATTR_CONFIG, Anchor, ArcAlign, ArcRun, FaceSlot, PaintMode, SceneWriter,
+};
 
 use crate::spec::{AnalogDialSpec, Lighting, Paint, ScaleRing};
 
@@ -76,8 +78,40 @@ pub fn draw_face(
     for ring in spec.rings {
         draw_markings(ring, lighting, place, scene)?;
         draw_ticks(ring, lighting, place, scene)?;
-        draw_numerals(ring, lighting, place, scene)?;
+        in_face(scene, spec.lettering.numerals, |scene| {
+            draw_numerals(ring, lighting, place, scene)
+        })?;
     }
+    in_face(scene, spec.lettering.legends, |scene| {
+        draw_legends(spec, lighting, place, scene)
+    })
+}
+
+/// Runs `draw` in face slot `slot`. The default slot emits nothing, so
+/// a dial lettered in the default face draws exactly as before; any
+/// other slot is set inside its own save and restore, so it cannot leak
+/// into what follows.
+pub(crate) fn in_face(
+    scene: &mut SceneWriter<'_>,
+    slot: FaceSlot,
+    draw: impl FnOnce(&mut SceneWriter<'_>) -> Result<(), PanelDrawError>,
+) -> Result<(), PanelDrawError> {
+    if slot == FaceSlot::DEFAULT {
+        return draw(scene);
+    }
+    scene.save()?;
+    scene.font(slot)?;
+    draw(scene)?;
+    scene.restore()?;
+    Ok(())
+}
+
+fn draw_legends(
+    spec: &AnalogDialSpec<'_>,
+    lighting: Lighting,
+    place: &Placement,
+    scene: &mut SceneWriter<'_>,
+) -> Result<(), PanelDrawError> {
     for legend in spec.legends {
         let [x, y] = place.at(legend.at);
         scene.fill_color(legend.paint.under(lighting))?;
@@ -89,6 +123,21 @@ pub fn draw_face(
             Anchor::CENTER,
             legend.text,
         )?;
+    }
+    for legend in spec.arc_legends {
+        scene.fill_color(legend.paint.under(lighting))?;
+        // The dial counts angles from twelve; the scene from +x.
+        let run = ArcRun {
+            cx: place.center[0],
+            cy: place.center[1],
+            radius: legend.radius * place.scale,
+            angle: (legend.angle_deg - 90.0).to_radians(),
+            sense: legend.sense,
+            align: ArcAlign::Center,
+            size: legend.size * place.scale,
+            text: legend.text,
+        };
+        scene.text_arc_attributed(ATTR_CONFIG, &run)?;
     }
     Ok(())
 }
