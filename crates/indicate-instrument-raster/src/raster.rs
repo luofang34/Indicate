@@ -126,6 +126,14 @@ fn run(
         Cmd::Stroke { color, width } => state.set_stroke(*color, *width),
         // Provenance metadata for the admission harness; paints nothing.
         Cmd::Attribute { .. } => Ok(()),
+        Cmd::Font { slot } => {
+            state.set_font(*slot);
+            Ok(())
+        }
+        Cmd::TextArc(arc_run) => {
+            let gs = state.current();
+            text::draw_arc_run(surface, gs.clip, &gs.ctm, arc_run, gs.fill)
+        }
         Cmd::ClipRect { x, y, w, h } => clip(state, *x, *y, *w, *h),
         Cmd::Line { x1, y1, x2, y2 } => line(state, surface, [*x1, *y1, *x2, *y2]),
         Cmd::Polyline { points } => polyline(state, surface, points),

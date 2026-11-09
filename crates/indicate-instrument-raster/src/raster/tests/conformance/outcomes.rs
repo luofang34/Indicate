@@ -269,6 +269,7 @@ fn command_token(cmd: &Cmd<'_>) -> String {
                 q(*sweep)
             )
         }
+        Cmd::Font { .. } | Cmd::TextArc(_) => lettering_token(cmd),
         Cmd::Text {
             x,
             y,
@@ -290,6 +291,24 @@ fn command_token(cmd: &Cmd<'_>) -> String {
         Cmd::EndLayer { layer } => std::format!("51:{}", layer.to_u8()),
         Cmd::Attribute { group } => std::format!("31:{group}"),
         Cmd::Unknown { opcode } => std::format!("unknown:{}", opcode),
+    }
+}
+
+fn lettering_token(cmd: &Cmd<'_>) -> String {
+    match cmd {
+        Cmd::Font { slot } => std::format!("32:{}", slot.0),
+        Cmd::TextArc(run) => std::format!(
+            "33:{},{},{},{},{},{},{},{}",
+            q(run.size),
+            q(run.cx),
+            q(run.cy),
+            q(run.radius),
+            q(run.angle),
+            run.sense.to_u8(),
+            run.align.to_u8(),
+            hex(run.text)
+        ),
+        _ => String::new(),
     }
 }
 
@@ -367,6 +386,8 @@ fn canvas_tokens(cmd: &Cmd<'_>, out: &mut Vec<String>) {
         Cmd::FillColor { .. }
         | Cmd::Stroke { .. }
         | Cmd::Text { .. }
+        | Cmd::Font { .. }
+        | Cmd::TextArc(_)
         | Cmd::BeginLayer { .. }
         | Cmd::EndLayer { .. }
         | Cmd::Attribute { .. }

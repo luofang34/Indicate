@@ -289,6 +289,41 @@ silently mis-read the centre and radius from shifted bytes and paint the
 wrong arc. Opcodes are append-only. The cheap path
 exists; take it only with the set in hand.
 
+## Lettering: face slots and arc runs
+
+A scene names faces by slot. `FONT` (`0x32`) carries one byte, the face
+slot, and later text uses that face. The slot is graphics state, like the
+paints: `SAVE` keeps it and `RESTORE` returns it. Every scene starts in
+slot 0, the default face. The host binds each slot to a typeface and a
+style out of band. A scene never names a typeface or its hash, so the
+same scene can be lettered in any face a cockpit pins.
+
+- A slot that the host has not bound draws in slot 0's binding. A host
+  that binds nothing therefore draws every scene in its default face,
+  and a scene stays portable to a host that knows no faces.
+- A character that the bound face lacks is a failure. The backend never
+  substitutes a glyph from another face or from the system.
+- `FONT` is not `ATTRIBUTE`. `ATTRIBUTE` claims provenance for the next
+  text run, and a font change between a claim and its run is a
+  misplaced claim.
+
+`TEXT_ARC` (`0x33`) lays one run along a circle: centre, radius, anchor
+angle, reading sense, alignment along the arc, size, and text. Glyph
+baselines lie on the circle. A clockwise run has its glyph tops away from
+the centre; a counter-clockwise run has them toward it, so a legend along
+the bottom of a dial reads left to right. The backend places each glyph
+from the bound face's advance and kerning. A panel never positions
+individual glyphs (ADR-0017).
+
+- The admission harness and the plugin host treat an arc run as a text
+  run. Its claim, its numerals, its visibility, and printed-legend
+  invariance follow the same rules as a `TEXT` run.
+- A backend that predates these opcodes counts them as unknown. It keeps
+  drawing in its default face, and it draws no arc runs. A panel that
+  must stay legible on such a backend uses `TEXT`.
+- The conformance corpus does not yet carry either opcode. Adding them is
+  a corpus version change.
+
 ## Two disciplines every backend must follow
 
 1. **Never rebuild path objects per frame.** Glyph outlines and reusable

@@ -1,6 +1,6 @@
 //! The graphics-state stack: transform, clip, and paints under save/restore.
 
-use indicate_instrument_scene::{MAX_STACK_DEPTH, Rgba8};
+use indicate_instrument_scene::{FaceSlot, MAX_STACK_DEPTH, Rgba8};
 
 use crate::error::RasterError;
 use crate::fixed::{FRAC_BITS, Fx, HALF};
@@ -20,6 +20,8 @@ pub(crate) struct GraphicsState {
     pub(crate) stroke_color: [u8; 4],
     /// Stroke width in device pixels (never negative).
     pub(crate) stroke_width: f32,
+    /// The face slot later text uses.
+    pub(crate) font: FaceSlot,
 }
 
 fn rgba(color: Rgba8) -> [u8; 4] {
@@ -49,6 +51,7 @@ impl RenderState {
             fill: [0, 0, 0, 255],
             stroke_color: [0, 0, 0, 255],
             stroke_width: 1.0,
+            font: FaceSlot::DEFAULT,
         };
         Self {
             current,
@@ -65,6 +68,11 @@ impl RenderState {
     /// The active transform, mutable for translate/rotate composition.
     pub(crate) fn ctm_mut(&mut self) -> &mut Affine {
         &mut self.current.ctm
+    }
+
+    /// Selects the face slot later text uses.
+    pub(crate) fn set_font(&mut self, slot: FaceSlot) {
+        self.current.font = slot;
     }
 
     /// Sets the fill paint.

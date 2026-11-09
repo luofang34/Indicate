@@ -7,7 +7,9 @@
 //! transform, clip, and paint together and `Restore` pops all three, so
 //! a check that walks a scene sees what a backend would.
 
-use indicate_instrument_scene::{Cmd, HAlign, VAlign, nominal_text_ink_width, nominal_text_width};
+use indicate_instrument_scene::{
+    ArcRun, ArcSense, Cmd, HAlign, VAlign, nominal_text_ink_width, nominal_text_width,
+};
 
 #[cfg(test)]
 mod tests;
@@ -126,7 +128,7 @@ impl Ctm {
         self.b == 0.0 && self.c == 0.0
     }
 
-    fn apply(&self, x: f32, y: f32) -> (f32, f32) {
+    pub(super) fn apply(&self, x: f32, y: f32) -> (f32, f32) {
         (
             self.a * x + self.c * y + self.e,
             self.b * x + self.d * y + self.f,
@@ -234,6 +236,53 @@ pub(super) fn track_state(stack: &mut Vec<Gs>, cmd: &Cmd<'_>) {
             }
         }
         _ => {}
+    }
+}
+
+/// The design-space bounds of an arc run: the band between the baseline
+/// circle and the glyph tops, over the arc the run's nominal advance
+/// covers, sampled finely enough that the bounds enclose the band and
+/// padded by a tenth of the size for the arc between samples.
+pub(super) fn arc_run_rect(ctm: &Ctm, run: &ArcRun<'_>) -> Rect {
+    const SAMPLES: usize = 16;
+    let length = nominal_text_width(run.size, run.text.chars().count());
+    let tops = match run.sense {
+        ArcSense::Clockwise => run.radius + run.size,
+        ArcSense::CounterClockwise => run.radius - run.size,
+    };
+    let mut bounds: Option<Rect> = None;
+    for k in 0..=SAMPLES {
+        let s = length * k as f32 / SAMPLES as f32;
+        let (bx, by, _) = run.place(length, s);
+        let scale = if run.radius != 0.0 {
+            tops / run.radius
+        } else {
+            1.0
+        };
+        let tx = run.cx + (bx - run.cx) * scale;
+        let ty = run.cy + (by - run.cy) * scale;
+        for (x, y) in [ctm.apply(bx, by), ctm.apply(tx, ty)] {
+            let point = Rect {
+                min_x: x,
+                min_y: y,
+                max_x: x,
+                max_y: y,
+            };
+            bounds = Some(bounds.map_or(point, |b| b.union(&point)));
+        }
+    }
+    let pad = run.size.abs() * 0.1;
+    let b = bounds.unwrap_or(Rect {
+        min_x: run.cx,
+        min_y: run.cy,
+        max_x: run.cx,
+        max_y: run.cy,
+    });
+    Rect {
+        min_x: b.min_x - pad,
+        min_y: b.min_y - pad,
+        max_x: b.max_x + pad,
+        max_y: b.max_y + pad,
     }
 }
 

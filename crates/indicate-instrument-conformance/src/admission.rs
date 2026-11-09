@@ -27,9 +27,7 @@ use indicate_instrument_registry::{
     CANONICAL_STATES, DesignFrame, DrawContext, EMPTY_CONFIG, PanelCriticality, PanelDescriptor,
     PanelDrawError, Registry, RenderSpace, SceneTarget,
 };
-use indicate_instrument_scene::{
-    Cmd, LayerError, MAX_SCENE_BYTES, SceneCmds, SceneWriter, validate_layers,
-};
+use indicate_instrument_scene::{LayerError, MAX_SCENE_BYTES, SceneWriter, validate_layers};
 use indicate_instrument_state::{
     AircraftState, EngineSample, EngineSamples, FreshnessPolicy, GroupId, PanelData, TankSample,
     TankSamples, resolve, withhold_group,
@@ -47,16 +45,18 @@ mod ink;
 mod legend;
 mod provenance;
 mod regions;
+mod runs;
 mod volume;
 
 use alerts::saturated_stack;
 use background::check_background;
 use fixtures::check_fixture_engines;
 use frame_varies::check_frame_varies;
-use geometry::{Ctm, Rect, text_rect};
+use geometry::Rect;
 use legend::{LegendWitness, check_legends};
 use provenance::{ConfigClaims, check_provenance};
 use regions::check_non_vacuity;
+use runs::{RunsDefect, collect_runs};
 
 pub use criticality::criticality_bands;
 pub use error::AdmissionError;
@@ -359,12 +359,6 @@ fn draw_runs(
     }
 }
 
-/// Why the run scanner refused a scene.
-enum RunsDefect {
-    Decode,
-    MisplacedClaim,
-}
-
 fn draw_scene<'b>(
     panel: &PanelDescriptor,
     data: &PanelData,
@@ -387,81 +381,6 @@ fn draw_scene<'b>(
     )?;
     let used = writer.finish();
     Ok(buf.get(..used).unwrap_or(&[]))
-}
-
-/// Decodes every text run into a design-space ink rectangle, tracking
-/// the transform and clip state the way a backend would, and pairing
-/// each run with the provenance claim prefixing it. A claim not
-/// immediately consumed by a text run is refused — stacked, dangling,
-/// or shape-interposed claims are structurally malformed.
-fn collect_runs(scene: &[u8]) -> Result<Vec<TextRun>, RunsDefect> {
-    let cmds = SceneCmds::new(scene).map_err(|_| RunsDefect::Decode)?;
-    let mut runs = Vec::new();
-    let mut pending: Option<u8> = None;
-    let mut stack = vec![(Ctm::IDENTITY, None::<Rect>)];
-    for cmd in cmds {
-        if pending.is_some() && !matches!(cmd, Ok(Cmd::Text { .. })) {
-            return Err(RunsDefect::MisplacedClaim);
-        }
-        match cmd {
-            Ok(Cmd::Attribute { group }) => pending = Some(group),
-            Ok(Cmd::Text {
-                x,
-                y,
-                size,
-                anchor,
-                text,
-            }) => {
-                let (ctm, clip) = stack.last().copied().ok_or(RunsDefect::Decode)?;
-                let local = text_rect(x, y, size, anchor.h, anchor.v, text.chars().count());
-                let rect = ctm.map_rect(&local);
-                runs.push(TextRun {
-                    visible: clip.is_none_or(|clip| rect.intersects(&clip)),
-                    rect,
-                    text: text.to_string(),
-                    attribution: pending.take(),
-                    clip,
-                });
-            }
-            Ok(Cmd::Save) => stack.push(stack.last().copied().ok_or(RunsDefect::Decode)?),
-            Ok(Cmd::Restore) => {
-                stack.pop();
-                if stack.is_empty() {
-                    stack.push((Ctm::IDENTITY, None));
-                }
-            }
-            Ok(Cmd::Translate { x, y }) => {
-                if let Some((ctm, _)) = stack.last_mut() {
-                    ctm.translate(x, y);
-                }
-            }
-            Ok(Cmd::Rotate { radians }) => {
-                if let Some((ctm, _)) = stack.last_mut() {
-                    ctm.rotate(radians);
-                }
-            }
-            Ok(Cmd::ClipRect { x, y, w, h }) => {
-                if let Some((ctm, clip)) = stack.last_mut() {
-                    let mapped = ctm.map_rect(&Rect {
-                        min_x: x,
-                        min_y: y,
-                        max_x: x + w,
-                        max_y: y + h,
-                    });
-                    *clip = Some(match clip {
-                        None => mapped,
-                        Some(previous) => previous.intersect(&mapped),
-                    });
-                }
-            }
-            Ok(_) => {}
-            Err(_) => return Err(RunsDefect::Decode),
-        }
-    }
-    if pending.is_some() {
-        return Err(RunsDefect::MisplacedClaim);
-    }
-    Ok(runs)
 }
 
 #[cfg(test)]

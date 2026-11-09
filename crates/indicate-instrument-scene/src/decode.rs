@@ -205,6 +205,36 @@ fn decode_payload(op: u8, payload: &[u8]) -> Result<Cmd<'_>, DecodeError> {
         opcode::END_LAYER => Ok(Cmd::EndLayer {
             layer: layer_id(op, payload)?,
         }),
+        other => decode_lettering_or_unknown(other, payload),
+    }
+}
+
+/// The lettering opcodes, and the counted skip for any opcode this
+/// build does not know.
+fn decode_lettering_or_unknown(op: u8, payload: &[u8]) -> Result<Cmd<'_>, DecodeError> {
+    let bad = DecodeError::BadPayload { opcode: op };
+    match op {
+        opcode::FONT => {
+            let [slot] = payload else {
+                return Err(bad);
+            };
+            Ok(Cmd::Font {
+                slot: crate::FaceSlot(*slot),
+            })
+        }
+        opcode::TEXT_ARC => {
+            let text_bytes = payload.get(22..).ok_or(bad)?;
+            Ok(Cmd::TextArc(crate::ArcRun {
+                size: f32_at(payload, 0).ok_or(bad)?,
+                cx: f32_at(payload, 1).ok_or(bad)?,
+                cy: f32_at(payload, 2).ok_or(bad)?,
+                radius: f32_at(payload, 3).ok_or(bad)?,
+                angle: f32_at(payload, 4).ok_or(bad)?,
+                sense: crate::ArcSense::from_u8(*payload.get(20).ok_or(bad)?).ok_or(bad)?,
+                align: crate::ArcAlign::from_u8(*payload.get(21).ok_or(bad)?).ok_or(bad)?,
+                text: core::str::from_utf8(text_bytes).map_err(|_| bad)?,
+            }))
+        }
         other => Ok(Cmd::Unknown { opcode: other }),
     }
 }

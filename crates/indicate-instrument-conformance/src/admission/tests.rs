@@ -44,6 +44,7 @@ fn the_pinned_criticality_bands_are_the_measured_ones() {
     assert_eq!(measured, BUILTIN_CRITICALITY_BANDS.panels);
 }
 
+mod arc_checks;
 mod background_checks;
 mod legend_checks;
 mod provenance_checks;
