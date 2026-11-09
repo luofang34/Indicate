@@ -271,8 +271,9 @@ than a tolerance:
   better than they describe another panel's.
 - **A region holds a run when it holds the centre of that run's ink,**
   which is neither whole-rectangle containment nor bare overlap. Run
-  rectangles here are conservative nominal metrics, deliberately wider
-  than the glyphs, so a readout centred in its own tightly-drawn box
+  rectangles here are conservative: nominal metrics in the reference
+  face, and the bound face's ink in a loaded face, both wider than the
+  glyphs, so a readout centred in its own tightly-drawn box
   overhangs it by a few units and containment would call it empty. Bare
   overlap is too weak in the other direction: a rung grazing a region's
   corner is not that region's readout. Clipped-away runs paint nothing

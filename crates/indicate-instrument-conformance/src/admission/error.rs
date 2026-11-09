@@ -73,6 +73,23 @@ pub enum AdmissionError {
         /// The uncovered character.
         ch: char,
     },
+    /// A run's characters are not all in the face the host binds to its
+    /// slot. The backend refuses that run at draw time, so admission
+    /// refuses it rather than measuring a substitute face.
+    #[error(
+        "panel {panel} letters a run in face slot {slot} in {state} that the bound face cannot draw"
+    )]
+    FaceLettering {
+        /// The drawing panel.
+        panel: &'static str,
+        /// The corpus state.
+        state: &'static str,
+        /// The face slot the run is lettered in.
+        slot: u8,
+        /// Why the bound face refused the run.
+        #[source]
+        source: indicate_instrument_glyphs::typeface::TypefaceError,
+    },
     /// A visible run claims a group that shows no value in the drawn
     /// state — the panel painted a number for data it was not given.
     #[error(

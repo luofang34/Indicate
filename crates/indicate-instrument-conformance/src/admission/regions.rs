@@ -40,6 +40,7 @@
 //!   coordinates describe that layout no better than they describe
 //!   another panel's.
 
+use indicate_instrument_glyphs::typeface::FaceTable;
 use indicate_instrument_registry::{PanelDescriptor, Region, RenderSpace};
 use indicate_instrument_state::{FreshnessPolicy, GroupId, resolve};
 
@@ -49,8 +50,12 @@ use super::geometry::Rect;
 use super::{case_matrix, draw_runs};
 
 /// Asserts that every region `panel` declares is populated by claimed
-/// ink somewhere in its case matrix.
-pub(super) fn check_non_vacuity(panel: &'static PanelDescriptor) -> Result<(), AdmissionError> {
+/// ink somewhere in its case matrix, with runs lettered in the faces
+/// `faces` binds.
+pub(super) fn check_non_vacuity(
+    panel: &'static PanelDescriptor,
+    faces: &FaceTable<'_>,
+) -> Result<(), AdmissionError> {
     if panel.group_regions.is_empty() {
         return Ok(());
     }
@@ -61,7 +66,7 @@ pub(super) fn check_non_vacuity(panel: &'static PanelDescriptor) -> Result<(), A
     let mut populated = vec![false; panel.group_regions.len()];
     for case in case_matrix(panel) {
         let data = resolve(&case.state, &FreshnessPolicy::default());
-        let runs = draw_runs(panel, &case, &data, frame)?;
+        let runs = draw_runs(panel, &case, &data, frame, faces)?;
         witness(panel, &runs, &mut populated);
     }
     for (index, (group, region)) in panel.group_regions.iter().enumerate() {

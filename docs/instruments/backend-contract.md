@@ -318,6 +318,14 @@ individual glyphs (ADR-0017).
 - The admission harness and the plugin host treat an arc run as a text
   run. Its claim, its numerals, its visibility, and printed-legend
   invariance follow the same rules as a `TEXT` run.
+- Admission and composition take the host's binding
+  (`admit_with_faces`, `criticality_bands_with_faces`,
+  `render_composition_with_faces`). A run in a bound typeface is judged
+  by that face's advance and ink: frame overflow, printed-legend
+  invariance, readout regions, and criticality bands. A run that the
+  bound face cannot letter fails admission. A run in the reference face
+  keeps the nominal metrics. The forms without a binding letter every
+  slot in the reference face.
 - A backend that predates these opcodes counts them as unknown. It keeps
   drawing in its default face, and it draws no arc runs. A panel that
   must stay legible on such a backend uses `TEXT`.

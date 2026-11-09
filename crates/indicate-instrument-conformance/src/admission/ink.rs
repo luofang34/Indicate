@@ -10,13 +10,20 @@
 //! every backend clips there: ink outside the frame reaches no pixel,
 //! so counting it would overstate the band.
 
+use indicate_instrument_glyphs::typeface::{FaceTable, TypefaceError};
 use indicate_instrument_registry::DesignFrame;
 use indicate_instrument_scene::{Cmd, LayerId, LayerReport, PaintMode, SceneCmds};
 
 use super::geometry::{Gs, Rect, track_state};
+use super::lettering::run_ink;
 
-/// The scene did not decode.
-pub(super) struct InkDecodeError;
+/// Why a band could not be measured.
+pub(super) enum InkError {
+    /// The scene did not decode.
+    Decode,
+    /// The face bound to `slot` cannot letter a run in the band.
+    Face { slot: u8, source: TypefaceError },
+}
 
 /// The union design-space ink bound of the `Annunciation` and `Failure`
 /// bands, or `None` when neither band inks inside the frame.
@@ -32,7 +39,8 @@ pub(super) fn criticality_ink(
     scene: &[u8],
     report: &LayerReport,
     frame: DesignFrame,
-) -> Result<Option<Rect>, InkDecodeError> {
+    faces: &FaceTable<'_>,
+) -> Result<Option<Rect>, InkError> {
     let bands = [
         band_range(report, LayerId::Annunciation),
         band_range(report, LayerId::Failure),
@@ -43,13 +51,13 @@ pub(super) fn criticality_ink(
         max_x: frame.width,
         max_y: frame.height,
     };
-    let mut cmds = SceneCmds::new(scene).map_err(|_| InkDecodeError)?;
+    let mut cmds = SceneCmds::new(scene).map_err(|_| InkError::Decode)?;
     let mut stack = vec![Gs::DEFAULT];
     let mut bound = Rect::EMPTY;
     loop {
         let at = scene.len().saturating_sub(cmds.remaining());
         let Some(cmd) = cmds.next() else { break };
-        let cmd = cmd.map_err(|_| InkDecodeError)?;
+        let cmd = cmd.map_err(|_| InkError::Decode)?;
         track_state(&mut stack, &cmd);
         if !bands
             .iter()
@@ -58,11 +66,22 @@ pub(super) fn criticality_ink(
         {
             continue;
         }
-        let gs = stack.last().ok_or(InkDecodeError)?;
-        let Some(local) = ink_bounds(&cmd, gs.stroke_margin()) else {
-            continue;
+        let gs = stack.last().ok_or(InkError::Decode)?;
+        // Text, straight or along an arc, inks where its bound face puts
+        // it; the lettering module maps it to design space itself.
+        let text = run_ink(&gs.ctm, &cmd, gs.font, faces).map_err(|source| InkError::Face {
+            slot: gs.font,
+            source,
+        })?;
+        let mut painted = match text {
+            Some((rect, _)) => rect,
+            None => {
+                let Some(local) = ink_bounds(&cmd, gs.stroke_margin()) else {
+                    continue;
+                };
+                gs.ctm.map_rect(&local)
+            }
         };
-        let mut painted = gs.ctm.map_rect(&local);
         if let Some(clip) = gs.clip {
             painted = painted.intersect(&clip);
         }
@@ -100,20 +119,7 @@ fn ink_bounds(cmd: &Cmd<'_>, margin: f32) -> Option<Rect> {
         Cmd::Polygon { mode, points } => {
             hull(points.iter()).map(|rect| rect.inflate(edge(mode, margin)))
         }
-        Cmd::Text {
-            x,
-            y,
-            size,
-            anchor,
-            text,
-        } => Some(super::geometry::text_rect(
-            x,
-            y,
-            size,
-            anchor.h,
-            anchor.v,
-            text.chars().count(),
-        )),
+        // Text runs are measured by the caller in their bound face.
         // State and structure commands ink nothing, and so does
         // `Cmd::Unknown` — today. That is safe only because every
         // painting opcode this revision defines is matched above, and

@@ -35,6 +35,7 @@
 //! needs the criticality bands, and painting must not.
 
 use indicate_alerts::AlertOutput;
+use indicate_instrument_glyphs::typeface::FaceTable;
 use indicate_instrument_registry::{
     CompositionDescriptor, DesignFrame, DrawContext, EMPTY_CONFIG, Registry, SceneTarget, Slot,
 };
@@ -74,6 +75,8 @@ pub struct CompositionInputs<'a> {
 /// [`crate::RenderWork::BUDGET`], which prices one panel — a composed
 /// budget is the sum of its slots' and belongs to whoever declares the
 /// screen.
+///
+/// No faces are bound: every face slot letters in the reference face.
 pub fn render_composition(
     registry: &Registry,
     composition: &CompositionDescriptor,
@@ -82,11 +85,34 @@ pub fn render_composition(
     dims: FramebufferDims,
     frame: FrameId,
 ) -> Result<RenderReport, RasterError> {
+    render_composition_with_faces(
+        registry,
+        composition,
+        inputs,
+        pixels,
+        dims,
+        frame,
+        &FaceTable::DEFAULT,
+    )
+}
+
+/// [`render_composition`] with the host's face binding: every slot's
+/// scene letters its face slots in `faces`, the binding admission
+/// judged it with ([`crate::render_with_faces`] for one panel).
+pub fn render_composition_with_faces(
+    registry: &Registry,
+    composition: &CompositionDescriptor,
+    inputs: &mut CompositionInputs<'_>,
+    pixels: &mut [u8],
+    dims: FramebufferDims,
+    frame: FrameId,
+    faces: &FaceTable<'_>,
+) -> Result<RenderReport, RasterError> {
     let mut surface = Surface::new(pixels, dims)?;
     surface.clear();
     let mut painted = Painted::default();
     for slot in composition.slots {
-        match paint_slot(registry, slot, inputs, &mut surface, &mut painted) {
+        match paint_slot(registry, slot, inputs, &mut surface, &mut painted, faces) {
             Ok(()) => {}
             Err(error) => {
                 surface.spoil();
@@ -118,6 +144,7 @@ fn paint_slot(
     inputs: &mut CompositionInputs<'_>,
     surface: &mut Surface<'_>,
     painted: &mut Painted,
+    faces: &FaceTable<'_>,
 ) -> Result<(), RasterError> {
     let panel = registry
         .by_id(slot.panel)
@@ -153,7 +180,7 @@ fn paint_slot(
             origin: (slot.rect.x, slot.rect.y),
             extent: Some((slot.rect.width, slot.rect.height)),
         },
-        &indicate_instrument_glyphs::typeface::FaceTable::DEFAULT,
+        faces,
     )?;
     painted.unknown_opcodes = painted.unknown_opcodes.wrapping_add(unknown);
     painted.layers_present |= layers;

@@ -16,6 +16,7 @@ use std::string::String;
 use std::vec;
 use std::vec::Vec;
 
+mod faces;
 mod obscuration;
 
 use super::{CompositionInputs, render_composition};
@@ -40,14 +41,14 @@ pub(super) const PANEL_FRAME: DesignFrame = DesignFrame {
 
 /// Raster-only overlap fixtures occupy the mode-annunciation region.
 /// Composition admission rejects this placement because it would obscure flight guidance status.
-const INSET_RECT: Region = Region {
+pub(super) const INSET_RECT: Region = Region {
     x: 140.0,
     y: 4.0,
     width: 200.0,
     height: 32.0,
 };
 
-const INSET_FRAME: DesignFrame = DesignFrame {
+pub(super) const INSET_FRAME: DesignFrame = DesignFrame {
     width: 200.0,
     height: 32.0,
 };
@@ -100,7 +101,7 @@ fn marker_band(scene: &mut SceneWriter<'_>) -> Result<(), PanelDrawError> {
     Ok(())
 }
 
-const fn fixture(
+pub(super) const fn fixture(
     id: &'static str,
     underlay: UnderlayContract,
     draw: indicate_instrument_registry::DrawFn,
@@ -193,7 +194,7 @@ const SIDE_BY_SIDE: CompositionDescriptor = CompositionDescriptor {
 /// The PFD alone, and then the PFD with something above it: the two
 /// differ by exactly one slot, which is what lets the show-through
 /// property compare them pixel for pixel.
-const PFD_ALONE: CompositionDescriptor = CompositionDescriptor {
+pub(super) const PFD_ALONE: CompositionDescriptor = CompositionDescriptor {
     screen: PANEL_FRAME,
     slots: &[tile("pfd", 0.0)],
 };
@@ -279,7 +280,7 @@ fn pinned(registry: &Registry, composition: &CompositionDescriptor, want: &str) 
     first
 }
 
-fn builtin() -> Registry {
+pub(super) fn builtin() -> Registry {
     Registry::new(indicate_instrument_panels::BUILTIN_PANELS).expect("shipped panels compose")
 }
 

@@ -126,16 +126,7 @@ fn check_volume_case(
             missing,
         });
     }
-    let scan = scan_volume_scene(scene).map_err(|defect| match defect {
-        RunsDefect::Decode => AdmissionError::Decode {
-            panel: panel.id,
-            state: state_id,
-        },
-        RunsDefect::MisplacedClaim => AdmissionError::MisplacedClaim {
-            panel: panel.id,
-            state: state_id,
-        },
-    })?;
+    let scan = scan_volume_scene(scene).map_err(|defect| defect.into_error(panel.id, state_id))?;
     check_volume_underlay(panel, state_id, &scan)?;
     check_handles_in_bounds(panel, state_id, extent_m, &scan.handles)?;
     check_provenance(

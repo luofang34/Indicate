@@ -161,13 +161,16 @@ impl Ctm {
 }
 
 /// Graphics state as the real state machine carries it: Save pushes
-/// transform, clip, and paint state together; Restore pops all three.
+/// transform, clip, paint state and face slot together; Restore pops
+/// them all.
 #[derive(Clone, Copy)]
 pub(super) struct Gs {
     pub(super) ctm: Ctm,
     pub(super) clip: Option<Rect>,
     pub(super) fill_alpha: u8,
     pub(super) stroke_width: f32,
+    /// The face slot later text letters in.
+    pub(super) font: u8,
 }
 
 impl Gs {
@@ -178,6 +181,7 @@ impl Gs {
         clip: None,
         fill_alpha: 255,
         stroke_width: 1.0,
+        font: 0,
     };
 
     /// How far a stroked shape inks beyond its geometry.
@@ -219,6 +223,11 @@ pub(super) fn track_state(stack: &mut Vec<Gs>, cmd: &Cmd<'_>) {
         Cmd::Stroke { width, .. } => {
             if let Some(gs) = stack.last_mut() {
                 gs.stroke_width = width;
+            }
+        }
+        Cmd::Font { slot } => {
+            if let Some(gs) = stack.last_mut() {
+                gs.font = slot.0;
             }
         }
         Cmd::ClipRect { x, y, w, h } => {

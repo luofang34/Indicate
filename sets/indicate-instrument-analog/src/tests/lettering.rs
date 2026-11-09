@@ -4,7 +4,7 @@
 
 use std::format;
 
-use indicate_instrument_conformance::admit;
+use indicate_instrument_conformance::{admit, admit_with_faces};
 use indicate_instrument_descriptor::{
     DrawContext, GroupSet, PanelDescriptor, PanelDrawError, RenderSpace, SceneTarget,
     UnderlayContract,
@@ -171,6 +171,15 @@ fn a_lettered_dial_passes_admission() {
     let registry = Registry::new(&PANELS).expect("composes");
     let report = admit(&registry).expect("lettering does not change admissibility");
     assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+    // Judged in the face the cockpit binds: its numerals and legends
+    // stay inside the dial, and the printed legends stay put across the
+    // whole matrix in that face's metrics.
+    for style in [KOLLSMAN_1940, TextStyle::REGULAR] {
+        let slots = bound(style);
+        let report = admit_with_faces(&registry, &FaceTable::new(&slots))
+            .expect("admissible in the bound face");
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+    }
 }
 
 #[test]

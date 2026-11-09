@@ -47,4 +47,7 @@
 
 mod admission;
 
-pub use admission::{AdmissionError, AdmissionReport, AdmissionWarning, admit, criticality_bands};
+pub use admission::{
+    AdmissionError, AdmissionReport, AdmissionWarning, admit, admit_with_faces, criticality_bands,
+    criticality_bands_with_faces,
+};
