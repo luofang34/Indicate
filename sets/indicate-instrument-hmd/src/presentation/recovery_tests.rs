@@ -2,7 +2,7 @@
 use super::*;
 use indicate_instrument_scene::{Cmd, SceneCmds, SceneWriter};
 use indicate_instrument_state::{
-    AirframeDisplayProfile, FreshnessPolicy, UnusualAttitudeState, abi::v8::fixtures, resolve,
+    AirframeDisplayProfile, FreshnessPolicy, UnusualAttitudeState, abi::v9::fixtures, resolve,
 };
 
 #[test]

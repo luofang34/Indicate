@@ -40,6 +40,7 @@ fn trusted_full_state() -> AircraftState {
             ias_mps: Some(40.0),
             baro_setting_hpa: Some(1013.25),
             tas_mps: Some(45.0),
+            vsi_mps: None,
         }),
         nav: stamped(NavData {
             scale: crate::aircraft::NavScale::Terminal,

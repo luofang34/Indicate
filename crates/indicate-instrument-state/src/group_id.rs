@@ -17,7 +17,7 @@
 //! |----|-------|
 //! | 0x00 | never assigned (guards zeroed memory) |
 //! | 0x01–0x0D | the variants below |
-//! | 0x0E | engine (planned) |
+//! | 0x0E | engine indications (stamped) |
 //! | 0x0F | traffic (planned) |
 //! | 0x10 | projection view (synthetic vision; planned) |
 //! | 0x11 | terrain bands (planned) |
@@ -51,6 +51,7 @@
 //! | 0x13 | AirframeConfig | stamped | Flap position ratio plus an optional selected detent (sensed and selected are never conflated), and per-axis trim ratios (elevator first). Every field is optional and NaN-absent. Configuration takes its own id: flap and trim are airframe configuration, not engine, so 0x0E keeps its engine charter. |
 //! | 0x14 | ApModes | stamped | Engagement (Off/FD/AP, Unknown fail-closed), active and armed lateral mode, active and armed vertical mode. Each mode enum has a None value distinct from Unknown. Stamped because a stale "AP engaged" annunciation is the failure the freshness discipline exists to prevent (the `fc_state.rs` precedent). |
 //! | 0x15 | ApTargets | declared | Selected airspeed m/s, selected vertical speed m/s, and an altitude target with the same reference-identity trio as `altitude_sel` (class, origin, geoid model). Declared per the issue's stamped-versus-declared analysis: the targets are defensibly UI-like state, while modes and engagement are telemetry. |
+//! | 0x0E | Engine | stamped | Engine count u8, three zero bytes, four engine slots of manifold pressure hPa f32 and speed rpm f32, then age. Every slot is on the wire, so the layout is fixed whatever the count. A count past four faults the group. Readings are indicated values: gauge lag and error are the source's physics. Allocated in ABI v9. |
 //!
 //! Field appends to existing groups follow the stamped lane growth
 //! policy: a new field appends AFTER the trailing `age_ms`, and an older
@@ -59,6 +60,7 @@
 //! | group | append |
 //! |-------|--------|
 //! | Air (0x03) | `tas_mps f32`, NaN-absent (12 to 16 bytes) |
+//! | Air (0x03) | `vsi_mps f32`, the rate-of-climb instrument's reading, NaN-absent (16 to 20 bytes; ABI v9) |
 //! | Dynamics (0x0B) | `ias_trend f32` (d(IAS)/dt), NaN-absent, plus Trust valid bit 9 (16 to 20 bytes) |
 //! | Nav (0x04) | `scale_mode u8` (Enroute/Terminal/Approach, 255 fail-closed Unknown) and `facility_type u8`, both after the group's existing tail (42 to 43 to 44 bytes) |
 
@@ -97,6 +99,8 @@ pub enum GroupId {
     MonitorText = 0x0C,
     /// Flight-director commanded attitude, mode, and engagement.
     FlightDirector = 0x0D,
+    /// Engine indications: manifold pressure and speed per engine.
+    Engine = 0x0E,
     /// Bearing pointers, independent of the selected nav source.
     BearingPointers = 0x12,
     /// Airframe configuration: flap position and trim.
@@ -113,10 +117,10 @@ pub enum GroupId {
 
 impl GroupId {
     /// Number of defined groups.
-    pub const COUNT: usize = 19;
+    pub const COUNT: usize = 20;
 
-    /// Every defined group in ascending id order — the canonical wire
-    /// order and the index order of [`GroupStatuses`].
+    /// Every defined group in ascending id order: the canonical wire
+    /// order. Table slots come from [`Self::index`], not from here.
     pub const ALL: [GroupId; Self::COUNT] = [
         GroupId::Attitude,
         GroupId::Kinematics,
@@ -131,6 +135,7 @@ impl GroupId {
         GroupId::Dynamics,
         GroupId::MonitorText,
         GroupId::FlightDirector,
+        GroupId::Engine,
         GroupId::BearingPointers,
         GroupId::AirframeConfig,
         GroupId::ApModes,
@@ -161,6 +166,7 @@ impl GroupId {
             0x0B => Some(GroupId::Dynamics),
             0x0C => Some(GroupId::MonitorText),
             0x0D => Some(GroupId::FlightDirector),
+            0x0E => Some(GroupId::Engine),
             0x12 => Some(GroupId::BearingPointers),
             0x13 => Some(GroupId::AirframeConfig),
             0x14 => Some(GroupId::ApModes),
@@ -171,13 +177,17 @@ impl GroupId {
         }
     }
 
-    /// Position in [`Self::ALL`], for dense per-group tables.
+    /// The group's slot in dense per-group tables: [`GroupStatuses`]
+    /// and the descriptor `GroupSet` bitset.
     ///
-    /// The mapping is a match, not arithmetic on the wire tag. The
-    /// assigned ids are not contiguous — the planned range 0x0E to
-    /// 0x11 has no variants — so `tag - 1` indexes past the table. The
-    /// exhaustive match also fails to compile when a new variant has no
-    /// slot, which arithmetic cannot do.
+    /// Slots are append-only, like wire tags. A slot is assigned when
+    /// its group lands and never moves, because a `GroupSet` is written
+    /// into signed plugin descriptors as raw bits: renumbering a slot
+    /// would change what an already-signed package declares. So a slot
+    /// is neither the wire tag minus one nor the position in
+    /// [`Self::ALL`]; [`Self::ALL`] keeps wire order, and the slots are
+    /// a dense permutation of `0..COUNT`. The exhaustive match also
+    /// fails to compile when a new variant has no slot.
     pub const fn index(self) -> usize {
         match self {
             GroupId::Attitude => 0,
@@ -199,6 +209,7 @@ impl GroupId {
             GroupId::ApTargets => 16,
             GroupId::Guidance => 17,
             GroupId::SpeedPresentation => 18,
+            GroupId::Engine => 19,
         }
     }
 }
@@ -250,6 +261,7 @@ pub fn withhold_group(state: &AircraftState, group: GroupId) -> AircraftState {
         }
         GroupId::BearingPointers => out.bearings = Default::default(),
         GroupId::AirframeConfig => out.airframe = Default::default(),
+        GroupId::Engine => out.engine = Default::default(),
         GroupId::Altitude => out.altitude = Default::default(),
         GroupId::Heading => {
             out.heading = Default::default();

@@ -26,6 +26,7 @@ pub(crate) fn flying_state() -> AircraftState {
                 ias_mps: None,
                 baro_setting_hpa: Some(1013.25),
                 tas_mps: None,
+                vsi_mps: None,
             }),
             age_ms: Some(100.0),
         },
@@ -427,4 +428,19 @@ fn faults_are_reported_for_diagnostics() {
         p.integrity.attitude,
         Some(crate::validate::GroupFault::NonFinite)
     );
+}
+
+#[test]
+fn the_indicated_vsi_comes_from_the_air_group_and_never_from_kinematics() {
+    let mut state = flying_state();
+    let policy = FreshnessPolicy::default();
+    let data = resolve(&state, &policy);
+    assert!(data.vsi_fpm.status.shows_value(), "kinematic VSI is live");
+    assert_eq!(data.vsi_indicated_fpm.status, SignalStatus::Missing);
+    if let Some(air) = state.air.data.as_mut() {
+        air.vsi_mps = Some(-2.54);
+    }
+    let data = resolve(&state, &policy);
+    assert!(data.vsi_indicated_fpm.status.shows_value());
+    assert!((data.vsi_indicated_fpm.value + 500.0).abs() < 0.1);
 }

@@ -98,6 +98,9 @@ pub struct StateIntegrity {
     /// Airframe-configuration fault: a non-finite ratio, or one outside
     /// the range its axis is defined over.
     pub airframe: Option<GroupFault>,
+    /// Engine fault: a count past the group's capacity, or a reading
+    /// that is not a finite, non-negative number.
+    pub engine: Option<GroupFault>,
     /// Autoflight-mode fault: a mode or engagement byte this build
     /// cannot name.
     pub ap_modes: Option<GroupFault>,
@@ -187,6 +190,14 @@ fn bearings_fault(pointers: &crate::aircraft::BearingPointers) -> Option<GroupFa
     None
 }
 
+/// The Air group's own fault: any reading present but not a number.
+fn air_fault(air: &crate::aircraft::AirData) -> Option<GroupFault> {
+    let finite = [air.ias_mps, air.baro_setting_hpa, air.tas_mps, air.vsi_mps]
+        .into_iter()
+        .all(opt_finite);
+    (!finite).then_some(GroupFault::NonFinite)
+}
+
 /// The airframe group's own fault, if it has one.
 ///
 /// A ratio outside the range its axis is defined over is not a reading
@@ -268,17 +279,18 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
     };
     validate_state_estimates(state, &mut integrity);
 
-    if let Some(air) = &state.air.data
-        && !(opt_finite(air.ias_mps) && opt_finite(air.baro_setting_hpa) && opt_finite(air.tas_mps))
-    {
-        integrity.air = Some(GroupFault::NonFinite);
-    }
+    integrity.air = state.air.data.as_ref().and_then(air_fault);
     if let Some(pointers) = &state.bearings.data {
         integrity.bearings = bearings_fault(pointers);
     }
     if let Some(config) = &state.airframe.data {
         integrity.airframe = airframe_fault(config);
     }
+    integrity.engine = state
+        .engine
+        .data
+        .as_ref()
+        .and_then(crate::engine::engine_fault);
     if let Some(nav) = &state.nav.data {
         integrity.nav = nav_fault(nav);
     }

@@ -156,6 +156,30 @@ fn group_status(
             integrity.dynamics,
             state.valid.turn && state.valid.slip && state.valid.ias_trend,
         ),
+        GroupId::BearingPointers
+        | GroupId::AirframeConfig
+        | GroupId::Engine
+        | GroupId::ApModes
+        | GroupId::FlightDirector => equipment_status(state, policy, trust, integrity, id),
+        // Targets fold no source trust, mirroring selections: a target
+        // is UI state, and it carries no age to grow stale.
+        GroupId::ApTargets => fault_status(integrity.ap_targets),
+        // Advisory machine text folds no flight-source trust and runs
+        // its own slow freshness policy, mirroring wind's independence.
+        GroupId::MonitorText => monitor_status(state, integrity),
+    }
+}
+
+/// The stamped groups that describe equipment. Each folds source trust
+/// and declares no validity bit of its own.
+fn equipment_status(
+    state: &AircraftState,
+    policy: &FreshnessPolicy,
+    trust: &Trust,
+    integrity: &StateIntegrity,
+    id: GroupId,
+) -> SignalStatus {
+    match id {
         // Bearings fold source trust like nav: a needle from a source
         // the state does not trust must not point anywhere. Their own
         // per-pointer validity is a second gate the panel applies.
@@ -174,6 +198,13 @@ fn group_status(
             integrity.airframe,
             true,
         ),
+        // Engine readings fold source trust like airframe configuration:
+        // a gauge fed by a source the state does not trust shows nothing.
+        GroupId::Engine => fold(
+            &Ctx::of(policy, trust, &state.engine),
+            integrity.engine,
+            true,
+        ),
         // Autoflight modes fold source trust like the director: an
         // annunciation sourced from a state nobody trusts must not say
         // the automation is holding something.
@@ -182,9 +213,6 @@ fn group_status(
             integrity.ap_modes,
             true,
         ),
-        // Targets fold no source trust, mirroring selections: a target
-        // is UI state, and it carries no age to grow stale.
-        GroupId::ApTargets => fault_status(integrity.ap_targets),
         // The director folds source trust like nav: a command from an
         // untrusted source must not draw bars.
         GroupId::FlightDirector => fold(
@@ -192,9 +220,9 @@ fn group_status(
             integrity.director,
             true,
         ),
-        // Advisory machine text folds no flight-source trust and runs
-        // its own slow freshness policy, mirroring wind's independence.
-        GroupId::MonitorText => monitor_status(state, integrity),
+        // `group_status` routes only the arms above here; any other id
+        // fails closed rather than borrowing a neighbour's status.
+        _ => SignalStatus::Failed,
     }
 }
 

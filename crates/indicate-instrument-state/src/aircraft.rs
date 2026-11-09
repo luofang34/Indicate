@@ -37,6 +37,11 @@ pub struct AirData {
     /// does not supply it leaves it absent and the readout shows
     /// `Missing`, never a number computed from indicated airspeed.
     pub tas_mps: Option<f32>,
+    /// Indicated vertical speed in meters/second, positive climbing: what
+    /// the source's rate-of-climb instrument reads, its leak lag and
+    /// error included. It is not the kinematic vertical velocity, and
+    /// the display never substitutes one for the other.
+    pub vsi_mps: Option<f32>,
 }
 
 /// The selected lateral navigation source.
@@ -402,6 +407,8 @@ pub struct AircraftState {
     pub bearings: Stamped<BearingPointers>,
     /// Airframe configuration: flap position and trim.
     pub airframe: Stamped<AirframeConfig>,
+    /// Engine indications: manifold pressure and speed per engine.
+    pub engine: Stamped<crate::engine::EngineIndication>,
     /// Autoflight engagement and the active and armed modes
     /// (AIR-IN-015). Stamped: an annunciation that outlives its source
     /// says the automation is doing something it stopped doing.

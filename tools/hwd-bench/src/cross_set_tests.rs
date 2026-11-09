@@ -12,7 +12,7 @@ use indicate_instrument_scene::{
     angular::{AngularSceneWriter, MAX_ANGULAR_SCENE_BYTES},
 };
 use indicate_instrument_state::{
-    FreshnessPolicy, PanelData, SignalStatus, abi::v8::fixtures, resolve,
+    FreshnessPolicy, PanelData, SignalStatus, abi::v9::fixtures, resolve,
 };
 
 fn render(panel: &PanelDescriptor, data: &PanelData, alerts: Option<&AlertOutput>) -> Vec<u8> {

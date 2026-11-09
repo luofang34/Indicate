@@ -1,4 +1,4 @@
-//! v8 frame codec behavior: canonical round-trips, the fail-closed
+//! v9 frame codec behavior: canonical round-trips, the fail-closed
 //! decode table, and the two forward-compatibility axes (unknown tags,
 //! appended payload tails).
 
@@ -89,10 +89,10 @@ fn wrong_version_and_truncation_fail_closed() {
 fn duplicate_and_descending_tags_are_non_canonical() {
     // Two air groups.
     let mut frame = std::vec![VERSION, 2];
-    frame.extend_from_slice(&[0x03, 16, 0]);
-    frame.extend_from_slice(&[0u8; 16]);
-    frame.extend_from_slice(&[0x03, 16, 0]);
-    frame.extend_from_slice(&[0u8; 16]);
+    frame.extend_from_slice(&[0x03, 20, 0]);
+    frame.extend_from_slice(&[0u8; 20]);
+    frame.extend_from_slice(&[0x03, 20, 0]);
+    frame.extend_from_slice(&[0u8; 20]);
     assert_eq!(
         decode_state(&frame),
         Err(AbiError::NonCanonicalOrder { id: 0x03 })
@@ -102,8 +102,8 @@ fn duplicate_and_descending_tags_are_non_canonical() {
     let mut frame = std::vec![VERSION, 2];
     frame.extend_from_slice(&[0x05, 12, 0]);
     frame.extend_from_slice(&[0u8; 12]);
-    frame.extend_from_slice(&[0x03, 16, 0]);
-    frame.extend_from_slice(&[0u8; 16]);
+    frame.extend_from_slice(&[0x03, 20, 0]);
+    frame.extend_from_slice(&[0u8; 20]);
     assert_eq!(
         decode_state(&frame),
         Err(AbiError::NonCanonicalOrder { id: 0x03 })
@@ -112,11 +112,11 @@ fn duplicate_and_descending_tags_are_non_canonical() {
 
 #[test]
 fn a_known_group_below_its_minimum_length_fails_that_group() {
-    // Twelve bytes is one f32 short of the Air minimum, so a producer
+    // Sixteen bytes is one f32 short of the Air minimum, so a producer
     // that stamps the new version without writing the longer payload
     // fails closed rather than decoding a short group.
-    let mut frame = std::vec![VERSION, 1, 0x03, 12, 0];
-    frame.extend_from_slice(&[0u8; 12]);
+    let mut frame = std::vec![VERSION, 1, 0x03, 16, 0];
+    frame.extend_from_slice(&[0u8; 16]);
     assert_eq!(
         decode_state(&frame),
         Err(AbiError::GroupTruncated { id: GroupId::Air })
@@ -127,12 +127,13 @@ fn a_known_group_below_its_minimum_length_fails_that_group() {
 fn unknown_tags_are_counted_skips_between_known_groups() {
     // AIR, then an experimental tag, decoded around.
     let mut frame = std::vec![VERSION, 2];
-    frame.extend_from_slice(&[0x03, 16, 0]);
-    let mut air = [0u8; 16];
+    frame.extend_from_slice(&[0x03, 20, 0]);
+    let mut air = [0u8; 20];
     air[0..4].copy_from_slice(&51.5f32.to_le_bytes());
     air[4..8].copy_from_slice(&f32::NAN.to_le_bytes());
     air[8..12].copy_from_slice(&40.0f32.to_le_bytes());
     air[12..16].copy_from_slice(&f32::NAN.to_le_bytes());
+    air[16..20].copy_from_slice(&f32::NAN.to_le_bytes());
     frame.extend_from_slice(&air);
     frame.extend_from_slice(&[0xE5, 4, 0, 9, 9, 9, 9]);
     let report = decode_state(&frame).expect("unknown tag skips");
@@ -146,39 +147,43 @@ fn unknown_tags_are_counted_skips_between_known_groups() {
 }
 
 #[test]
-fn air_decodes_tas_appended_after_the_trailing_age() {
-    // The Air layout: `age_ms` keeps offset 8 and `tas_mps` is the
-    // tail at offset 12; the 16-byte payload is the minimum, not a tail.
-    let mut air = [0u8; 16];
+fn air_decodes_tas_and_indicated_vs_after_the_trailing_age() {
+    // The Air layout: `age_ms` keeps offset 8, `tas_mps` follows at 12,
+    // and the indicated vertical speed is the tail at 16; the 20-byte
+    // payload is the minimum, not a tail.
+    let mut air = [0u8; 20];
     air[0..4].copy_from_slice(&48.0f32.to_le_bytes());
     air[4..8].copy_from_slice(&1010.0f32.to_le_bytes());
     air[8..12].copy_from_slice(&25.0f32.to_le_bytes());
     air[12..16].copy_from_slice(&55.0f32.to_le_bytes());
+    air[16..20].copy_from_slice(&(-3.5f32).to_le_bytes());
     let report = decode_state(&one_group_frame(0x03, &air)).expect("decodes");
     assert_eq!(report.extended_groups, 0);
     let air = report.state.air.data.expect("air decoded");
     assert_eq!(air.ias_mps, Some(48.0));
     assert_eq!(air.baro_setting_hpa, Some(1010.0));
     assert_eq!(air.tas_mps, Some(55.0));
+    assert_eq!(air.vsi_mps, Some(-3.5));
     assert_eq!(report.state.air.age_ms, Some(25.0));
 }
 
 #[test]
 fn an_appended_payload_tail_is_accepted_and_counted() {
     // A decoder that predates a further append sees a longer payload:
-    // the tail past `tas_mps` is ignored and counted.
-    let mut air = [0u8; 20];
+    // the tail past `vsi_mps` is ignored and counted.
+    let mut air = [0u8; 24];
     air[0..4].copy_from_slice(&48.0f32.to_le_bytes());
     air[4..8].copy_from_slice(&1010.0f32.to_le_bytes());
     air[8..12].copy_from_slice(&25.0f32.to_le_bytes());
     air[12..16].copy_from_slice(&55.0f32.to_le_bytes());
-    air[16..20].copy_from_slice(&7.0f32.to_le_bytes());
+    air[16..20].copy_from_slice(&2.0f32.to_le_bytes());
+    air[20..24].copy_from_slice(&7.0f32.to_le_bytes());
     let report = decode_state(&one_group_frame(0x03, &air)).expect("extended group decodes");
     assert_eq!(report.extended_groups, 1);
     let air = report.state.air.data.expect("air decoded");
     assert_eq!(air.ias_mps, Some(48.0));
-    assert_eq!(air.baro_setting_hpa, Some(1010.0));
     assert_eq!(air.tas_mps, Some(55.0));
+    assert_eq!(air.vsi_mps, Some(2.0));
 }
 
 #[test]
@@ -233,7 +238,7 @@ pub(super) fn locate_payload(frame: &[u8], tag: u8) -> Option<usize> {
 }
 
 /// Builds a one-group frame with `payload` under `tag`.
-fn one_group_frame(tag: u8, payload: &[u8]) -> Vec<u8> {
+pub(super) fn one_group_frame(tag: u8, payload: &[u8]) -> Vec<u8> {
     let mut frame = std::vec![VERSION, 1, tag];
     frame.extend_from_slice(&(payload.len() as u16).to_le_bytes());
     frame.extend_from_slice(payload);

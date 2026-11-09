@@ -16,7 +16,7 @@ is a contract for one stage.
        │  aircraft_state::apply_* writes the admitted lanes
        ▼
   indicate-instrument-state                         crates/
-       │  AircraftState, tagged-group ABI v8, resolve → PanelData
+       │  AircraftState, tagged-group ABI v9, resolve → PanelData
        │  every signal carries Valid / Degraded / Stale / Missing / Failed
        ▼
   indicate-host                                     tools/
@@ -47,7 +47,7 @@ surfaces. Everything else is internal.
 
 | Surface | Crate | Contract |
 |---|---|---|
-| State ABI | `indicate-instrument-state::abi::v8` | A self-delimiting tagged-group frame. Presence is meaning. |
+| State ABI | `indicate-instrument-state::abi::v9` | A self-delimiting tagged-group frame. Presence is meaning. |
 | Scene IR | `indicate-instrument-scene` | The opcode vocabulary a backend interprets. [Backend contract](backend-contract.md), [scene-layer protocol](scene-layer-protocol.md). |
 | Registry | `indicate-instrument-registry` | Panel descriptors, composition, and the cross-shell digests. [Panel contract](panel-contract.md). |
 

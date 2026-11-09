@@ -9,7 +9,7 @@
 //! sides of that boundary can only drift by turning a consumer's CI red.
 
 use indicate_instrument_state::AircraftState;
-use indicate_instrument_state::abi::v8::{CAPACITY, VERSION, encode_state, fixtures};
+use indicate_instrument_state::abi::v9::{CAPACITY, VERSION, encode_state, fixtures};
 
 use crate::error::XtaskError;
 use crate::output::print_line;

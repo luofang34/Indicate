@@ -5,10 +5,10 @@
 
 use indicate_instrument_state::{
     AirData, AircraftState, AltitudeClass, AltitudeDeclaration, ApEngagement, ApModes, ApTargets,
-    Attitude, BearingPointer, BearingPointers, DynSample, EstimateQuality, GeoidModelId,
-    HeadingReference, HeadingSample, IdentStr, Kinematics, LateralMode, MonitorText, NavData,
-    NavFromTo, NavSource, Quat, Selections, SnapshotCoherence, SnapshotMeta, Stamped, TextLine,
-    TurnBasis, TurnSample, ValidFlags, VerticalMode, Wind,
+    Attitude, BearingPointer, BearingPointers, DynSample, EngineIndication, EngineSample,
+    EstimateQuality, GeoidModelId, HeadingReference, HeadingSample, IdentStr, Kinematics,
+    LateralMode, MonitorText, NavData, NavFromTo, NavSource, Quat, Selections, SnapshotCoherence,
+    SnapshotMeta, Stamped, TextLine, TurnBasis, TurnSample, ValidFlags, VerticalMode, Wind,
 };
 
 /// One shared corpus entry.
@@ -90,6 +90,9 @@ pub fn typical() -> AircraftState {
                 ias_mps: Some(53.0),
                 baro_setting_hpa: Some(1013.2),
                 tas_mps: Some(58.0),
+                // The rate-of-climb instrument reads the climb the
+                // kinematics carry, so every surface agrees in cruise.
+                vsi_mps: Some(2.0),
             }),
             age_ms: Some(80.0),
         },
@@ -133,8 +136,24 @@ pub fn typical() -> AircraftState {
             age_ms: Some(80.0),
         },
         bearings: typical_bearings(),
+        engine: typical_engine(),
         ap_modes: Stamped::default(),
         ap_targets: ApTargets::default(),
+    }
+}
+
+/// A twin at cruise power: 24 inHg and 2,300 rpm, with the engines a
+/// few rpm apart so a gauge wired to the wrong engine shows it.
+fn typical_engine() -> Stamped<EngineIndication> {
+    let cruise = |rpm: f32| EngineSample {
+        manifold_pressure_hpa: Some(812.7),
+        rpm: Some(rpm),
+    };
+    let idle = EngineSample::default();
+    let engines = [cruise(2300.0), cruise(2320.0), idle, idle];
+    Stamped {
+        data: Some(EngineIndication { count: 2, engines }),
+        age_ms: Some(80.0),
     }
 }
 

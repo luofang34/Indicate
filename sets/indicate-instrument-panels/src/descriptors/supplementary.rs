@@ -138,7 +138,7 @@ pub const AUTOFLIGHT_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         },
         ExtremeState {
             id: "extended-flight-guidance",
-            build: indicate_instrument_state::abi::v8::fixtures::extended,
+            build: indicate_instrument_state::abi::v9::fixtures::extended,
         },
         ExtremeState {
             id: "target-against-another-datum",

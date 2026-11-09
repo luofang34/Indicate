@@ -114,6 +114,7 @@ fn air(ias_mps: f32, baro_setting_hpa: f32, tas_mps: Option<f32>, age_ms: f32) -
             ias_mps: Some(ias_mps),
             baro_setting_hpa: Some(baro_setting_hpa),
             tas_mps,
+            vsi_mps: tas_mps.map(|_| -1.5),
         },
         age_ms,
     )
@@ -152,6 +153,29 @@ fn baro_altitude(sample_m: f32, origin: u32) -> AltitudeDeclaration {
     }
 }
 
+/// Two engines with every reading distinct, so a codec that swapped
+/// slots or fields changes the golden bytes.
+fn engine() -> Stamped<crate::engine::EngineIndication> {
+    stamped(
+        crate::engine::EngineIndication {
+            count: 2,
+            engines: [
+                crate::engine::EngineSample {
+                    manifold_pressure_hpa: Some(812.5),
+                    rpm: Some(2300.0),
+                },
+                crate::engine::EngineSample {
+                    manifold_pressure_hpa: Some(795.0),
+                    rpm: None,
+                },
+                crate::engine::EngineSample::default(),
+                crate::engine::EngineSample::default(),
+            ],
+        },
+        80.0,
+    )
+}
+
 /// The groups that describe equipment rather than the aircraft's
 /// motion: what is commanding, what each receiver reports, how the
 /// airframe is set, and what the automation holds.
@@ -180,6 +204,7 @@ fn equipment() -> AircraftState {
             },
             80.0,
         ),
+        engine: engine(),
         bearings: stamped(
             crate::aircraft::BearingPointers {
                 first: crate::aircraft::BearingPointer {

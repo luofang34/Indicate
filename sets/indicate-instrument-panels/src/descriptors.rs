@@ -203,7 +203,7 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     extreme_states: &[
         ExtremeState {
             id: "extended-flight-guidance",
-            build: indicate_instrument_state::abi::v8::fixtures::extended,
+            build: indicate_instrument_state::abi::v9::fixtures::extended,
         },
         ExtremeState {
             id: "unusual-inverted",
@@ -372,7 +372,7 @@ pub const ALL_SETS: &[PanelSet] = &[BUILTIN_SET, CONFIG_SET];
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "dae6c3a97550e2a5bb05f308444ca7b6f8af19924b3bb5cf864e45539d128ec6";
+    "c61cb54b60c31a2cbc614e809c29e7c8d363178d3c30bc01c55552092d236459";
 
 pub use criticality_bands::BUILTIN_CRITICALITY_BANDS;
 pub use supplementary::{

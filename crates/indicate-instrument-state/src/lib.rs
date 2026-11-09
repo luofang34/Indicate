@@ -32,6 +32,7 @@ mod altitude;
 mod autopilot;
 mod director;
 mod dynamics;
+mod engine;
 pub mod flight;
 mod group_id;
 mod heading;
@@ -55,6 +56,7 @@ pub use altitude::{AltitudeClass, AltitudeDeclaration, AltitudeReference, GeoidM
 pub use autopilot::{ApEngagement, ApModes, ApTargets, LateralMode, VerticalMode};
 pub use director::{FdEngagement, FdMode, FdSample};
 pub use dynamics::{DynSample, TurnBasis, TurnSample};
+pub use engine::{EngineIndication, EngineSample, MAX_ENGINES};
 pub use group_id::{GroupId, GroupStatuses, withhold_group};
 pub use heading::{
     ConversionFault, HeadingReference, HeadingSample, MagneticVariation, VariationSourceId,

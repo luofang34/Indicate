@@ -43,6 +43,34 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.9.0] — 2026-11-09
+
+State ABI 9 carries the readings of mechanically modelled instruments.
+The engine group `0x0E` (`GroupId::Engine`, `EngineIndication`) reports manifold pressure and speed for up to four engines.
+The Air group appends `vsi_mps`, the rate-of-climb instrument's own reading, after `tas_mps`; its minimum payload grows from 16 to 20 bytes.
+Both carry indicated values: a source that models gauge lag and error writes what the mechanism shows.
+`PanelData` gains `vsi_indicated_fpm` and `engine`; the display never fills one vertical speed from the other.
+
+The module is `abi::v9`, and the golden frames are `state-abi-v9.*.hex`.
+A v8 frame is refused by version, so a producer moves to v9 and writes the 20-byte Air payload.
+`AirData` gains a field, so a struct literal without `..` stops compiling.
+
+`GroupId::index` slots are append-only: `Engine` takes slot 19 and no existing slot moves.
+A `GroupSet` travels as raw bits in signed plugin descriptors, so a moved slot would change what an existing package declares.
+
+The composition digest and the screen-composition digest move because the scene digest hashes the ABI version byte.
+No paint changed: every raster baseline, the criticality bands, the glyph pack, and the corpus are byte-identical.
+
+| Value | This release |
+|---|---|
+| State ABI | 9 |
+| Scene format | 1 |
+| Corpus | 8 |
+| Composition digest | `c61cb54b60c31a2cbc614e809c29e7c8d363178d3c30bc01c55552092d236459` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
+
+Panel set changed since the previous release: no.
+
 ## [0.8.0] — 2026-10-31
 
 The instrument descriptor contract generalizes across planar two-dimensional, angular-sphere, and three-dimensional volumetric render spaces (`RenderSpace`, `UnderlayContract`, `SceneTarget`, `DrawContext`).

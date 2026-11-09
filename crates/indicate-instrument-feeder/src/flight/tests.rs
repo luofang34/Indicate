@@ -1,6 +1,6 @@
 #![allow(clippy::expect_used, clippy::panic)]
 use super::*;
-use indicate_instrument_state::{FreshnessPolicy, SignalStatus, abi::v8::fixtures, resolve};
+use indicate_instrument_state::{FreshnessPolicy, SignalStatus, abi::v9::fixtures, resolve};
 
 fn report(sequence: u32) -> FlightReport {
     FlightReport {
