@@ -7,7 +7,7 @@ mod wire;
 mod tests;
 
 use indicate_alerts::AlertOutput;
-use indicate_instrument_state::{AircraftState, EngineSamples, PanelData};
+use indicate_instrument_state::{AircraftState, EngineSamples, PanelData, TankSamples};
 use indicate_intent::EchoSummary;
 use indicate_interaction::ViewPose3D;
 
@@ -32,6 +32,7 @@ pub struct DrawContext<'a> {
     underlay: UnderlayStatus,
     aux: &'a [AuxEntry<'a>],
     engines: EngineSamples<'a>,
+    tanks: TankSamples<'a>,
 }
 
 impl<'a> DrawContext<'a> {
@@ -48,6 +49,7 @@ impl<'a> DrawContext<'a> {
             underlay: UnderlayStatus::UNAVAILABLE,
             aux: &[],
             engines: EngineSamples::EMPTY,
+            tanks: TankSamples::EMPTY,
         }
     }
 
@@ -115,6 +117,22 @@ impl<'a> DrawContext<'a> {
     #[must_use]
     pub const fn engines(&self) -> &EngineSamples<'a> {
         &self.engines
+    }
+
+    /// Attaches the fuel tank samples beside the state, on the same terms
+    /// as [`Self::with_engines`]; `PanelData::fuel_tanks` carries their
+    /// group status.
+    #[must_use]
+    pub const fn with_tanks(mut self, tanks: TankSamples<'a>) -> Self {
+        self.tanks = tanks;
+        self
+    }
+
+    /// The fuel tank samples beside the state; empty unless the host
+    /// attached them.
+    #[must_use]
+    pub const fn tanks(&self) -> &TankSamples<'a> {
+        &self.tanks
     }
 
     /// Resolved flight and navigation [`PanelData`].

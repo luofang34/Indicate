@@ -6,6 +6,7 @@ mod behaviour;
 mod build;
 mod png;
 mod render;
+mod systems;
 
 use std::vec;
 use std::vec::Vec;

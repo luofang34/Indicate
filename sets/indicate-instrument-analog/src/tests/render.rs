@@ -33,7 +33,7 @@ fn the_face_rendered_alone_contains_no_pointer_pixels() {
     assert_eq!(count_probe(&face), 0, "the face carries needle ink");
     let reading = DialReading {
         primary: Some(120.0),
-        secondary: None,
+        ..DialReading::default()
     };
     let full = pixels(
         &dial_scene(&spec, &pose(&spec, &reading), Lighting::Day, SIDE as f32),
@@ -116,6 +116,7 @@ fn every_gauge_renders_at_its_pictured_readings() {
             let reading = DialReading {
                 primary,
                 secondary: secondary.or(spec.secondary.map(|_| 29.92)),
+                ..DialReading::default()
             };
             let rgba = pixels(
                 &dial_scene(spec, &pose(spec, &reading), lighting, SIDE as f32),
@@ -146,5 +147,6 @@ fn readings_mid(input: crate::DialInput) -> Option<f32> {
         crate::DialInput::BaroSetting => 29.92,
         crate::DialInput::ManifoldPressure { .. } => 28.0,
         crate::DialInput::EngineRpm { .. } => 2300.0,
+        _ => 50.0,
     })
 }

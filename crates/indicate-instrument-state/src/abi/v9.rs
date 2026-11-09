@@ -56,16 +56,18 @@ use crate::group_id::GroupId;
 pub mod fixtures;
 
 mod declared;
-mod engine;
 #[cfg(test)]
 mod engine_tests;
 mod equipment;
 mod flight;
 #[cfg(test)]
 mod flight_tests;
+mod masked;
 mod monitor;
 mod speed;
 mod stamped;
+#[cfg(test)]
+mod tank_tests;
 
 /// Version stamped in the frame's first byte.
 pub const VERSION: u8 = 9;
@@ -117,6 +119,15 @@ pub enum AbiError {
         /// The samples supplied.
         supplied: usize,
     },
+    /// The fuel tank header's count and the tank samples handed to the
+    /// encoder disagree.
+    #[error("tank header declares {declared} tanks but {supplied} samples were supplied")]
+    TankCountMismatch {
+        /// The count in the state's tank header.
+        declared: u16,
+        /// The samples supplied.
+        supplied: usize,
+    },
 }
 
 /// A decoded frame plus the forward-compatibility counters.
@@ -154,7 +165,7 @@ const fn min_len(id: GroupId) -> usize {
         GroupId::AirframeConfig => 24,
         GroupId::MonitorText => monitor::MONITOR_LEN,
         GroupId::FlightDirector => 16,
-        GroupId::Engine => engine::ENGINE_HEADER_LEN,
+        GroupId::Engine | GroupId::FuelTanks => masked::MASKED_HEADER_LEN,
         GroupId::ApModes => 12,
         GroupId::ApTargets => 20,
         GroupId::Guidance => flight::GUIDANCE_LEN,
@@ -181,7 +192,10 @@ fn decode_group(state: &mut AircraftState, id: GroupId, payload: &[u8]) {
         GroupId::AirframeConfig => equipment::decode_airframe(state, payload),
         GroupId::MonitorText => monitor::decode_monitor_text(state, payload),
         GroupId::FlightDirector => equipment::decode_director(state, payload),
-        GroupId::Engine => engine::decode_engine(state, payload),
+        GroupId::Engine => state.engine = masked::decode_masked::<crate::EngineSample>(payload),
+        GroupId::FuelTanks => {
+            state.fuel_tanks = masked::decode_masked::<crate::TankSample>(payload);
+        }
         GroupId::ApModes => equipment::decode_ap_modes(state, payload),
         GroupId::ApTargets => declared::decode_ap_targets(state, payload),
         GroupId::Guidance => flight::decode_guidance(state, payload),
@@ -194,7 +208,7 @@ fn decode_group(state: &mut AircraftState, id: GroupId, payload: &[u8]) {
 /// group variant fails to compile until it encodes).
 fn encode_group(
     state: &AircraftState,
-    engines: &crate::engine::EngineSamples<'_>,
+    beside: &crate::samples::BesideSamples<'_>,
     id: GroupId,
     out: &mut [u8],
 ) -> Result<Option<usize>, AbiError> {
@@ -214,7 +228,22 @@ fn encode_group(
         GroupId::AirframeConfig => equipment::encode_airframe(state, out),
         GroupId::MonitorText => monitor::encode_monitor_text(state, out),
         GroupId::FlightDirector => equipment::encode_director(state, out),
-        GroupId::Engine => engine::encode_engine(state, engines, out),
+        GroupId::Engine => {
+            masked::encode_masked(&state.engine, &beside.engines, out).map_err(|e| match e {
+                masked::MaskedEncodeError::Count { declared, supplied } => {
+                    AbiError::EngineCountMismatch { declared, supplied }
+                }
+                masked::MaskedEncodeError::Truncated => AbiError::Truncated,
+            })
+        }
+        GroupId::FuelTanks => {
+            masked::encode_masked(&state.fuel_tanks, &beside.tanks, out).map_err(|e| match e {
+                masked::MaskedEncodeError::Count { declared, supplied } => {
+                    AbiError::TankCountMismatch { declared, supplied }
+                }
+                masked::MaskedEncodeError::Truncated => AbiError::Truncated,
+            })
+        }
         GroupId::ApModes => equipment::encode_ap_modes(state, out),
         GroupId::ApTargets => declared::encode_ap_targets(state, out),
         GroupId::Guidance => flight::encode_guidance(state, out),
@@ -256,7 +285,7 @@ pub fn decode_state(buf: &[u8]) -> Result<DecodeReport, AbiError> {
                 }
                 // The engine group's samples are its tail by design,
                 // and its own validation checks their length exactly.
-                if len > min_len(id) && id != GroupId::Engine {
+                if len > min_len(id) && !matches!(id, GroupId::Engine | GroupId::FuelTanks) {
                     report.extended_groups = report.extended_groups.saturating_add(1);
                 }
                 decode_group(&mut report.state, id, payload);
@@ -286,6 +315,21 @@ pub fn encode_state_with(
     engines: &crate::engine::EngineSamples<'_>,
     buf: &mut [u8],
 ) -> Result<usize, AbiError> {
+    let beside = crate::samples::BesideSamples {
+        engines: *engines,
+        tanks: crate::tank::TankSamples::EMPTY,
+    };
+    encode_state_samples(state, &beside, buf)
+}
+
+/// Encodes `state` and every record group beside it (engines and fuel
+/// tanks) as a canonical v9 frame, returning the used length. Each
+/// group's records must number exactly its header's count.
+pub fn encode_state_samples(
+    state: &AircraftState,
+    beside: &crate::samples::BesideSamples<'_>,
+    buf: &mut [u8],
+) -> Result<usize, AbiError> {
     if buf.len() < 2 {
         return Err(AbiError::Truncated);
     }
@@ -294,7 +338,7 @@ pub fn encode_state_with(
     let mut offset = 2usize;
     for id in GroupId::ALL {
         let body = buf.get_mut(offset + 3..).ok_or(AbiError::Truncated)?;
-        let Some(len) = encode_group(state, engines, id, body)? else {
+        let Some(len) = encode_group(state, beside, id, body)? else {
             continue;
         };
         let len16 = u16::try_from(len).map_err(|_| AbiError::Truncated)?;
@@ -315,7 +359,14 @@ pub fn encode_state_with(
 /// readings. Keep `frame` alive for as long as the view is read.
 pub fn engine_samples(frame: &[u8]) -> crate::engine::EngineSamples<'_> {
     group_payload(frame, GroupId::Engine.to_u8())
-        .map_or(crate::engine::EngineSamples::EMPTY, engine::samples_of)
+        .map_or(crate::engine::EngineSamples::EMPTY, masked::samples_of)
+}
+
+/// The fuel tank samples carried by `frame`, as a zero-copy view over
+/// its bytes, on the same terms as [`engine_samples`].
+pub fn tank_samples(frame: &[u8]) -> crate::tank::TankSamples<'_> {
+    group_payload(frame, GroupId::FuelTanks.to_u8())
+        .map_or(crate::tank::TankSamples::EMPTY, masked::samples_of)
 }
 
 /// The payload of the group tagged `tag` in a frame of this version.

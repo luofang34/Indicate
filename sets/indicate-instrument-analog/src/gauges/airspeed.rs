@@ -154,6 +154,7 @@ pub const AIRSPEED_KT: AnalogDialSpec<'static> = AnalogDialSpec {
         unit: DialUnit::Knots,
     },
     secondary: None,
+    extra: &[],
     input_range: None,
     rings: &[KT_RING],
     legends: &[

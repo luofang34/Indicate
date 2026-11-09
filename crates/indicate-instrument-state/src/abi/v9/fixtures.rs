@@ -154,27 +154,43 @@ fn baro_altitude(sample_m: f32, origin: u32) -> AltitudeDeclaration {
 }
 
 /// Three engines of three kinds, so the golden bytes pin the presence
-/// masks: a piston engine with both fields, an engine reporting speed
-/// only, and an engine with no indication at all. Every reading is
-/// distinct, so a codec that swapped fields changes the bytes.
+/// masks: a piston engine with a full set of gauges (one temperature
+/// below zero, which a temperature field admits), an engine reporting
+/// speed only, and an engine with no indication at all. Every reading
+/// is distinct, so a codec that swapped fields changes the bytes.
 pub const ENGINES: &[crate::engine::EngineSample] = &[
     crate::engine::EngineSample {
         manifold_pressure_hpa: Some(812.5),
         rpm: Some(2300.0),
+        oil_temperature_c: Some(71.5),
+        oil_pressure_kpa: Some(482.0),
+        fuel_pressure_kpa: Some(110.5),
+        coolant_temperature_c: Some(104.0),
+        cylinder_head_temperature_c: Some(187.0),
+        carburettor_air_temperature_c: Some(-3.5),
     },
     crate::engine::EngineSample {
-        manifold_pressure_hpa: None,
         rpm: Some(2310.0),
+        ..crate::engine::EngineSample::EMPTY
     },
-    crate::engine::EngineSample {
-        manifold_pressure_hpa: None,
-        rpm: None,
+    crate::engine::EngineSample::EMPTY,
+];
+
+/// Two tanks: one gauged by volume with its capacity, one by mass only.
+pub const TANKS: &[crate::tank::TankSample] = &[
+    crate::tank::TankSample {
+        quantity_l: Some(310.0),
+        capacity_l: Some(352.0),
+        ..crate::tank::TankSample::EMPTY
+    },
+    crate::tank::TankSample {
+        quantity_kg: Some(180.5),
+        ..crate::tank::TankSample::EMPTY
     },
 ];
 
 /// The engine samples a fixture state carries: [`ENGINES`] when its
-/// engine header is present, none otherwise. Pass them to
-/// [`super::encode_state_with`] beside the state.
+/// engine header is present, none otherwise.
 #[must_use]
 pub fn engine_samples(state: &AircraftState) -> crate::engine::EngineSamples<'static> {
     if state.engine.data.is_some() {
@@ -184,10 +200,34 @@ pub fn engine_samples(state: &AircraftState) -> crate::engine::EngineSamples<'st
     }
 }
 
+/// Every record group a fixture state carries beside it. Pass it to
+/// [`super::encode_state_samples`] with the state.
+#[must_use]
+pub fn beside_samples(state: &AircraftState) -> crate::samples::BesideSamples<'static> {
+    crate::samples::BesideSamples {
+        engines: engine_samples(state),
+        tanks: if state.fuel_tanks.data.is_some() {
+            crate::tank::TankSamples::Slice(TANKS)
+        } else {
+            crate::tank::TankSamples::EMPTY
+        },
+    }
+}
+
 fn engine() -> Stamped<crate::engine::EngineGroup> {
     stamped(
         crate::engine::EngineGroup {
             count: ENGINES.len() as u16,
+            fault: None,
+        },
+        80.0,
+    )
+}
+
+fn tanks() -> Stamped<crate::tank::TankGroup> {
+    stamped(
+        crate::tank::TankGroup {
+            count: TANKS.len() as u16,
             fault: None,
         },
         80.0,
@@ -223,6 +263,7 @@ fn equipment() -> AircraftState {
             80.0,
         ),
         engine: engine(),
+        fuel_tanks: tanks(),
         bearings: stamped(
             crate::aircraft::BearingPointers {
                 first: crate::aircraft::BearingPointer {

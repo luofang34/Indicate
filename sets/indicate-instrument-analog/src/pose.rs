@@ -6,21 +6,24 @@
 //! into one angle per pointer and one offset per drum wheel. Nothing
 //! here draws or decodes a scene.
 
-use indicate_instrument_state::{EngineSamples, PanelData};
+use indicate_instrument_state::{BesideSamples, PanelData};
 
 use crate::law::wheel_positions;
 use crate::spec::{
-    AnalogDialSpec, Channel, FailurePose, MAX_POINTERS, MAX_WHEELS, MAX_WINDOWS, WindowSpec,
+    AnalogDialSpec, Channel, FailurePose, MAX_EXTRA_CHANNELS, MAX_POINTERS, MAX_WHEELS,
+    MAX_WINDOWS, WindowSpec,
 };
 
-/// The dial's two values in dial units; `None` where the state shows
-/// no value.
+/// The dial's values in dial units; `None` where the state shows no
+/// value. Build one by hand with `..DialReading::default()`.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct DialReading {
     /// The primary channel.
     pub primary: Option<f32>,
     /// The secondary channel.
     pub secondary: Option<f32>,
+    /// The extra channels, in [`AnalogDialSpec::extra`] order.
+    pub extra: [Option<f32>; MAX_EXTRA_CHANNELS],
 }
 
 impl DialReading {
@@ -30,23 +33,29 @@ impl DialReading {
         match channel {
             Channel::Primary => self.primary,
             Channel::Secondary => self.secondary,
+            Channel::Extra(n) => self.extra.get(usize::from(n)).copied().flatten(),
         }
     }
 }
 
-/// Reads `spec`'s channels from resolved state and the engine samples
-/// beside it, in dial units.
+/// Reads `spec`'s channels from resolved state and the record groups
+/// beside it (engines and fuel tanks), in dial units.
 #[must_use]
 pub fn reading(
     spec: &AnalogDialSpec<'_>,
     data: &PanelData,
-    engines: &EngineSamples<'_>,
+    beside: &BesideSamples<'_>,
 ) -> DialReading {
+    let mut extra = [None; MAX_EXTRA_CHANNELS];
+    for (slot, channel) in extra.iter_mut().zip(spec.extra) {
+        *slot = channel.read(data, beside);
+    }
     DialReading {
-        primary: spec.primary.read(data, engines),
+        primary: spec.primary.read(data, beside),
         secondary: spec
             .secondary
-            .and_then(|channel| channel.read(data, engines)),
+            .and_then(|channel| channel.read(data, beside)),
+        extra,
     }
 }
 
@@ -98,7 +107,7 @@ pub fn pose(spec: &AnalogDialSpec<'_>, reading: &DialReading) -> DialPose {
         .filter(|v| v.is_finite());
     let value = |channel: Channel| match channel {
         Channel::Primary => primary,
-        Channel::Secondary => reading.secondary.filter(|v| v.is_finite()),
+        other => reading.of(other).filter(|v| v.is_finite()),
     };
     for (slot, pointer) in out.pointers.iter_mut().zip(spec.pointers) {
         *slot = match (value(pointer.channel), pointer.on_failure) {

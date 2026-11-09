@@ -2,10 +2,14 @@
 //! cannot see a needle, so these are the failure-presentation proofs.
 
 use indicate_instrument_descriptor::states;
-use indicate_instrument_state::{EngineSample, EngineSamples, abi::v9};
+use indicate_instrument_state::{BesideSamples, EngineSample, EngineSamples, TankSamples, abi::v9};
 
-/// The corpus's engine samples, beside every state built from `typical`.
-const TYPICAL: EngineSamples<'static> = EngineSamples::Slice(states::TYPICAL_ENGINES);
+/// The corpus's engine and tank samples, beside every state built from
+/// `typical`.
+const TYPICAL: BesideSamples<'static> = BesideSamples {
+    engines: EngineSamples::Slice(states::TYPICAL_ENGINES),
+    tanks: TankSamples::Slice(states::TYPICAL_TANKS),
+};
 use indicate_instrument_scene::{Cmd, SceneCmds};
 use indicate_instrument_state::{GroupId, withhold_group};
 
@@ -94,7 +98,11 @@ fn an_engine_the_source_does_not_report_shows_nothing() {
         None,
         "the corpus has two engines"
     );
-    let second = crate::DialInput::EngineRpm { engine: 1 }.native(&data, &TYPICAL);
+    let second = crate::DialInput::EngineRpm { engine: 1 }.native(
+        &data,
+        &TYPICAL,
+        crate::DialUnit::RevolutionsPerMinute,
+    );
     assert_eq!(second, Some(2320.0));
 }
 
@@ -125,14 +133,18 @@ fn an_engine_without_the_field_shows_the_failure_pose_not_zero() {
         EngineSample {
             manifold_pressure_hpa: Some(812.7),
             rpm: Some(2300.0),
+            ..EngineSample::EMPTY
         },
         EngineSample {
-            manifold_pressure_hpa: None,
             rpm: Some(9100.0),
+            ..EngineSample::EMPTY
         },
     ];
     let data = data_of(&states::typical());
-    let engines = EngineSamples::Slice(MIXED);
+    let engines = BesideSamples {
+        engines: EngineSamples::Slice(MIXED),
+        ..TYPICAL
+    };
     let mut map = MANIFOLD_PRESSURE;
     map.primary.input = crate::DialInput::ManifoldPressure { engine: 1 };
     let p = pose(&map, &reading(&map, &data, &engines));
@@ -151,9 +163,11 @@ fn a_gauge_reads_engine_33_from_the_admitted_frame_bytes() {
         .map(|k| EngineSample {
             manifold_pressure_hpa: None,
             rpm: Some(100.0 * k as f32),
+            ..EngineSample::EMPTY
         })
         .collect();
     let mut state = states::typical();
+    state.fuel_tanks = Default::default();
     state.engine.data = Some(indicate_instrument_state::EngineGroup {
         count: 33,
         fault: None,
@@ -163,7 +177,10 @@ fn a_gauge_reads_engine_33_from_the_admitted_frame_bytes() {
         .expect("encodes");
     let frame = &frame[..len];
     let decoded = v9::decode_state(frame).expect("decodes").state;
-    let engines = v9::engine_samples(frame);
+    let engines = BesideSamples {
+        engines: v9::engine_samples(frame),
+        tanks: v9::tank_samples(frame),
+    };
     let mut tach = TACHOMETER;
     tach.primary.input = crate::DialInput::EngineRpm { engine: 32 };
     let read = reading(&tach, &data_of(&decoded), &engines).primary;

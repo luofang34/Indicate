@@ -227,11 +227,15 @@ fn extreme_state_ids_must_be_unique_and_well_formed() {
                 id: "unusual-nose-high",
                 build: nothing_fed,
                 engines: &[],
+
+                tanks: &[],
             },
             ExtremeState {
                 id: "unusual-nose-high",
                 build: nothing_fed,
                 engines: &[],
+
+                tanks: &[],
             },
         ];
         p

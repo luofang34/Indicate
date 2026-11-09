@@ -8,7 +8,7 @@
 
 #![allow(clippy::expect_used, clippy::panic)]
 
-use super::{CAPACITY, decode_state, encode_state_with, fixtures};
+use super::{CAPACITY, decode_state, encode_state_samples, fixtures};
 use crate::group_id::GroupId;
 use crate::signal::{FreshnessPolicy, SignalStatus};
 use crate::{AircraftState, resolve};
@@ -16,8 +16,8 @@ use std::vec::Vec;
 
 fn tags_of(state: &AircraftState) -> Vec<u8> {
     let mut buf = [0u8; CAPACITY];
-    let len =
-        encode_state_with(state, &fixtures::engine_samples(state), &mut buf).expect("fixture fits");
+    let len = encode_state_samples(state, &fixtures::beside_samples(state), &mut buf)
+        .expect("fixture fits");
     let frame = &buf[..len];
     let mut tags = Vec::new();
     let mut offset = 2usize;
@@ -55,9 +55,9 @@ fn the_two_postures_carry_disjoint_extras_and_no_dead_fields() {
 fn gateway_groups_resolve_valid_and_unfed_groups_resolve_missing() {
     let frame = {
         let mut buf = [0u8; CAPACITY];
-        let len = encode_state_with(
+        let len = encode_state_samples(
             &fixtures::data_gateway(),
-            &fixtures::engine_samples(&fixtures::data_gateway()),
+            &fixtures::beside_samples(&fixtures::data_gateway()),
             &mut buf,
         )
         .expect("fits");
@@ -103,9 +103,9 @@ fn gateway_groups_resolve_valid_and_unfed_groups_resolve_missing() {
 fn flight_controller_groups_resolve_valid_and_nav_stays_missing() {
     let frame = {
         let mut buf = [0u8; CAPACITY];
-        let len = encode_state_with(
+        let len = encode_state_samples(
             &fixtures::flight_controller(),
-            &fixtures::engine_samples(&fixtures::flight_controller()),
+            &fixtures::beside_samples(&fixtures::flight_controller()),
             &mut buf,
         )
         .expect("fits");

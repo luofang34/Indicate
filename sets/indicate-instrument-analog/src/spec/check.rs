@@ -5,7 +5,10 @@
 //! one. So the checks run once, up front, and every later step may
 //! assume their results.
 
-use super::{AnalogDialSpec, Channel, MAX_POINTERS, MAX_WHEELS, MAX_WINDOWS, ScaleLaw, ScaleRing};
+use super::{
+    AnalogDialSpec, Channel, MAX_EXTRA_CHANNELS, MAX_POINTERS, MAX_WHEELS, MAX_WINDOWS, ScaleLaw,
+    ScaleRing,
+};
 
 /// Why a spec was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -107,13 +110,20 @@ impl AnalogDialSpec<'_> {
                 what: "face radius or case diameter",
             });
         }
-        for channel in [Some(self.primary), self.secondary].into_iter().flatten() {
-            if !channel.units_agree() {
-                let which = if channel == self.primary {
-                    Channel::Primary
-                } else {
-                    Channel::Secondary
-                };
+        capacity("extra channels", self.extra.len(), MAX_EXTRA_CHANNELS)?;
+        let channels = [
+            (Channel::Primary, Some(self.primary)),
+            (Channel::Secondary, self.secondary),
+        ]
+        .into_iter()
+        .chain(
+            self.extra
+                .iter()
+                .enumerate()
+                .map(|(n, c)| (Channel::Extra(n as u8), Some(*c))),
+        );
+        for (which, channel) in channels {
+            if channel.is_some_and(|c| !c.units_agree()) {
                 return Err(SpecError::UnitMismatch { channel: which });
             }
         }

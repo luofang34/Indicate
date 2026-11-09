@@ -132,6 +132,7 @@ pub const ALTIMETER: AnalogDialSpec<'static> = AnalogDialSpec {
         input: DialInput::BaroSetting,
         unit: DialUnit::InchesOfMercury,
     }),
+    extra: &[],
     input_range: Some([-1000.0, 20_000.0]),
     rings: &[RING],
     legends: &[

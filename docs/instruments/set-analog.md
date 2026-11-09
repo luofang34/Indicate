@@ -48,13 +48,23 @@ nothing.
   [`AIR-IN-002`](requirements.md#air-in-002). Only a barometric
   indicated altitude shows; any other declared class flags the
   altimeter.
-- Manifold pressure and engine speed come from the engine group
-  (`0x0E`). The samples arrive beside the state as an `EngineSamples`
-  view, which `DrawContext::with_engines` attaches. A dial reads engine
-  N, numbered from zero, for any N that the source reports. An engine
-  that lacks the dial's field shows the failure pose, not zero. No
-  `AIR-IN` requirement covers engine indications yet, so this document
-  cites none for them.
+- Manifold pressure, engine speed, oil and fuel pressure, and oil,
+  coolant, cylinder-head and carburettor air temperatures come from the
+  engine group (`0x0E`). Fuel quantity comes from the fuel tank group
+  (`0x18`), by tank index: in volume on a dial engraved in volume, in
+  mass on one engraved in mass. The display never assumes a density.
+  A dial can follow more than two quantities through its extra channels,
+  for example the three pointers of an engine gauge unit.
+- The engine pressures arrive in kilopascals and the temperatures in
+  degrees Celsius. A dial converts them to its engraved unit, such as
+  pounds per square inch or degrees Fahrenheit.
+- Engine and tank samples arrive beside the state as `EngineSamples`
+  and `TankSamples` views, which `DrawContext::with_engines` and
+  `DrawContext::with_tanks` attach. A dial reads engine or tank N,
+  numbered from zero, for any N that the source reports. An engine or
+  tank that lacks the dial's field shows the failure pose, not zero. No
+  `AIR-IN` requirement covers engine or fuel indications yet, so this
+  document cites none for them.
 - Every reading folds source trust under
   [`AIR-IN-009`](requirements.md#air-in-009).
 

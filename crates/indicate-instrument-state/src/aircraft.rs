@@ -412,6 +412,9 @@ pub struct AircraftState {
     /// [`crate::EngineSamples`] view, so the state stays a fixed-size
     /// value whatever the engine count.
     pub engine: Stamped<crate::engine::EngineGroup>,
+    /// The fuel tank group's header; the tank samples travel beside the
+    /// state as a [`crate::TankSamples`] view.
+    pub fuel_tanks: Stamped<crate::tank::TankGroup>,
     /// Autoflight engagement and the active and armed modes
     /// (AIR-IN-015). Stamped: an annunciation that outlives its source
     /// says the automation is doing something it stopped doing.

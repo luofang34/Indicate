@@ -6,7 +6,10 @@ use std::vec::Vec;
 
 use super::fixtures;
 use super::tests::locate_payload;
-use super::{AbiError, CAPACITY, decode_state, encode_state, encode_state_with, engine_samples};
+use super::{
+    AbiError, CAPACITY, decode_state, encode_state, encode_state_samples, encode_state_with,
+    engine_samples,
+};
 use crate::engine::{EngineGroup, EngineSample, EngineSamples};
 use crate::signal::{FreshnessPolicy, SignalStatus};
 use crate::validate::{GroupFault, validate_state};
@@ -14,7 +17,7 @@ use crate::validate::{GroupFault, validate_state};
 fn encode_full() -> Vec<u8> {
     let state = fixtures::full();
     let mut buf = vec![0u8; CAPACITY];
-    let len = encode_state_with(&state, &fixtures::engine_samples(&state), &mut buf)
+    let len = encode_state_samples(&state, &fixtures::beside_samples(&state), &mut buf)
         .expect("fixture fits");
     buf.truncate(len);
     buf
@@ -42,16 +45,17 @@ fn heterogeneous_engines_carry_only_their_own_fields() {
     let frame = encode_full();
     let (at, len) = engine_payload(&frame);
     let p = &frame[at..at + len];
-    // Header 8, then 2 + 4 + 4, 2 + 4, and a bare 2-byte mask.
-    assert_eq!(len, 8 + 10 + 6 + 2);
+    // Header 8, then a mask with all eight fields, 2 + 4, and a bare
+    // 2-byte mask.
+    assert_eq!(len, 8 + 34 + 6 + 2);
     assert_eq!(u16::from_le_bytes([p[0], p[1]]), 3, "count");
     assert_eq!(
         u16::from_le_bytes([p[8], p[9]]),
-        0b11,
-        "piston: MAP and rpm"
+        0xFF,
+        "piston: every registered gauge"
     );
-    assert_eq!(u16::from_le_bytes([p[18], p[19]]), 0b10, "speed only");
-    assert_eq!(u16::from_le_bytes([p[24], p[25]]), 0b00, "no indication");
+    assert_eq!(u16::from_le_bytes([p[42], p[43]]), 0b10, "speed only");
+    assert_eq!(u16::from_le_bytes([p[48], p[49]]), 0b00, "no indication");
 
     let report = decode_state(&frame).expect("decodes");
     assert_eq!(report.extended_groups, 0, "the samples are not a tail");
@@ -118,8 +122,8 @@ fn an_unregistered_bit_or_reserved_word_faults_the_group() {
     let frame = encode_full();
     let (at, len) = engine_payload(&frame);
     let mut unknown = frame[at..at + len].to_vec();
-    // The bare third sample claims bit 2, which no field owns.
-    unknown[24] = 0b100;
+    // The bare third sample claims bit 8, which no field owns.
+    unknown[49] = 0b1;
     assert_faulted(
         &with_engine_payload(&frame, &unknown),
         GroupFault::MalformedPayload,
@@ -175,9 +179,11 @@ fn engine_counts_have_no_capacity() {
             .map(|k| EngineSample {
                 manifold_pressure_hpa: (k % 2 == 0).then_some(k as f32),
                 rpm: Some(1000.0 + k as f32),
+                ..EngineSample::EMPTY
             })
             .collect();
         let mut state = fixtures::full();
+        state.fuel_tanks = Default::default();
         state.engine.data = Some(EngineGroup {
             count: count as u16,
             fault: None,

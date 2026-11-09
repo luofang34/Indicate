@@ -134,7 +134,7 @@ pub enum AdmissionError {
     /// A fixture's engine samples do not number its state's engine
     /// header, so the matrix would draw a state its samples contradict.
     #[error(
-        "panel {panel} fixture {state} declares {declared} engines but carries {supplied} samples"
+        "panel {panel} fixture {state} declares {declared} records but carries {supplied} samples"
     )]
     FixtureEngines {
         /// The panel whose matrix includes the fixture.

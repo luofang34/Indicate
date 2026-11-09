@@ -21,7 +21,7 @@ fn all_is_ascending_and_bijective_with_from_u8() {
 #[test]
 fn unassigned_tags_do_not_resolve() {
     assert_eq!(GroupId::from_u8(0x00), None);
-    for value in 0x18u8..=0xFF {
+    for value in 0x19u8..=0xFF {
         assert_eq!(GroupId::from_u8(value), None, "tag {value:#04x}");
     }
 }
@@ -74,6 +74,7 @@ fn slots_are_append_only() {
         (GroupId::Guidance, 17),
         (GroupId::SpeedPresentation, 18),
         (GroupId::Engine, 19),
+        (GroupId::FuelTanks, 20),
     ];
     assert_eq!(pinned.len(), GroupId::COUNT);
     for (id, slot) in pinned {
@@ -130,6 +131,7 @@ fn withholding_a_stamped_group_resolves_missing() {
             | GroupId::BearingPointers
             | GroupId::AirframeConfig
             | GroupId::Engine
+            | GroupId::FuelTanks
             | GroupId::ApModes
             | GroupId::FlightDirector
             | GroupId::Guidance

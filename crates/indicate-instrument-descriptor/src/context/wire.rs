@@ -96,6 +96,7 @@ pub enum DrawContextWireError {
 pub struct DecodedDrawContext<'a> {
     state: AircraftState,
     engines: indicate_instrument_state::EngineSamples<'a>,
+    tanks: indicate_instrument_state::TankSamples<'a>,
     data: PanelData,
     config: ConfigBlob<'a>,
     alerts: Option<AlertOutput>,
@@ -116,6 +117,7 @@ impl<'a> DecodedDrawContext<'a> {
         DrawContext::new(&self.data)
             .with_raw_state(&self.state)
             .with_engines(self.engines)
+            .with_tanks(self.tanks)
             .with_config(self.config)
             .with_alerts(self.alerts.as_ref())
             .with_echo(self.echo)
@@ -381,6 +383,7 @@ fn decode_sections<'a>(
     let state_bytes = &bytes[DRAW_CONTEXT_HEADER_BYTES..s_end];
     let report = v9::decode_state(state_bytes)?;
     let engines = v9::engine_samples(state_bytes);
+    let tanks = v9::tank_samples(state_bytes);
     if report.trailing_bytes != 0 {
         return Err(DrawContextWireError::StateTrailingBytes(
             report.trailing_bytes,
@@ -403,6 +406,7 @@ fn decode_sections<'a>(
     Ok(DecodedDrawContext {
         state: report.state,
         engines,
+        tanks,
         data,
         config,
         alerts,

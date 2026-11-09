@@ -9,7 +9,7 @@
 //! sides of that boundary can only drift by turning a consumer's CI red.
 
 use indicate_instrument_state::AircraftState;
-use indicate_instrument_state::abi::v9::{CAPACITY, VERSION, encode_state_with, fixtures};
+use indicate_instrument_state::abi::v9::{CAPACITY, VERSION, encode_state_samples, fixtures};
 
 use crate::error::XtaskError;
 use crate::output::print_line;
@@ -58,9 +58,9 @@ pub fn run() -> Result<(), XtaskError> {
         let stem = stem_for(posture);
         let state = build();
         let mut buf = [0u8; CAPACITY];
-        let engines = fixtures::engine_samples(&state);
+        let beside = fixtures::beside_samples(&state);
         let len =
-            encode_state_with(&state, &engines, &mut buf).map_err(|error| XtaskError::Usage {
+            encode_state_samples(&state, &beside, &mut buf).map_err(|error| XtaskError::Usage {
                 message: format!("encoding fixture {stem}: {error}"),
             })?;
         let path = dir.join(format!("{stem}.hex"));

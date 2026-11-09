@@ -151,6 +151,8 @@ pub struct PanelData {
     pub airframe: Sig<crate::aircraft::AirframeConfig>,
     /// Engine indications with the group's own status.
     pub engine: Sig<crate::engine::EngineGroup>,
+    /// The fuel tank group's header, with the group's own status.
+    pub fuel_tanks: Sig<crate::tank::TankGroup>,
     /// Group-level status keyed by [`crate::GroupId`] — the surface a
     /// registry or admission harness asks generically.
     pub groups: crate::group_id::GroupStatuses,
@@ -324,6 +326,10 @@ pub fn resolve_stateful(
         engine: Sig::with_status(
             state.engine.data.unwrap_or_default(),
             groups.status(crate::group_id::GroupId::Engine),
+        ),
+        fuel_tanks: Sig::with_status(
+            state.fuel_tanks.data.unwrap_or_default(),
+            groups.status(crate::group_id::GroupId::FuelTanks),
         ),
         groups,
     }

@@ -18,9 +18,11 @@
 
 mod check;
 mod input;
+mod unit;
 
 pub use check::SpecError;
-pub use input::{Channel, DialChannel, DialInput, DialUnit};
+pub use input::{Channel, DialChannel, DialInput};
+pub use unit::DialUnit;
 
 use indicate_instrument_scene::Rgba8;
 use indicate_instrument_symbology::{palette, safety};
@@ -29,6 +31,9 @@ use indicate_instrument_symbology::{palette, safety};
 pub const MAX_POINTERS: usize = 4;
 /// The most drum windows one dial carries.
 pub const MAX_WINDOWS: usize = 2;
+/// The most extra channels one dial carries beyond the primary and
+/// secondary.
+pub const MAX_EXTRA_CHANNELS: usize = 6;
 /// The most digit wheels one drum window carries.
 pub const MAX_WHEELS: usize = 6;
 /// The most corners one pointer outline has.
@@ -361,6 +366,10 @@ pub struct AnalogDialSpec<'a> {
     pub primary: DialChannel,
     /// A second quantity, such as a Kollsman setting.
     pub secondary: Option<DialChannel>,
+    /// More independently sourced quantities, addressed as
+    /// [`Channel::Extra`]: a three-pointer engine gauge unit, or a fuel
+    /// gauge with a pointer per tank.
+    pub extra: &'a [DialChannel],
     /// Mechanism stops on the primary, dial units: the input clamps here
     /// before any law reads it.
     pub input_range: Option<[f32; 2]>,
@@ -383,6 +392,7 @@ impl AnalogDialSpec<'_> {
         match channel {
             Channel::Primary => Some(self.primary),
             Channel::Secondary => self.secondary,
+            Channel::Extra(n) => self.extra.get(usize::from(n)).copied(),
         }
     }
 }

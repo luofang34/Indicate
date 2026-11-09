@@ -117,6 +117,7 @@ pub const MANIFOLD_PRESSURE: AnalogDialSpec<'static> = AnalogDialSpec {
         unit: DialUnit::InchesOfMercury,
     },
     secondary: None,
+    extra: &[],
     input_range: None,
     rings: &[MAP_RING],
     legends: &[
@@ -250,6 +251,7 @@ pub const TACHOMETER: AnalogDialSpec<'static> = AnalogDialSpec {
         unit: DialUnit::RevolutionsPerMinute,
     },
     secondary: None,
+    extra: &[],
     input_range: None,
     rings: &[RPM_RING],
     legends: &[

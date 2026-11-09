@@ -8,7 +8,8 @@ use indicate_instrument_state::{
     Attitude, BearingPointer, BearingPointers, DynSample, EngineGroup, EngineSample,
     EstimateQuality, GeoidModelId, HeadingReference, HeadingSample, IdentStr, Kinematics,
     LateralMode, MonitorText, NavData, NavFromTo, NavSource, Quat, Selections, SnapshotCoherence,
-    SnapshotMeta, Stamped, TextLine, TurnBasis, TurnSample, ValidFlags, VerticalMode, Wind,
+    SnapshotMeta, Stamped, TankGroup, TankSample, TextLine, TurnBasis, TurnSample, ValidFlags,
+    VerticalMode, Wind,
 };
 
 /// One shared corpus entry.
@@ -22,6 +23,10 @@ pub struct CanonicalState {
     /// header's count: [`TYPICAL_ENGINES`] for every state built from
     /// [`typical`], none for [`nothing_fed`].
     pub engines: &'static [EngineSample],
+    /// The fuel tank samples beside the state, numbering its tank
+    /// header's count: [`TYPICAL_TANKS`] for every state built from
+    /// [`typical`], none for [`nothing_fed`].
+    pub tanks: &'static [TankSample],
 }
 
 /// The shared corpus, in digest order. Order is part of the digest
@@ -31,31 +36,37 @@ pub const CANONICAL_STATES: &[CanonicalState] = &[
         id: "nothing-fed",
         build: nothing_fed,
         engines: &[],
+        tanks: &[],
     },
     CanonicalState {
         id: "typical",
         build: typical,
         engines: TYPICAL_ENGINES,
+        tanks: TYPICAL_TANKS,
     },
     CanonicalState {
         id: "fully-fed",
         build: fully_fed,
         engines: TYPICAL_ENGINES,
+        tanks: TYPICAL_TANKS,
     },
     CanonicalState {
         id: "source-unusable",
         build: source_unusable,
         engines: TYPICAL_ENGINES,
+        tanks: TYPICAL_TANKS,
     },
     CanonicalState {
         id: "ias-without-tas",
         build: ias_without_tas,
         engines: TYPICAL_ENGINES,
+        tanks: TYPICAL_TANKS,
     },
     CanonicalState {
         id: "nav2-source",
         build: nav2_source,
         engines: TYPICAL_ENGINES,
+        tanks: TYPICAL_TANKS,
     },
 ];
 
@@ -147,23 +158,61 @@ pub fn typical() -> AircraftState {
         },
         bearings: typical_bearings(),
         engine: typical_engine(),
+        fuel_tanks: typical_tanks(),
         ap_modes: Stamped::default(),
         ap_targets: ApTargets::default(),
     }
 }
 
-/// A twin at cruise power: 24 inHg and 2,300 rpm, with the engines a
-/// few rpm apart so a gauge wired to the wrong engine shows it.
+/// A liquid-cooled twin at cruise power: 24 inHg and 2,300 rpm, oil at
+/// 75 °C and 517 kPa (75 psi), fuel at 110 kPa (16 psi), coolant at
+/// 105 °C and carburettor air at 18 °C. The engines differ a little in
+/// every reading, so a gauge wired to the wrong engine shows it.
 pub const TYPICAL_ENGINES: &[EngineSample] = &[
-    EngineSample {
-        manifold_pressure_hpa: Some(812.7),
-        rpm: Some(2300.0),
-    },
-    EngineSample {
-        manifold_pressure_hpa: Some(812.7),
-        rpm: Some(2320.0),
-    },
+    cruise_engine(2300.0, 75.0, 517.0, 105.0),
+    cruise_engine(2320.0, 77.0, 510.0, 103.0),
 ];
+
+const fn cruise_engine(rpm: f32, oil_c: f32, oil_kpa: f32, coolant_c: f32) -> EngineSample {
+    EngineSample {
+        manifold_pressure_hpa: Some(812.7),
+        rpm: Some(rpm),
+        oil_temperature_c: Some(oil_c),
+        oil_pressure_kpa: Some(oil_kpa),
+        fuel_pressure_kpa: Some(110.0),
+        coolant_temperature_c: Some(coolant_c),
+        carburettor_air_temperature_c: Some(18.0),
+        ..EngineSample::EMPTY
+    }
+}
+
+/// Four tanks gauged in volume against their capacity: a twin's
+/// FRONT L, FRONT R, REAR L and REAR R, each a little apart so a gauge
+/// wired to the wrong tank shows it.
+pub const TYPICAL_TANKS: &[TankSample] = &[
+    tank(340.0, 352.0),
+    tank(331.0, 352.0),
+    tank(205.0, 227.0),
+    tank(198.0, 227.0),
+];
+
+const fn tank(quantity_l: f32, capacity_l: f32) -> TankSample {
+    TankSample {
+        quantity_l: Some(quantity_l),
+        capacity_l: Some(capacity_l),
+        ..TankSample::EMPTY
+    }
+}
+
+fn typical_tanks() -> Stamped<TankGroup> {
+    Stamped {
+        data: Some(TankGroup {
+            count: TYPICAL_TANKS.len() as u16,
+            fault: None,
+        }),
+        age_ms: Some(80.0),
+    }
+}
 
 fn typical_engine() -> Stamped<EngineGroup> {
     Stamped {

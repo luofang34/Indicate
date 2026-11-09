@@ -205,26 +205,36 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
             id: "extended-flight-guidance",
             build: indicate_instrument_state::abi::v9::fixtures::extended,
             engines: indicate_instrument_state::abi::v9::fixtures::ENGINES,
+
+            tanks: indicate_instrument_state::abi::v9::fixtures::TANKS,
         },
         ExtremeState {
             id: "unusual-inverted",
             build: extreme_states::pfd_unusual_inverted,
             engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
+
+            tanks: indicate_instrument_descriptor::states::TYPICAL_TANKS,
         },
         ExtremeState {
             id: "readout-extremes",
             build: extreme_states::pfd_readout_extremes,
             engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
+
+            tanks: indicate_instrument_descriptor::states::TYPICAL_TANKS,
         },
         ExtremeState {
             id: "director-engaged",
             build: extreme_states::pfd_director_engaged,
             engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
+
+            tanks: indicate_instrument_descriptor::states::TYPICAL_TANKS,
         },
         ExtremeState {
             id: "level-accelerating",
             build: extreme_states::pfd_level_accelerating,
             engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
+
+            tanks: indicate_instrument_descriptor::states::TYPICAL_TANKS,
         },
     ],
     // Reference-rasterizer frame hash over the shared typical state, one
@@ -324,16 +334,22 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
             id: "reciprocal-course",
             build: extreme_states::hsi_reciprocal_course,
             engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
+
+            tanks: indicate_instrument_descriptor::states::TYPICAL_TANKS,
         },
         ExtremeState {
             id: "track-up",
             build: extreme_states::hsi_track_up,
             engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
+
+            tanks: indicate_instrument_descriptor::states::TYPICAL_TANKS,
         },
         ExtremeState {
             id: "bearing-split-references",
             build: extreme_states::hsi_bearing_split_references,
             engines: indicate_instrument_descriptor::states::TYPICAL_ENGINES,
+
+            tanks: indicate_instrument_descriptor::states::TYPICAL_TANKS,
         },
     ],
     raster_baselines: &[(

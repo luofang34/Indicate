@@ -218,6 +218,12 @@ fn fill_equipment_and_flight(state: &mut AircraftState, data: &PanelData) {
             age_ms: Some(age),
         };
     }
+    if let Some(age) = age_for_status(data.groups.status(GroupId::FuelTanks)) {
+        state.fuel_tanks = Stamped {
+            data: Some(data.fuel_tanks.value),
+            age_ms: Some(age),
+        };
+    }
     if let Some(age) = age_for_status(data.groups.status(GroupId::Engine)) {
         state.engine = Stamped {
             data: Some(data.engine.value),

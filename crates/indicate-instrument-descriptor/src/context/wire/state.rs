@@ -1,8 +1,8 @@
 //! The state section of the draw-context wire: the host's raw state,
-//! or one synthesized from resolved data, with its engine samples.
+//! or one synthesized from resolved data, with the record groups beside it.
 
 use indicate_instrument_state::{
-    AircraftState, EngineSamples,
+    AircraftState, BesideSamples,
     abi::v9::{self, AbiError},
 };
 
@@ -17,22 +17,29 @@ pub(super) fn encode_state_section(
     out: &mut [u8],
     off: &mut usize,
 ) -> Result<u16, DrawContextWireError> {
+    let beside = BesideSamples {
+        engines: *ctx.engines(),
+        tanks: *ctx.tanks(),
+    };
     if let Some(state) = ctx.raw_state() {
-        return encode_frame(state, ctx.engines(), out, off);
+        return encode_frame(state, &beside, out, off);
     }
     let mut synthesized = synthesize_aircraft_state(ctx.data());
-    // Resolved data carries the engine status, not the samples: the
-    // header counts the samples the context actually carries.
+    // Resolved data carries each group's status, not its records: a
+    // header counts the records the context actually carries.
+    let count = |n: usize| u16::try_from(n).map_err(|_| DrawContextWireError::LengthOverflow);
     if let Some(group) = synthesized.engine.data.as_mut() {
-        group.count =
-            u16::try_from(ctx.engines().len()).map_err(|_| DrawContextWireError::LengthOverflow)?;
+        group.count = count(ctx.engines().len())?;
     }
-    encode_frame(&synthesized, ctx.engines(), out, off)
+    if let Some(group) = synthesized.fuel_tanks.data.as_mut() {
+        group.count = count(ctx.tanks().len())?;
+    }
+    encode_frame(&synthesized, &beside, out, off)
 }
 
 fn encode_frame(
     state: &AircraftState,
-    engines: &EngineSamples<'_>,
+    beside: &BesideSamples<'_>,
     out: &mut [u8],
     off: &mut usize,
 ) -> Result<u16, DrawContextWireError> {
@@ -43,7 +50,7 @@ fn encode_frame(
             needed: *off + 2,
             available: avail,
         })?;
-    let written = v9::encode_state_with(state, engines, tail).map_err(|err| match err {
+    let written = v9::encode_state_samples(state, beside, tail).map_err(|err| match err {
         AbiError::Truncated => DrawContextWireError::BufferTooSmall {
             needed: avail.saturating_add(64),
             available: avail,

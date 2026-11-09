@@ -159,6 +159,7 @@ fn group_status(
         GroupId::BearingPointers
         | GroupId::AirframeConfig
         | GroupId::Engine
+        | GroupId::FuelTanks
         | GroupId::ApModes
         | GroupId::FlightDirector => equipment_status(state, policy, trust, integrity, id),
         // Targets fold no source trust, mirroring selections: a target
@@ -203,6 +204,12 @@ fn equipment_status(
         GroupId::Engine => fold(
             &Ctx::of(policy, trust, &state.engine),
             integrity.engine,
+            true,
+        ),
+        // Fuel quantity folds source trust the same way.
+        GroupId::FuelTanks => fold(
+            &Ctx::of(policy, trust, &state.fuel_tanks),
+            integrity.fuel_tanks,
             true,
         ),
         // Autoflight modes fold source trust like the director: an

@@ -31,8 +31,8 @@ use indicate_instrument_scene::{
     Cmd, LayerError, MAX_SCENE_BYTES, SceneCmds, SceneWriter, validate_layers,
 };
 use indicate_instrument_state::{
-    AircraftState, EngineSample, EngineSamples, FreshnessPolicy, GroupId, PanelData, resolve,
-    withhold_group,
+    AircraftState, EngineSample, EngineSamples, FreshnessPolicy, GroupId, PanelData, TankSample,
+    TankSamples, resolve, withhold_group,
 };
 
 mod alerts;
@@ -40,6 +40,7 @@ mod angular;
 mod background;
 mod criticality;
 mod error;
+mod fixtures;
 mod frame_varies;
 mod geometry;
 mod ink;
@@ -50,6 +51,7 @@ mod volume;
 
 use alerts::saturated_stack;
 use background::check_background;
+use fixtures::check_fixture_engines;
 use frame_varies::check_frame_varies;
 use geometry::{Ctm, Rect, text_rect};
 use legend::{LegendWitness, check_legends};
@@ -198,6 +200,8 @@ struct Case {
     /// them. Withholding the engine group clears its header, so a
     /// panel that reads them only under the group's status sees none.
     engines: &'static [EngineSample],
+    /// The fixture's fuel tank samples, on the same terms.
+    tanks: &'static [TankSample],
     /// The alert state fed to the draw. `None` is the quiet frame; the
     /// saturated stack is the other end of the axis.
     alerts: Option<AlertOutput>,
@@ -223,16 +227,16 @@ impl Case {
 fn case_matrix(panel: &'static PanelDescriptor) -> Vec<Case> {
     let states = CANONICAL_STATES
         .iter()
-        .map(|s| (s.id, s.build, s.engines))
+        .map(|s| (s.id, s.build, s.engines, s.tanks))
         .chain(
             panel
                 .extreme_states
                 .iter()
-                .map(|e| (e.id, e.build, e.engines)),
+                .map(|e| (e.id, e.build, e.engines, e.tanks)),
         );
     let saturated = saturated_stack();
     let mut cases = Vec::new();
-    for (state_id, build, engines) in states {
+    for (state_id, build, engines, tanks) in states {
         let mut withholdings = vec![(None, build())];
         for group in GroupId::ALL {
             if panel.required_groups.contains(group) {
@@ -246,43 +250,13 @@ fn case_matrix(panel: &'static PanelDescriptor) -> Vec<Case> {
                     withheld,
                     state,
                     engines,
+                    tanks,
                     alerts,
                 });
             }
         }
     }
     cases
-}
-
-/// Every fixture the panel is drawn over carries engine samples that
-/// number its state's engine header, so the matrix never draws a state
-/// whose samples contradict it. A host is held to the same rule by
-/// `encode_state_with`.
-fn check_fixture_engines(panel: &'static PanelDescriptor) -> Result<(), AdmissionError> {
-    let fixtures = CANONICAL_STATES
-        .iter()
-        .map(|s| (s.id, s.build, s.engines))
-        .chain(
-            panel
-                .extreme_states
-                .iter()
-                .map(|e| (e.id, e.build, e.engines)),
-        );
-    for (state, build, engines) in fixtures {
-        let declared = build()
-            .engine
-            .data
-            .map_or(0, |group| usize::from(group.count));
-        if declared != engines.len() {
-            return Err(AdmissionError::FixtureEngines {
-                panel: panel.id,
-                state,
-                declared,
-                supplied: engines.len(),
-            });
-        }
-    }
-    Ok(())
 }
 
 fn check_case(
@@ -402,7 +376,8 @@ fn draw_scene<'b>(
     let ctx = DrawContext::new(data)
         .with_config(EMPTY_CONFIG)
         .with_alerts(case.alerts.as_ref())
-        .with_engines(EngineSamples::Slice(case.engines));
+        .with_engines(EngineSamples::Slice(case.engines))
+        .with_tanks(TankSamples::Slice(case.tanks));
     (panel.draw)(
         &ctx,
         SceneTarget::Planar2D {

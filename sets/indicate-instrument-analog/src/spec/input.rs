@@ -1,9 +1,15 @@
-//! What a dial reads and in which unit it is engraved.
+//! What a dial reads, and which of its channels a moving part follows.
 
-use indicate_instrument_state::{AltitudeClass, EngineField, EngineSamples, GroupId, PanelData};
+use indicate_instrument_state::{
+    AltitudeClass, BesideSamples, EngineField, GroupId, PanelData, Sig, TankField,
+};
+
+use super::unit::{DialUnit, Dimension};
 
 /// A state lane a dial can read. Each reads the indicated value: lag
-/// and instrument error are the source's physics.
+/// and instrument error are the source's physics. Engines and tanks are
+/// addressed by zero-based index in the source's order; the cockpit's
+/// instrument model says which index is engine 1 or FRONT L.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DialInput {
     /// Indicated airspeed (Air group), knots.
@@ -17,35 +23,77 @@ pub enum DialInput {
     BaroSetting,
     /// Manifold pressure of one engine (Engine group), hectopascals.
     ManifoldPressure {
-        /// Zero-based engine index, in the source's panel order.
+        /// Engine index.
         engine: u16,
     },
     /// Speed of one engine (Engine group), revolutions per minute.
     EngineRpm {
-        /// Zero-based engine index, in the source's panel order.
+        /// Engine index.
         engine: u16,
+    },
+    /// Oil temperature of one engine (Engine group), degrees Celsius.
+    OilTemperature {
+        /// Engine index.
+        engine: u16,
+    },
+    /// Oil pressure of one engine (Engine group), hectopascals.
+    OilPressure {
+        /// Engine index.
+        engine: u16,
+    },
+    /// Fuel pressure of one engine (Engine group), hectopascals.
+    FuelPressure {
+        /// Engine index.
+        engine: u16,
+    },
+    /// Coolant temperature of one engine (Engine group), degrees Celsius.
+    CoolantTemperature {
+        /// Engine index.
+        engine: u16,
+    },
+    /// Cylinder-head temperature of one engine (Engine group), degrees
+    /// Celsius.
+    CylinderHeadTemperature {
+        /// Engine index.
+        engine: u16,
+    },
+    /// Carburettor air temperature of one engine (Engine group), degrees
+    /// Celsius.
+    CarburettorAirTemperature {
+        /// Engine index.
+        engine: u16,
+    },
+    /// Fuel in one tank (FuelTanks group): litres on a dial engraved in
+    /// volume, kilograms on one engraved in mass. A tank that does not
+    /// report the dial's quantity shows no value; the display never
+    /// assumes a density.
+    FuelQuantity {
+        /// Tank index.
+        tank: u16,
     },
 }
 
-/// The physical dimension of a quantity, for unit compatibility.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Dimension {
-    Speed,
-    VerticalSpeed,
-    Height,
-    Pressure,
-    Rotation,
-}
-
 impl DialInput {
-    fn dimension(self) -> Dimension {
-        match self {
+    /// Whether a dial engraved in `unit` can show this input.
+    fn admits(self, unit: Dimension) -> bool {
+        let native = match self {
             Self::IndicatedAirspeed => Dimension::Speed,
             Self::IndicatedVerticalSpeed => Dimension::VerticalSpeed,
             Self::BaroAltitude => Dimension::Height,
-            Self::BaroSetting | Self::ManifoldPressure { .. } => Dimension::Pressure,
+            Self::BaroSetting
+            | Self::ManifoldPressure { .. }
+            | Self::OilPressure { .. }
+            | Self::FuelPressure { .. } => Dimension::Pressure,
             Self::EngineRpm { .. } => Dimension::Rotation,
-        }
+            Self::OilTemperature { .. }
+            | Self::CoolantTemperature { .. }
+            | Self::CylinderHeadTemperature { .. }
+            | Self::CarburettorAirTemperature { .. } => Dimension::Temperature,
+            Self::FuelQuantity { .. } => {
+                return matches!(unit, Dimension::Volume | Dimension::Mass);
+            }
+        };
+        native == unit
     }
 
     /// The state group the value comes from, which a numeral derived
@@ -57,19 +105,30 @@ impl DialInput {
                 GroupId::Air
             }
             Self::BaroAltitude => GroupId::Altitude,
-            Self::ManifoldPressure { .. } | Self::EngineRpm { .. } => GroupId::Engine,
+            Self::FuelQuantity { .. } => GroupId::FuelTanks,
+            Self::ManifoldPressure { .. }
+            | Self::EngineRpm { .. }
+            | Self::OilTemperature { .. }
+            | Self::OilPressure { .. }
+            | Self::FuelPressure { .. }
+            | Self::CoolantTemperature { .. }
+            | Self::CylinderHeadTemperature { .. }
+            | Self::CarburettorAirTemperature { .. } => GroupId::Engine,
         }
     }
 
-    /// The value in this input's native unit, or `None` when the state
-    /// shows no value for it. Engine inputs read `engines`, the samples
-    /// beside the state; an engine the source does not report, or one
-    /// that lacks the field, shows no value.
+    /// The value in its native unit for a dial engraved in `unit` (which
+    /// picks volume or mass for fuel), or `None` when the state shows no
+    /// value for it.
     #[must_use]
-    pub fn native(self, data: &PanelData, engines: &EngineSamples<'_>) -> Option<f32> {
-        let shown = |sig: indicate_instrument_state::Sig<f32>| {
-            sig.status.shows_value().then_some(sig.value)
-        };
+    pub fn native(
+        self,
+        data: &PanelData,
+        beside: &BesideSamples<'_>,
+        unit: DialUnit,
+    ) -> Option<f32> {
+        let shown = |sig: Sig<f32>| sig.status.shows_value().then_some(sig.value);
+        let engine = |engine: u16, field: EngineField| engine_value(data, beside, engine, field);
         match self {
             Self::IndicatedAirspeed => shown(data.ias_kt),
             Self::IndicatedVerticalSpeed => shown(data.vsi_indicated_fpm),
@@ -77,97 +136,63 @@ impl DialInput {
                 .then_some(data.altitude.value_ft)
                 .and_then(shown),
             Self::BaroSetting => shown(data.baro_hpa),
-            Self::ManifoldPressure { engine } => {
-                engine_value(data, engines, engine, EngineField::ManifoldPressureHpa)
+            Self::ManifoldPressure { engine: e } => engine(e, EngineField::ManifoldPressureHpa),
+            Self::EngineRpm { engine: e } => engine(e, EngineField::Rpm),
+            Self::OilTemperature { engine: e } => engine(e, EngineField::OilTemperatureC),
+            // Engine pressures arrive in kilopascals; the pressure
+            // dimension's native unit is the hectopascal.
+            Self::OilPressure { engine: e } => {
+                engine(e, EngineField::OilPressureKpa).map(|v| v * 10.0)
             }
-            Self::EngineRpm { engine } => engine_value(data, engines, engine, EngineField::Rpm),
+            Self::FuelPressure { engine: e } => {
+                engine(e, EngineField::FuelPressureKpa).map(|v| v * 10.0)
+            }
+            Self::CoolantTemperature { engine: e } => engine(e, EngineField::CoolantTemperatureC),
+            Self::CylinderHeadTemperature { engine: e } => {
+                engine(e, EngineField::CylinderHeadTemperatureC)
+            }
+            Self::CarburettorAirTemperature { engine: e } => {
+                engine(e, EngineField::CarburettorAirTemperatureC)
+            }
+            Self::FuelQuantity { tank } => tank_value(data, beside, tank, unit),
         }
     }
 }
 
 fn engine_value(
     data: &PanelData,
-    engines: &EngineSamples<'_>,
+    beside: &BesideSamples<'_>,
     engine: u16,
     field: EngineField,
 ) -> Option<f32> {
     if !data.engine.status.shows_value() {
         return None;
     }
-    engines
+    beside
+        .engines
         .get(usize::from(engine))
         .and_then(|sample| sample.field(field))
         .filter(|v| v.is_finite())
 }
 
-/// The unit a dial is engraved in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DialUnit {
-    /// International knots.
-    Knots,
-    /// Statute miles per hour.
-    MilesPerHour,
-    /// Kilometres per hour.
-    KilometresPerHour,
-    /// International feet.
-    Feet,
-    /// Metres.
-    Metres,
-    /// Feet per minute.
-    FeetPerMinute,
-    /// Metres per second.
-    MetresPerSecond,
-    /// Inches of mercury at 0 °C.
-    InchesOfMercury,
-    /// Hectopascals (millibars).
-    Hectopascals,
-    /// Kilopascals.
-    Kilopascals,
-    /// Pounds-force per square inch.
-    PoundsPerSquareInch,
-    /// Revolutions per minute.
-    RevolutionsPerMinute,
-}
-
-const KT_TO_MPH: f32 = 1.150_779_4;
-const KT_TO_KMH: f32 = 1.852;
-const FT_TO_M: f32 = 0.3048;
-const FPM_TO_MPS: f32 = 0.005_08;
-const HPA_PER_INHG: f32 = 33.863_89;
-const HPA_TO_PSI: f32 = 0.014_503_774;
-
-impl DialUnit {
-    fn dimension(self) -> Dimension {
-        match self {
-            Self::Knots | Self::MilesPerHour | Self::KilometresPerHour => Dimension::Speed,
-            Self::Feet | Self::Metres => Dimension::Height,
-            Self::FeetPerMinute | Self::MetresPerSecond => Dimension::VerticalSpeed,
-            Self::InchesOfMercury
-            | Self::Hectopascals
-            | Self::Kilopascals
-            | Self::PoundsPerSquareInch => Dimension::Pressure,
-            Self::RevolutionsPerMinute => Dimension::Rotation,
-        }
+fn tank_value(
+    data: &PanelData,
+    beside: &BesideSamples<'_>,
+    tank: u16,
+    unit: DialUnit,
+) -> Option<f32> {
+    if !data.fuel_tanks.status.shows_value() {
+        return None;
     }
-
-    /// Dial units per native unit of the input's dimension: knots,
-    /// feet, feet per minute, hectopascals, or revolutions per minute.
-    fn per_native(self) -> f32 {
-        match self {
-            Self::Knots
-            | Self::Feet
-            | Self::FeetPerMinute
-            | Self::Hectopascals
-            | Self::RevolutionsPerMinute => 1.0,
-            Self::MilesPerHour => KT_TO_MPH,
-            Self::KilometresPerHour => KT_TO_KMH,
-            Self::Metres => FT_TO_M,
-            Self::MetresPerSecond => FPM_TO_MPS,
-            Self::InchesOfMercury => 1.0 / HPA_PER_INHG,
-            Self::Kilopascals => 0.1,
-            Self::PoundsPerSquareInch => HPA_TO_PSI,
-        }
-    }
+    let field = match unit.dimension() {
+        Dimension::Mass => TankField::QuantityKg,
+        _ => TankField::QuantityL,
+    };
+    beside
+        .tanks
+        .get(usize::from(tank))
+        .and_then(|sample| sample.field(field))
+        .filter(|v| v.is_finite())
 }
 
 /// A dial input and the unit its scale is engraved in.
@@ -183,23 +208,27 @@ impl DialChannel {
     /// Whether the engraved unit measures what the input reports.
     #[must_use]
     pub fn units_agree(&self) -> bool {
-        self.input.dimension() == self.unit.dimension()
+        self.input.admits(self.unit.dimension())
     }
 
     /// The value in dial units, or `None` when the state shows none.
     #[must_use]
-    pub fn read(&self, data: &PanelData, engines: &EngineSamples<'_>) -> Option<f32> {
+    pub fn read(&self, data: &PanelData, beside: &BesideSamples<'_>) -> Option<f32> {
         self.input
-            .native(data, engines)
-            .map(|v| v * self.unit.per_native())
+            .native(data, beside, self.unit)
+            .map(|v| self.unit.convert(v))
     }
 }
 
-/// Which of a dial's two channels a moving part follows.
+/// Which of a dial's channels a moving part follows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Channel {
     /// [`crate::AnalogDialSpec::primary`].
     Primary,
     /// [`crate::AnalogDialSpec::secondary`].
     Secondary,
+    /// [`crate::AnalogDialSpec::extra`]`[n]`: one more independently
+    /// sourced quantity, such as each pointer of a three-pointer engine
+    /// gauge unit.
+    Extra(u8),
 }

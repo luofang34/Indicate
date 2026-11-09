@@ -47,9 +47,11 @@ values so `git show <tag>` answers the question without a checkout.
 
 State ABI 9 carries the readings of mechanically modelled instruments.
 The engine group `0x0E` (`GroupId::Engine`) reports any number of engines of any kind: a header (count u16, reserved u16, age f32), then each engine as a presence mask over the append-only `EngineField` registry followed by only the fields it has.
-Today's fields are manifold pressure (bit 0) and speed (bit 1); a length that disagrees with the masks, or an unregistered bit, faults the group.
+Engine fields are manifold pressure hPa (bit 0), speed rpm (1), oil temperature °C (2), oil pressure kPa (3), fuel pressure kPa (4), coolant temperature °C (5), cylinder-head temperature °C (6) and carburettor air temperature °C (7); a length that disagrees with the masks, or an unregistered bit, faults the group.
 The owned `AircraftState` carries only the header (`EngineGroup`), so it stays a fixed-size `Copy` value; the samples travel beside it as `EngineSamples`, a zero-copy view (`abi::v9::engine_samples(frame)`), are encoded with `encode_state_with`, and reach panels through `DrawContext::with_engines`.
-`CanonicalState` and `ExtremeState` gain `engines`, and `CAPACITY` grows to 4,096 bytes; a source with more engines sizes its own buffer.
+The fuel tank group `0x18` (`GroupId::FuelTanks`) has the same layout over its own registry: quantity and capacity in litres (bits 0, 1) and in kilograms (bits 2, 3), one sample per tank in the source's order, beside the state as `TankSamples` (`abi::v9::tank_samples(frame)`, `DrawContext::with_tanks`).
+`encode_state_samples` encodes a state with every record group beside it (`BesideSamples`).
+`CanonicalState` and `ExtremeState` gain `engines` and `tanks`, and `CAPACITY` grows to 4,096 bytes; a source with more engines sizes its own buffer.
 The Air group appends `vsi_mps`, the rate-of-climb instrument's own reading, after `tas_mps`; its minimum payload grows from 16 to 20 bytes.
 Both carry indicated values: a source that models gauge lag and error writes what the mechanism shows.
 `PanelData` gains `vsi_indicated_fpm` and the engine group's status; the display never fills one vertical speed from the other.

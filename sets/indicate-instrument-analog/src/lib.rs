@@ -45,9 +45,9 @@ pub use pose::{DialPose, DialReading, PointerPose, WindowPose, pose, reading};
 pub use scene::{draw_dial, draw_face_scene};
 pub use spec::{
     AnalogDialSpec, Channel, DialChannel, DialInput, DialUnit, FailurePose, Legend, Lighting,
-    MAX_OUTLINE_POINTS, MAX_POINTERS, MAX_WHEELS, MAX_WINDOWS, MarkArc, MarkColour, Numeral,
-    OffFlag, Paint, PointerShape, PointerSpec, PointerStyle, Radial, ScaleLaw, ScalePoint,
-    ScaleRing, SpecError, TickSet, WindowSpec,
+    MAX_EXTRA_CHANNELS, MAX_OUTLINE_POINTS, MAX_POINTERS, MAX_WHEELS, MAX_WINDOWS, MarkArc,
+    MarkColour, Numeral, OffFlag, Paint, PointerShape, PointerSpec, PointerStyle, Radial, ScaleLaw,
+    ScalePoint, ScaleRing, SpecError, TickSet, WindowSpec,
 };
 
 #[cfg(test)]

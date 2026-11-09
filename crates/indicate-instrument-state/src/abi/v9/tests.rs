@@ -5,7 +5,7 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 use super::fixtures;
-use super::{AbiError, CAPACITY, VERSION, decode_state, encode_state_with};
+use super::{AbiError, CAPACITY, VERSION, decode_state, encode_state_samples};
 use crate::aircraft::{AircraftState, ValidFlags};
 use crate::group_id::GroupId;
 use crate::validate::{GroupFault, validate_state};
@@ -13,8 +13,8 @@ use std::vec::Vec;
 
 pub(super) fn encode(state: &AircraftState) -> Vec<u8> {
     let mut buf = [0u8; CAPACITY];
-    let len =
-        encode_state_with(state, &fixtures::engine_samples(state), &mut buf).expect("fixture fits");
+    let len = encode_state_samples(state, &fixtures::beside_samples(state), &mut buf)
+        .expect("fixture fits");
     buf[..len].to_vec()
 }
 
@@ -213,18 +213,18 @@ fn a_malformed_wire_ident_fails_the_nav_group_via_validation() {
 fn encode_refuses_a_buffer_too_small() {
     let mut tiny = [0u8; 16];
     assert_eq!(
-        encode_state_with(
+        encode_state_samples(
             &fixtures::full(),
-            &fixtures::engine_samples(&fixtures::full()),
+            &fixtures::beside_samples(&fixtures::full()),
             &mut tiny
         ),
         Err(AbiError::Truncated)
     );
     let mut one = [0u8; 1];
     assert_eq!(
-        encode_state_with(
+        encode_state_samples(
             &AircraftState::default(),
-            &fixtures::engine_samples(&AircraftState::default()),
+            &fixtures::beside_samples(&AircraftState::default()),
             &mut one
         ),
         Err(AbiError::Truncated)

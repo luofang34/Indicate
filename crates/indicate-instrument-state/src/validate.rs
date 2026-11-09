@@ -106,6 +106,9 @@ pub struct StateIntegrity {
     /// presence masks, or a reading that is not a finite, non-negative
     /// number.
     pub engine: Option<GroupFault>,
+    /// Fuel tank fault: a payload that disagrees with its count and
+    /// presence masks, or a negative or non-finite reading.
+    pub fuel_tanks: Option<GroupFault>,
     /// Autoflight-mode fault: a mode or engagement byte this build
     /// cannot name.
     pub ap_modes: Option<GroupFault>,
@@ -296,6 +299,7 @@ pub fn validate_state(state: &AircraftState) -> StateIntegrity {
         .data
         .as_ref()
         .and_then(crate::engine::engine_fault);
+    integrity.fuel_tanks = state.fuel_tanks.data.and_then(|group| group.fault);
     if let Some(nav) = &state.nav.data {
         integrity.nav = nav_fault(nav);
     }

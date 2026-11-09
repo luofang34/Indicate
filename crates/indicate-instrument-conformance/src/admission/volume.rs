@@ -172,7 +172,8 @@ fn draw_volume_scene<'b>(
         .with_alerts(case.alerts.as_ref())
         .with_engines(indicate_instrument_state::EngineSamples::Slice(
             case.engines,
-        ));
+        ))
+        .with_tanks(indicate_instrument_state::TankSamples::Slice(case.tanks));
     let mut writer = VolumeSceneWriter::new(buf).map_err(|e| AdmissionError::Draw {
         panel: panel.id,
         state: case.state_id,

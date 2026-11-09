@@ -124,6 +124,7 @@ pub const VERTICAL_SPEED: AnalogDialSpec<'static> = AnalogDialSpec {
         unit: DialUnit::FeetPerMinute,
     },
     secondary: None,
+    extra: &[],
     input_range: None,
     rings: &[RING],
     legends: &[

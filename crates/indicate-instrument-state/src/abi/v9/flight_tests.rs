@@ -1,13 +1,13 @@
 //! Extended wire compatibility, explicit presence, and malformed input behavior.
 #![allow(clippy::expect_used, clippy::panic)]
-use super::{CAPACITY, VERSION, decode_state, encode_state_with, fixtures};
+use super::{CAPACITY, VERSION, decode_state, encode_state_samples, fixtures};
 use crate::{FreshnessPolicy, GroupId, SignalStatus, resolve};
 
 fn bytes() -> std::vec::Vec<u8> {
     let mut storage = [0; CAPACITY];
-    let used = encode_state_with(
+    let used = encode_state_samples(
         &fixtures::extended(),
-        &fixtures::engine_samples(&fixtures::extended()),
+        &fixtures::beside_samples(&fixtures::extended()),
         &mut storage,
     )
     .expect("bounded frame");
@@ -32,7 +32,7 @@ fn extended_frame_roundtrips_without_changing_legacy_payloads() {
     let state = decode_state(&bytes).expect("frame").state;
     assert_eq!(state, fixtures::extended());
     let mut storage = [0; CAPACITY];
-    let size = encode_state_with(&state, &fixtures::engine_samples(&state), &mut storage)
+    let size = encode_state_samples(&state, &fixtures::beside_samples(&state), &mut storage)
         .expect("reencode");
     assert_eq!(&storage[..size], bytes);
     assert!(size <= CAPACITY);

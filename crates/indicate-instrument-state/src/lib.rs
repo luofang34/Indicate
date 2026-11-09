@@ -40,9 +40,11 @@ mod ident;
 mod monitor_text;
 mod presentation;
 mod resolve;
+pub mod samples;
 mod signal;
 mod source_compare;
 mod source_monitor;
+mod tank;
 pub mod units;
 mod v_speeds;
 mod validate;
@@ -76,6 +78,7 @@ pub use resolve::{
     ApTargetsResolved, BARO_SETTING_TOLERANCE_HPA, NavResolved, PanelData, ResolvedAltitude,
     ResolvedDirector, ResolvedHeading, RoseBasis, resolve, resolve_stateful,
 };
+pub use samples::{BesideSamples, RawSample, Sample, SampleGroup, SampleIter, Samples};
 pub use signal::{FreshnessPolicy, PolicyError, Sig, SignalStatus};
 pub use source_compare::{
     AirframeSourcePolicy, AttitudeMeasure, Candidate, Comparable, ComparisonState, FrameTag,
@@ -86,6 +89,10 @@ pub use source_compare::{
 pub use source_monitor::{
     SourceInputs, SourceMonitorReport, SourceMonitors, SourcePolicies, SourceSelection, SourceStep,
     Sourced, SourcedFunction, resolve_with_sources,
+};
+pub use tank::{
+    TANK_FIELDS_MASK, TankField, TankGroup, TankIter, TankSample, TankSamples, parse_tank_samples,
+    tank_sample_wire_bytes,
 };
 pub use v_speeds::{VSpeedBug, VSpeedBugs, VSpeeds};
 pub use validate::{
