@@ -12,8 +12,10 @@ The set draws round analog instruments for a **SIM / NOT FOR FLIGHT**
 cockpit ([`AIR-BAS-001`](requirements.md#air-bas-001)). It is a
 conventional-instrument surface under
 [`AIR-OUT-003`](requirements.md#air-out-003): airspeed, sensitive
-altimeter, and vertical speed, each identifiable on its own. It also
-draws two engine gauges, manifold pressure and tachometer.
+altimeter, vertical speed, gyro horizon, directional gyro, turn and
+bank, and magnetic compass, each identifiable on its own. It also draws
+a panel clock and three engine gauges: manifold pressure, tachometer,
+and synchroscope.
 
 One description, `AnalogDialSpec`, serves two backends:
 
@@ -21,9 +23,21 @@ One description, `AnalogDialSpec`, serves two backends:
 - A 3D backend builds a physical gauge from `physical_build`. It
   rasterises the static face once per lighting, extrudes each pointer
   outline into a thin needle at its stack height, and builds each drum
-  window from its aperture and digit strip. Each frame it calls `pose`
-  and applies one rotation per needle and one offset per drum wheel. It
-  draws and decodes no scene per frame.
+  window from its aperture and digit strip. It extrudes each card and
+  each fixed overlay into a thin plate at its stack height, and builds
+  each tape as a drum turning about a vertical axis behind its window.
+  Each frame it calls `pose` and applies one rotation per needle, one
+  offset per drum wheel, one turn and one slide per card, and one turn
+  per tape drum. It draws and decodes no scene per frame.
+
+A dial's parts, back to front: the face with its printed marks, drum
+windows, cards, tapes, pointers by stack height, then fixed overlays by
+stack height. A card is a gyro horizon's bar, which turns against the
+bank and slides with pitch. A tape is a heading card read through a
+window; the 2D scene slides it as a flat strip, and the drum turns by
+the same arc length. An overlay is a part fixed in front of the moving
+ones, such as a miniature aircraft, a lubber line, or a turn
+indicator's tube.
 
 A spec holds borrowed slices and fixed capacities, so it needs no
 allocation. The registered panels use `static` specs. A simulator that
@@ -65,6 +79,24 @@ nothing.
   tank that lacks the dial's field shows the failure pose, not zero. No
   `AIR-IN` requirement covers engine or fuel indications yet, so this
   document cites none for them.
+- Bank and pitch come from the attitude group under
+  [`AIR-IN-001`](requirements.md#air-in-001). The turn needle reads the
+  body yaw rate, shown only under the source's declared body-rate
+  validity, as a rate gyro senses it. The ball reads the lateral
+  specific force from the dynamics group.
+- The directional gyro shows the heading in the reference the source
+  declares. The compass shows it converted to magnetic north, which
+  needs a usable variation sample; both are under
+  [`AIR-IN-005`](requirements.md#air-in-005).
+- The clock reads the clock group (`0x19`): the time of day the cockpit
+  clock shows, which the source writes as the clock's own reading.
+- The synchroscope reads how far engine 0's shaft leads engine 1's,
+  from each engine's shaft angle. The pointer turns while the engines
+  run at different speeds. A pose holds no memory between frames, so it
+  cannot integrate a speed difference; the source integrates its speed
+  into the angle.
+- The set has no ammeter, suction gauge or hydraulic pressure gauge:
+  the state carries no electrical, vacuum or hydraulic lane.
 - Every reading folds source trust under
   [`AIR-IN-009`](requirements.md#air-in-009).
 
@@ -76,7 +108,10 @@ pose its spec declares: it parks at its stop, or it is hidden. A red
 ([`AIR-OUT-004`](requirements.md#air-out-004),
 [`AIR-FLAG-004`](requirements.md#air-flag-004)). A drum window without
 its value shows no digits, because a digit would claim a value that the
-state does not have.
+state does not have. For the same reason a heading card without its
+value shows a blank card, and a card, such as a horizon bar, takes its
+declared failure pose. A turn needle without its rate rests upright, as
+a run-down gyro's does, with the flag raised.
 
 The printed graduations and legends stay. They are printed legends under
 the panel contract: they claim configuration provenance, and admission
@@ -88,7 +123,11 @@ physical face are therefore the same in every state.
 `cargo test -p indicate-instrument-analog` does these checks:
 
 - It admits the set and pins the scene digest over the corpus and the
-  altimeter's barometric extreme states.
+  extreme states: the altimeter's barometric states and the compass's
+  magnetic cruise state.
+- It checks which way each gyro, heading, and ball part moves, the
+  clock hands and the synchroscope phase against the corpus, and that a
+  tape drum turns by the card's arc length.
 - It checks that every value-to-angle law lands on its scale points.
 - It checks that every withheld required group parks the needle and
   raises the flag.
@@ -193,6 +232,108 @@ Crate: `indicate-instrument-analog`
 | Raster baselines | none |
 
 #### Panel `analog-tachometer` — Tachometer
+
+| Declared | Value |
+|---|---|
+| Render space | Planar2D |
+| Required layers | Tapes, Annunciation |
+| Required groups | Trust, Engine |
+| Spatial bounds | 240×240 to 240×240, step 1×1, aspect 0.95 to 1.05 |
+| Canonical sizes | 240×240 |
+| Underlay | Opaque |
+| Accepted intents | none |
+| Aux channels | none |
+| Config keys | none |
+| Group regions | none |
+| Extreme states | none |
+| Raster baselines | none |
+
+#### Panel `analog-gyro-horizon` — Gyro horizon
+
+| Declared | Value |
+|---|---|
+| Render space | Planar2D |
+| Required layers | Tapes, Annunciation |
+| Required groups | Attitude, Trust |
+| Spatial bounds | 240×240 to 240×240, step 1×1, aspect 0.95 to 1.05 |
+| Canonical sizes | 240×240 |
+| Underlay | Opaque |
+| Accepted intents | none |
+| Aux channels | none |
+| Config keys | none |
+| Group regions | none |
+| Extreme states | none |
+| Raster baselines | none |
+
+#### Panel `analog-directional-gyro` — Directional gyro
+
+| Declared | Value |
+|---|---|
+| Render space | Planar2D |
+| Required layers | Tapes, Annunciation |
+| Required groups | Trust, Heading |
+| Spatial bounds | 240×240 to 240×240, step 1×1, aspect 0.95 to 1.05 |
+| Canonical sizes | 240×240 |
+| Underlay | Opaque |
+| Accepted intents | none |
+| Aux channels | none |
+| Config keys | none |
+| Group regions | none |
+| Extreme states | none |
+| Raster baselines | none |
+
+#### Panel `analog-turn-and-bank` — Turn and bank
+
+| Declared | Value |
+|---|---|
+| Render space | Planar2D |
+| Required layers | Tapes, Annunciation |
+| Required groups | Attitude, Trust, Dynamics |
+| Spatial bounds | 240×240 to 240×240, step 1×1, aspect 0.95 to 1.05 |
+| Canonical sizes | 240×240 |
+| Underlay | Opaque |
+| Accepted intents | none |
+| Aux channels | none |
+| Config keys | none |
+| Group regions | none |
+| Extreme states | none |
+| Raster baselines | none |
+
+#### Panel `analog-magnetic-compass` — Magnetic compass
+
+| Declared | Value |
+|---|---|
+| Render space | Planar2D |
+| Required layers | Tapes, Annunciation |
+| Required groups | Trust, Heading, Variation |
+| Spatial bounds | 240×240 to 240×240, step 1×1, aspect 0.95 to 1.05 |
+| Canonical sizes | 240×240 |
+| Underlay | Opaque |
+| Accepted intents | none |
+| Aux channels | none |
+| Config keys | none |
+| Group regions | none |
+| Extreme states | `magnetic-cruise` |
+| Raster baselines | none |
+
+#### Panel `analog-clock` — Clock
+
+| Declared | Value |
+|---|---|
+| Render space | Planar2D |
+| Required layers | Tapes, Annunciation |
+| Required groups | Trust, Clock |
+| Spatial bounds | 240×240 to 240×240, step 1×1, aspect 0.95 to 1.05 |
+| Canonical sizes | 240×240 |
+| Underlay | Opaque |
+| Accepted intents | none |
+| Aux channels | none |
+| Config keys | none |
+| Group regions | none |
+| Extreme states | none |
+| Raster baselines | none |
+
+#### Panel `analog-synchroscope` — Synchroscope
 
 | Declared | Value |
 |---|---|

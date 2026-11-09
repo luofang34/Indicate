@@ -4,6 +4,7 @@
 mod admission;
 mod behaviour;
 mod build;
+mod instruments;
 mod png;
 mod render;
 mod systems;

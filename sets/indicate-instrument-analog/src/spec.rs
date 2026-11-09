@@ -18,10 +18,15 @@
 
 mod check;
 mod input;
+mod parts;
 mod unit;
 
 pub use check::SpecError;
 pub use input::{Channel, DialChannel, DialInput};
+pub use parts::{
+    CardSpec, CardTurn, MAX_CARDS, MAX_TAPES, Mark, OverlaySpec, Shape, TapeSense, TapeSpec,
+    TapeTicks, Travel,
+};
 pub use unit::DialUnit;
 
 use indicate_instrument_scene::Rgba8;
@@ -264,6 +269,13 @@ pub enum PointerShape {
     /// A thin shaft carrying a triangle near the rim, such as an
     /// altimeter's ten-thousands pointer.
     Triangle,
+    /// A triangle at the tip and no shaft, such as a gyro horizon's
+    /// bank index.
+    Index,
+    /// A ball of diameter `width` centred `length` from the pivot and no
+    /// shaft: a turn indicator's ball, which runs along a curved tube
+    /// as a pointer turns about the tube's centre of curvature.
+    Ball,
 }
 
 /// How a pointer looks.
@@ -383,6 +395,14 @@ pub struct AnalogDialSpec<'a> {
     pub windows: &'a [WindowSpec<'a>],
     /// The failure flag, if the instrument has one.
     pub off_flag: Option<OffFlag<'a>>,
+    /// Printed marks on the face, under every moving part.
+    pub marks: &'a [Mark<'a>],
+    /// Moving cards.
+    pub cards: &'a [CardSpec<'a>],
+    /// Cards read through a window.
+    pub tapes: &'a [TapeSpec<'a>],
+    /// Fixed parts in front of the moving parts.
+    pub overlays: &'a [OverlaySpec<'a>],
 }
 
 impl AnalogDialSpec<'_> {

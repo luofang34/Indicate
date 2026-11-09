@@ -63,6 +63,35 @@ pub enum DialInput {
         /// Engine index.
         engine: u16,
     },
+    /// Bank angle (Attitude group), degrees, positive right.
+    Roll,
+    /// Pitch angle (Attitude group), degrees, positive nose up.
+    Pitch,
+    /// Heading in the source's declared reference (Heading group),
+    /// degrees: what a directional gyro shows.
+    GyroHeading,
+    /// Heading converted to magnetic north (Heading group), degrees:
+    /// what a magnetic compass card shows.
+    MagneticHeading,
+    /// Body yaw rate (Attitude group, under its declared body-rate
+    /// validity), degrees per second, positive nose right: what a turn
+    /// needle's rate gyro senses.
+    YawRate,
+    /// Lateral specific force (Dynamics group), metres per second
+    /// squared, positive right: what moves a turn indicator's ball.
+    LateralForce,
+    /// The time of day the cockpit clock shows (Clock group), seconds
+    /// after midnight.
+    ClockTime,
+    /// How far one engine's shaft leads another's (Engine group),
+    /// degrees in `[0, 360)`: what a synchroscope shows. It turns
+    /// steadily while the engines run at different speeds.
+    ShaftPhase {
+        /// The engine whose lead is shown.
+        engine: u16,
+        /// The engine it is compared with.
+        reference: u16,
+    },
     /// Fuel in one tank (FuelTanks group): litres on a dial engraved in
     /// volume, kilograms on one engraved in mass. A tank that does not
     /// report the dial's quantity shows no value; the display never
@@ -92,6 +121,14 @@ impl DialInput {
             Self::FuelQuantity { .. } => {
                 return matches!(unit, Dimension::Volume | Dimension::Mass);
             }
+            Self::Roll
+            | Self::Pitch
+            | Self::GyroHeading
+            | Self::MagneticHeading
+            | Self::ShaftPhase { .. } => Dimension::Angle,
+            Self::YawRate => Dimension::AngularRate,
+            Self::LateralForce => Dimension::Acceleration,
+            Self::ClockTime => Dimension::Time,
         };
         native == unit
     }
@@ -106,6 +143,10 @@ impl DialInput {
             }
             Self::BaroAltitude => GroupId::Altitude,
             Self::FuelQuantity { .. } => GroupId::FuelTanks,
+            Self::Roll | Self::Pitch | Self::YawRate => GroupId::Attitude,
+            Self::GyroHeading | Self::MagneticHeading => GroupId::Heading,
+            Self::LateralForce => GroupId::Dynamics,
+            Self::ClockTime => GroupId::Clock,
             Self::ManifoldPressure { .. }
             | Self::EngineRpm { .. }
             | Self::OilTemperature { .. }
@@ -113,7 +154,8 @@ impl DialInput {
             | Self::FuelPressure { .. }
             | Self::CoolantTemperature { .. }
             | Self::CylinderHeadTemperature { .. }
-            | Self::CarburettorAirTemperature { .. } => GroupId::Engine,
+            | Self::CarburettorAirTemperature { .. }
+            | Self::ShaftPhase { .. } => GroupId::Engine,
         }
     }
 
@@ -155,6 +197,24 @@ impl DialInput {
                 engine(e, EngineField::CarburettorAirTemperatureC)
             }
             Self::FuelQuantity { tank } => tank_value(data, beside, tank, unit),
+            Self::Roll => shown(data.roll_rad).map(f32::to_degrees),
+            Self::Pitch => shown(data.pitch_rad).map(f32::to_degrees),
+            Self::GyroHeading => shown(data.heading.value_rad).map(f32::to_degrees),
+            Self::MagneticHeading => {
+                shown(data.heading.magnetic_heading_rad()).map(f32::to_degrees)
+            }
+            Self::YawRate => shown(data.yaw_rate_rps).map(f32::to_degrees),
+            Self::LateralForce => shown(data.slip_lat_mps2),
+            Self::ClockTime => shown(data.clock_s),
+            Self::ShaftPhase {
+                engine: e,
+                reference,
+            } => {
+                let lead = engine(e, EngineField::ShaftAngleDeg)?;
+                let behind = engine(reference, EngineField::ShaftAngleDeg)?;
+                let phase = lead - behind;
+                Some(if phase < 0.0 { phase + 360.0 } else { phase })
+            }
         }
     }
 }

@@ -69,6 +69,11 @@ A `GroupSet` travels as raw bits in signed plugin descriptors, so a moved slot w
 
 The new `indicate-instrument-analog` set draws round instruments from one `AnalogDialSpec`: airspeed in knots and in miles per hour, a sensitive altimeter with three hands and a Kollsman window, vertical speed, manifold pressure, and a tachometer.
 The same spec gives a 3D backend a `PhysicalBuild` (pointer outlines, pivots, stack heights, paints, drums) and `pose`, the pure function from state to every pointer angle and drum offset.
+The set also draws the gyro and period instruments of a 1943 fighter panel: a gyro horizon, a drum-window directional gyro, a turn and bank indicator, a panel magnetic compass, a clock, and an engine synchroscope.
+A spec can carry printed marks, moving cards (a horizon bar that turns with bank and slides with pitch), tapes (a heading card read through a window, built as a drum), and fixed overlays in front of the moving parts; the `Index` and `Ball` pointer shapes give a bank index and a turn indicator's ball.
+New inputs read bank, pitch, declared and magnetic heading, body yaw rate, lateral specific force, clock time, and shaft phase, in degrees, degrees per second, metres per second squared and seconds.
+`AnalogDialSpec` gains `marks`, `cards`, `tapes` and `overlays`, `DialPose` gains `cards` and `tapes`, and `PhysicalBuild` gains `cards`, `tapes` and `overlays`, so a literal without `..` stops compiling.
+The set has no ammeter, suction gauge or hydraulic pressure gauge: the state carries no lane for them.
 The set ships outside the flight set, so the shipped panel set does not change.
 
 Admission now accepts printed legends: a configuration-claimed text run is admitted in the planar matrix when every case at a frame draws it with the same text, ink rectangle, and clip.

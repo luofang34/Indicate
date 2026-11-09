@@ -54,7 +54,8 @@ fn polar(center: [f32; 2], radius: f32, angle_deg: f32) -> [f32; 2] {
 }
 
 /// Draws the face of `spec` into the band the caller has open: case,
-/// bezel, face, range markings, graduations, numerals, and legends.
+/// bezel, face, printed marks, range markings, graduations, numerals,
+/// and legends.
 pub fn draw_face(
     spec: &AnalogDialSpec<'_>,
     lighting: Lighting,
@@ -67,6 +68,11 @@ pub fn draw_face(
     scene.circle(PaintMode::Fill, cx, cy, case_r)?;
     scene.fill_color(spec.face.under(lighting))?;
     scene.circle(PaintMode::Fill, cx, cy, place.scale)?;
+    let frame = crate::shape::Frame {
+        origin: place.center,
+        scale: place.scale,
+    };
+    crate::shape::draw_marks(spec.marks, lighting, frame, scene)?;
     for ring in spec.rings {
         draw_markings(ring, lighting, place, scene)?;
         draw_ticks(ring, lighting, place, scene)?;

@@ -12,8 +12,16 @@ use crate::gauges::{
     AIRSPEED_KT, AIRSPEED_MPH, ALTIMETER, MANIFOLD_PRESSURE, TACHOMETER, VERTICAL_SPEED,
 };
 use crate::pose::{pose, reading};
+
+mod period;
+
 use crate::scene::draw_dial;
 use crate::spec::{AnalogDialSpec, Lighting};
+pub use period::{
+    CLOCK_DESCRIPTOR, DIRECTIONAL_GYRO_DESCRIPTOR, GYRO_HORIZON_DESCRIPTOR,
+    MAGNETIC_COMPASS_DESCRIPTOR, SYNCHROSCOPE_DESCRIPTOR, TURN_AND_BANK_DESCRIPTOR,
+    magnetic_cruise,
+};
 
 /// Every gauge is laid out for this one square frame.
 pub const DIAL_FRAME: DesignFrame = DesignFrame {
@@ -219,6 +227,12 @@ pub const ANALOG_PANELS: &[PanelDescriptor] = &[
     VERTICAL_SPEED_DESCRIPTOR,
     MANIFOLD_PRESSURE_DESCRIPTOR,
     TACHOMETER_DESCRIPTOR,
+    GYRO_HORIZON_DESCRIPTOR,
+    DIRECTIONAL_GYRO_DESCRIPTOR,
+    TURN_AND_BANK_DESCRIPTOR,
+    MAGNETIC_COMPASS_DESCRIPTOR,
+    CLOCK_DESCRIPTOR,
+    SYNCHROSCOPE_DESCRIPTOR,
 ];
 
 /// The analog set. It ships outside the flight set: a shell composes

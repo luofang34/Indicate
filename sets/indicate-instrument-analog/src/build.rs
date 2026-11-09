@@ -3,16 +3,24 @@
 //! A 3D backend does not draw the dial's scene each frame. It
 //! rasterises the face once per lighting ([`crate::draw_face_scene`])
 //! into a texture, extrudes each pointer outline into a thin needle at
-//! its stack height, and builds each drum from its aperture and digit
-//! strip. Per frame it calls [`crate::pose`] and applies one rotation
-//! per needle and one offset per wheel. This module states, in
-//! millimetres in the dial frame, everything that requires.
+//! its stack height, builds each drum from its aperture and digit
+//! strip, extrudes each card's and overlay's shapes into a thin plate at
+//! its stack height, and builds each tape as a drum turning about a
+//! vertical axis behind its window. Per frame it calls [`crate::pose`]
+//! and applies one rotation per needle, one offset per wheel, one turn
+//! and one slide per card, and one turn per tape drum. This module
+//! states, in millimetres in the dial frame, everything that requires.
+//! Card and overlay shapes are borrowed from the spec in face units;
+//! multiply by [`PhysicalBuild::face_radius_mm`] for millimetres.
 
 use indicate_instrument_scene::LayerId;
 
 use crate::moving::{DIGIT_PITCH_SHARE, SEPARATOR_SHARE};
 use crate::outline::{PointerOutline, pointer_outline};
-use crate::spec::{AnalogDialSpec, Channel, MAX_POINTERS, MAX_WINDOWS, Paint, ScaleLaw, SpecError};
+use crate::spec::{
+    AnalogDialSpec, CardTurn, Channel, MAX_CARDS, MAX_POINTERS, MAX_TAPES, MAX_WINDOWS, Mark,
+    OverlaySpec, Paint, ScaleLaw, SpecError, TapeSense, TapeSpec,
+};
 
 /// One pointer, ready to extrude.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -55,6 +63,38 @@ pub struct WindowBuild {
     pub paint: Paint,
 }
 
+/// One card, ready to build.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CardBuild<'a> {
+    /// Its shapes in face units about the pivot, at no turn and no
+    /// travel.
+    pub shapes: &'a [Mark<'a>],
+    /// Pivot in the dial frame, millimetres from the face centre.
+    pub pivot_mm: [f32; 2],
+    /// How it turns, the same law [`crate::pose`] evaluates.
+    pub turn: Option<CardTurn<'a>>,
+    /// Travel stops, millimetres along the turned card's vertical axis;
+    /// [`crate::CardPose::offset`] times the face radius is the travel.
+    pub travel_limit_mm: Option<[f32; 2]>,
+    /// Height of its plane above the face, millimetres.
+    pub stack_height_mm: f32,
+}
+
+/// One tape as a drum behind its window.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TapeBuild<'a> {
+    /// The spec it is built from, for its marks and numerals.
+    pub tape: &'a TapeSpec<'a>,
+    /// Window `[x, y, width, height]` in the dial frame, millimetres.
+    pub aperture_mm: [f32; 4],
+    /// Drum radius, millimetres: one period of card round it, so a
+    /// value `v` stands `v × pitch` of arc from the reading point.
+    pub drum_radius_mm: f32,
+    /// Which way the drum's values run past the window. A drum turns
+    /// by `TapePose::value / period` of a turn.
+    pub sense: TapeSense,
+}
+
 /// Everything a 3D backend needs beyond the face texture.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PhysicalBuild<'a> {
@@ -71,6 +111,12 @@ pub struct PhysicalBuild<'a> {
     pub pointers: [Option<PointerBuild<'a>>; MAX_POINTERS],
     /// Drum windows, in [`AnalogDialSpec::windows`] order.
     pub windows: [Option<WindowBuild>; MAX_WINDOWS],
+    /// Cards, in [`AnalogDialSpec::cards`] order.
+    pub cards: [Option<CardBuild<'a>>; MAX_CARDS],
+    /// Tapes, in [`AnalogDialSpec::tapes`] order.
+    pub tapes: [Option<TapeBuild<'a>>; MAX_TAPES],
+    /// Fixed parts in front of the moving parts, in face units.
+    pub overlays: &'a [OverlaySpec<'a>],
 }
 
 /// Bits of the bands the face-only scene emits.
@@ -111,11 +157,34 @@ pub fn physical_build<'a>(spec: &AnalogDialSpec<'a>) -> Result<PhysicalBuild<'a>
             paint: window.paint,
         });
     }
+    let mut cards = [None; MAX_CARDS];
+    for (slot, card) in cards.iter_mut().zip(spec.cards) {
+        *slot = Some(CardBuild {
+            shapes: card.shapes,
+            pivot_mm: [card.pivot[0] * mm, card.pivot[1] * mm],
+            turn: card.turn,
+            travel_limit_mm: card.travel.map(|t| [t.limit[0] * mm, t.limit[1] * mm]),
+            stack_height_mm: card.stack_height_mm,
+        });
+    }
+    let mut tapes = [None; MAX_TAPES];
+    for (slot, tape) in tapes.iter_mut().zip(spec.tapes) {
+        let [x, y, w, h] = tape.aperture;
+        *slot = Some(TapeBuild {
+            tape,
+            aperture_mm: [x * mm, y * mm, w * mm, h * mm],
+            drum_radius_mm: tape.pitch * tape.period / core::f32::consts::TAU * mm,
+            sense: tape.sense,
+        });
+    }
     Ok(PhysicalBuild {
         case_diameter_mm: spec.case_diameter_mm,
         face_radius_mm: mm,
         face_layers: FACE_LAYERS,
         pointers,
         windows,
+        cards,
+        tapes,
+        overlays: spec.overlays,
     })
 }

@@ -163,4 +163,8 @@ pub const VERTICAL_SPEED: AnalogDialSpec<'static> = AnalogDialSpec {
     }],
     windows: &[],
     off_flag: Some(OFF),
+    marks: &[],
+    cards: &[],
+    tapes: &[],
+    overlays: &[],
 };

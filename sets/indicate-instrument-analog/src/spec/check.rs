@@ -6,8 +6,8 @@
 //! assume their results.
 
 use super::{
-    AnalogDialSpec, Channel, MAX_EXTRA_CHANNELS, MAX_POINTERS, MAX_WHEELS, MAX_WINDOWS, ScaleLaw,
-    ScaleRing,
+    AnalogDialSpec, Channel, MAX_CARDS, MAX_EXTRA_CHANNELS, MAX_POINTERS, MAX_TAPES, MAX_WHEELS,
+    MAX_WINDOWS, Mark, ScaleLaw, ScaleRing, TapeSpec,
 };
 
 /// Why a spec was refused.
@@ -85,6 +85,38 @@ fn ring_ok(ring: &ScaleRing<'_>) -> bool {
             .all(|t| t.every.is_finite() && t.every > 0.0 && t.from.is_finite() && t.to.is_finite())
 }
 
+fn mark_ok(mark: &Mark<'_>) -> bool {
+    crate::shape::shape_ok(&mark.shape)
+}
+
+/// Most graduations one tape run may print round its drum.
+const MAX_TAPE_GRADUATIONS: f32 = 720.0;
+
+fn tape_ok(tape: &TapeSpec<'_>) -> bool {
+    let [_, _, w, h] = tape.aperture;
+    tape.aperture.iter().all(|c| c.is_finite())
+        && w > 0.0
+        && h > 0.0
+        && tape.period.is_finite()
+        && tape.period > 0.0
+        && tape.pitch.is_finite()
+        && tape.pitch > 0.0
+        && tape.numeral_size.is_finite()
+        && tape.numeral_at.is_finite()
+        && tape.ticks.iter().all(|t| {
+            t.every.is_finite()
+                && t.every > 0.0
+                && tape.period / t.every <= MAX_TAPE_GRADUATIONS
+                && t.top.is_finite()
+                && t.bottom.is_finite()
+                && t.width > 0.0
+        })
+        && tape
+            .numerals
+            .iter()
+            .all(|n| n.value >= 0.0 && n.value < tape.period)
+}
+
 fn capacity(what: &'static str, found: usize, limit: usize) -> Result<(), SpecError> {
     if found > limit {
         Err(SpecError::Capacity { what, found, limit })
@@ -98,6 +130,8 @@ impl AnalogDialSpec<'_> {
     pub fn check(&self) -> Result<(), SpecError> {
         capacity("pointers", self.pointers.len(), MAX_POINTERS)?;
         capacity("windows", self.windows.len(), MAX_WINDOWS)?;
+        capacity("cards", self.cards.len(), MAX_CARDS)?;
+        capacity("tapes", self.tapes.len(), MAX_TAPES)?;
         for window in self.windows {
             capacity("wheels", usize::from(window.wheels), MAX_WHEELS)?;
         }
@@ -138,7 +172,62 @@ impl AnalogDialSpec<'_> {
                 return Err(SpecError::BadLaw { index });
             }
         }
-        self.check_moving_parts()
+        self.check_moving_parts()?;
+        self.check_parts()
+    }
+
+    /// Cards, tapes, marks and overlays: their channels, laws, and
+    /// geometry.
+    fn check_parts(&self) -> Result<(), SpecError> {
+        let card_marks = self.cards.iter().flat_map(|card| card.shapes);
+        let overlay_marks = self.overlays.iter().flat_map(|overlay| overlay.shapes);
+        if !self
+            .marks
+            .iter()
+            .chain(card_marks)
+            .chain(overlay_marks)
+            .all(mark_ok)
+        {
+            return Err(SpecError::BadGeometry { what: "mark" });
+        }
+        let heights_ascend = self
+            .overlays
+            .windows(2)
+            .all(|pair| matches!(pair, [lo, hi] if lo.stack_height_mm <= hi.stack_height_mm));
+        if !heights_ascend {
+            return Err(SpecError::BadGeometry {
+                what: "overlay stack heights",
+            });
+        }
+        for card in self.cards {
+            if let Some(turn) = card.turn
+                && !law_ok(&turn.law)
+            {
+                return Err(SpecError::BadGeometry { what: "card turn" });
+            }
+            let travel_ok = card.travel.is_none_or(|t| {
+                let [lo, hi] = t.limit;
+                t.per_unit.is_finite() && lo.is_finite() && hi.is_finite() && lo <= hi
+            });
+            if !travel_ok || card.pivot.iter().any(|c| !c.is_finite()) {
+                return Err(SpecError::BadGeometry { what: "card" });
+            }
+        }
+        if !self.tapes.iter().all(tape_ok) {
+            return Err(SpecError::BadGeometry { what: "tape" });
+        }
+        let channels = self
+            .cards
+            .iter()
+            .flat_map(|c| [c.turn.map(|t| t.channel), c.travel.map(|t| t.channel)])
+            .flatten()
+            .chain(self.tapes.iter().map(|t| t.channel));
+        for channel in channels {
+            if self.channel(channel).is_none() {
+                return Err(SpecError::MissingChannel { channel });
+            }
+        }
+        Ok(())
     }
 
     fn check_moving_parts(&self) -> Result<(), SpecError> {

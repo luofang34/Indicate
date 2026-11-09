@@ -9,12 +9,18 @@
 
 mod airspeed;
 mod altimeter;
+mod clock;
 mod engine;
+mod flight;
+mod heading;
 mod vertical_speed;
 
 pub use airspeed::{AIRSPEED_KT, AIRSPEED_MPH};
 pub use altimeter::ALTIMETER;
+pub use clock::{CLOCK, SYNCHROSCOPE};
 pub use engine::{MANIFOLD_PRESSURE, TACHOMETER};
+pub use flight::{GYRO_HORIZON, TURN_AND_BANK};
+pub use heading::{DIRECTIONAL_GYRO, MAGNETIC_COMPASS};
 pub use vertical_speed::VERTICAL_SPEED;
 
 use indicate_instrument_scene::Rgba8;
@@ -44,6 +50,9 @@ const LEGEND: Paint = Paint::plain(Rgba8::rgb(220, 220, 220));
 const NEEDLE_PAINT: Paint = Paint::luminous(Rgba8::rgb(245, 245, 245), GLOW);
 /// The drum behind a window.
 const DRUM: Rgba8 = Rgba8::rgb(8, 8, 8);
+/// The amber radium paint of a gyro instrument's symbols: a miniature
+/// aircraft, a lubber line, a turn needle.
+const SYMBOL: Paint = Paint::luminous(Rgba8::rgb(240, 175, 70), GLOW);
 
 /// The long tapered needle of a single-pointer gauge.
 const NEEDLE: PointerStyle = PointerStyle {

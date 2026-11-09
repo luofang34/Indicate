@@ -91,5 +91,21 @@ pub fn pointer_outline(style: &PointerStyle) -> PointerOutline {
                 [-half * 2.0, base],
             ])
         }
+        PointerShape::Index => {
+            let base = -length + style.width * 1.3;
+            PointerOutline::from_slice(&[[0.0, -length], [half, base], [-half, base]])
+        }
+        PointerShape::Ball => ball(length, half),
     }
+}
+
+/// A regular octagon of radius `r` about `(0, -length)`: as round as
+/// the outline's corner budget allows, and the same shape in 2D and 3D.
+fn ball(length: f32, r: f32) -> PointerOutline {
+    let mut corners = [[0.0; 2]; MAX_OUTLINE_POINTS];
+    for (k, corner) in corners.iter_mut().enumerate() {
+        let a = core::f32::consts::TAU * (k as f32 + 0.5) / MAX_OUTLINE_POINTS as f32;
+        *corner = [r * libm::cosf(a), -length + r * libm::sinf(a)];
+    }
+    PointerOutline::from_slice(&corners)
 }

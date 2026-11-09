@@ -187,4 +187,8 @@ pub const ALTIMETER: AnalogDialSpec<'static> = AnalogDialSpec {
         drum: DRUM,
     }],
     off_flag: Some(OFF),
+    marks: &[],
+    cards: &[],
+    tapes: &[],
+    overlays: &[],
 };

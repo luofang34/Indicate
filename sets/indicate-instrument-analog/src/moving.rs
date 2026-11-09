@@ -1,11 +1,17 @@
-//! The moving parts: drum windows and pointers, each in its own
-//! transform, and the failure flag.
+//! The moving parts, each in its own transform, then the fixed parts in
+//! front of them, and the failure flag.
 //!
 //! A pointer is its outline filled under a `TRANSLATE` to its pivot and
 //! a `ROTATE` by its pose angle, inside its own save and restore. A
 //! drum wheel is its digit strip under a `TRANSLATE` by its offset,
-//! inside the window's clip. So the 2D scene moves each part exactly as
-//! the physical build does: by one number per part.
+//! inside the window's clip. A card is its shapes under a `TRANSLATE`
+//! to its pivot, a `ROTATE` and a `TRANSLATE` along its own axis; a tape
+//! is its strip under a `TRANSLATE` inside its window's clip. So the 2D
+//! scene moves each part exactly as the physical build does: by one or
+//! two numbers per part.
+//!
+//! Order, back to front: drum windows, cards, tapes, pointers by stack
+//! height, then the fixed overlays by stack height.
 
 use indicate_instrument_descriptor::PanelDrawError;
 use indicate_instrument_scene::{Anchor, PaintMode, SceneWriter};
@@ -15,6 +21,8 @@ use crate::face::Placement;
 use crate::outline::pointer_outline;
 use crate::pose::{DialPose, WindowPose};
 use crate::spec::{AnalogDialSpec, Lighting, OffFlag, WindowSpec};
+
+mod parts;
 
 const DIGITS: [&str; 10] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
@@ -36,6 +44,8 @@ pub fn draw_moving_parts(
     for (window, window_pose) in spec.windows.iter().zip(&pose.windows) {
         draw_window(spec, window, window_pose, lighting, place, scene)?;
     }
+    parts::draw_cards(spec, pose, lighting, place, scene)?;
+    parts::draw_tapes(spec, pose, lighting, place, scene)?;
     let mut order = [0usize; crate::spec::MAX_POINTERS];
     for (k, slot) in order.iter_mut().enumerate() {
         *slot = k;
@@ -71,7 +81,7 @@ pub fn draw_moving_parts(
             }
         }
     }
-    Ok(())
+    parts::draw_overlays(spec, lighting, place, scene)
 }
 
 fn draw_window(

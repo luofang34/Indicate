@@ -3,7 +3,8 @@
 //!
 //! Every input reads its quantity in one native unit: knots, feet, feet
 //! per minute, hectopascals, revolutions per minute, degrees Celsius,
-//! litres, or kilograms. A dial converts from it by an affine law
+//! litres, kilograms, degrees of angle, degrees per second, metres per
+//! second squared, or seconds. A dial converts from it by an affine law
 //! (`dial = native × scale + offset`), which is how a temperature dial in
 //! Fahrenheit reads a Celsius lane.
 
@@ -18,6 +19,10 @@ pub(crate) enum Dimension {
     Temperature,
     Volume,
     Mass,
+    Angle,
+    AngularRate,
+    Acceleration,
+    Time,
 }
 
 /// The unit a dial is engraved in.
@@ -61,6 +66,14 @@ pub enum DialUnit {
     Kilograms,
     /// Avoirdupois pounds.
     Pounds,
+    /// Degrees of angle.
+    Degrees,
+    /// Degrees per second.
+    DegreesPerSecond,
+    /// Metres per second squared.
+    MetresPerSecondSquared,
+    /// Seconds.
+    Seconds,
 }
 
 const KT_TO_MPH: f32 = 1.150_779_4;
@@ -87,6 +100,10 @@ impl DialUnit {
             Self::DegreesCelsius | Self::DegreesFahrenheit => Dimension::Temperature,
             Self::Litres | Self::UsGallons | Self::ImperialGallons => Dimension::Volume,
             Self::Kilograms | Self::Pounds => Dimension::Mass,
+            Self::Degrees => Dimension::Angle,
+            Self::DegreesPerSecond => Dimension::AngularRate,
+            Self::MetresPerSecondSquared => Dimension::Acceleration,
+            Self::Seconds => Dimension::Time,
         }
     }
 
@@ -101,7 +118,11 @@ impl DialUnit {
             | Self::RevolutionsPerMinute
             | Self::DegreesCelsius
             | Self::Litres
-            | Self::Kilograms => 1.0,
+            | Self::Kilograms
+            | Self::Degrees
+            | Self::DegreesPerSecond
+            | Self::MetresPerSecondSquared
+            | Self::Seconds => 1.0,
             Self::MilesPerHour => KT_TO_MPH,
             Self::KilometresPerHour => KT_TO_KMH,
             Self::Metres => FT_TO_M,
