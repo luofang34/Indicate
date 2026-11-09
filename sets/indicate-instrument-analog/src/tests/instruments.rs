@@ -50,10 +50,26 @@ fn the_horizon_bar_stays_level_with_the_earth() {
 
 #[test]
 fn the_turn_needle_and_ball_follow_rate_and_force() {
-    // A standard rate turn to the right lays the needle on the right
-    // doghouse, 15 degrees.
+    // AEI 1944: the tip deflects 5/32 inch for 180 degrees of turn per
+    // minute (3 °/s). The needle is 1.22 face units of a 35.5 mm face.
+    let tip_mm = 1.22 * 35.5;
     let p = pose(&TURN_AND_BANK, &at(3.0, Some(0.0)));
-    assert!(close(deg(p.pointers[1].angle_rad), 15.0));
+    let deflection_mm = tip_mm * p.pointers[1].angle_rad.sin();
+    assert!(
+        (deflection_mm - 25.4 * 5.0 / 32.0).abs() < 0.01,
+        "{deflection_mm}"
+    );
+    // TM 1-413: the pointer coincides with the index in a one-minute
+    // turn (6 °/s, to the right here), and the index is centred on that
+    // needle line.
+    let p = pose(&TURN_AND_BANK, &at(6.0, Some(0.0)));
+    let (s, c) = (p.pointers[1].angle_rad.sin(), p.pointers[1].angle_rad.cos());
+    let line = [1.2 * s, 0.55 - 1.2 * c];
+    let crate::Shape::Polygon(index) = TURN_AND_BANK.marks[1].shape else {
+        panic!("the right index is a polygon");
+    };
+    let centre_x = index.iter().map(|p| p[0]).sum::<f32>() / index.len() as f32;
+    assert!((centre_x - line[0]).abs() < 0.01, "{centre_x} vs {line:?}");
     // Force to the right sends the ball left: clockwise from six
     // o'clock about the tube's centre of curvature.
     let p = pose(&TURN_AND_BANK, &at(0.0, Some(1.6)));
@@ -186,9 +202,9 @@ const PICTURES: [(&str, &crate::AnalogDialSpec<'static>, f32, Option<f32>); 13] 
     ("directional-gyro-047", &DIRECTIONAL_GYRO, 47.0, None),
     ("directional-gyro-268", &DIRECTIONAL_GYRO, 268.0, None),
     (
-        "turn-and-bank-standard-right",
+        "turn-and-bank-one-minute-right",
         &TURN_AND_BANK,
-        3.0,
+        6.0,
         Some(0.0),
     ),
     ("turn-and-bank-left-skid", &TURN_AND_BANK, -2.0, Some(2.5)),

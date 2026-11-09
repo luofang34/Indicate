@@ -12,7 +12,7 @@ use indicate_instrument_scene::Rgba8;
 use super::{BEZEL, CASE_3_1_8_MM, FACE, FACE_3_1_8_MM, MARKING, NEEDLE_PAINT, OFF, SYMBOL};
 use crate::spec::{
     AnalogDialSpec, CardSpec, CardTurn, Channel, DialChannel, DialInput, DialUnit, FailurePose,
-    Mark, Numeral, OverlaySpec, Paint, PointerShape, PointerSpec, PointerStyle, ScaleLaw,
+    Legend, Mark, Numeral, OverlaySpec, Paint, PointerShape, PointerSpec, PointerStyle, ScaleLaw,
     ScalePoint, ScaleRing, Shape, TickSet, Travel,
 };
 
@@ -223,18 +223,42 @@ const NEEDLE_PIVOT: [f32; 2] = [0.0, 0.55];
 const TUBE_CENTRE: [f32; 2] = [0.0, -1.82];
 const TUBE_RADIUS: f32 = 2.0;
 
-/// Five degrees of needle a degree per second of yaw, so a standard
-/// rate turn (3 °/s) lays the needle on a doghouse mark.
+/// The AAF calibration, AEI (AP 259.9F, 1944) pp. 248-252, the same for
+/// every Army turn and bank type (A-5, A-8, AN5820-1 / A-11, AN5820-2 /
+/// A-12, C-1): the needle tip deflects 5/32 inch for 180 degrees of turn
+/// per minute (3 °/s), proportionally (TM 1-413 ¶128a). Each point is
+/// `asin(tip deflection / needle length)` for this needle, 43.3 mm long.
+/// The needle's own stop is not stated; it holds at 12 °/s here.
 const TURN_LAW: ScaleLaw<'static> = ScaleLaw::Piecewise {
     reference_deg: 0.0,
     points: &[
         ScalePoint {
-            value: -8.0,
-            angle_deg: -40.0,
+            value: -12.0,
+            angle_deg: -21.503,
         },
         ScalePoint {
-            value: 8.0,
-            angle_deg: 40.0,
+            value: -6.0,
+            angle_deg: -10.56,
+        },
+        ScalePoint {
+            value: -3.0,
+            angle_deg: -5.258,
+        },
+        ScalePoint {
+            value: 0.0,
+            angle_deg: 0.0,
+        },
+        ScalePoint {
+            value: 3.0,
+            angle_deg: 5.258,
+        },
+        ScalePoint {
+            value: 6.0,
+            angle_deg: 10.56,
+        },
+        ScalePoint {
+            value: 12.0,
+            angle_deg: 21.503,
         },
     ],
 };
@@ -269,21 +293,23 @@ const BALL_LAW: ScaleLaw<'static> = ScaleLaw::Piecewise {
     ],
 };
 
-/// The doghouse marks at standard rate either side of the needle's
-/// upright position, 1.2 from its pivot.
-const DOGHOUSE_LEFT: &[[f32; 2]] = &[
-    [-0.311, -0.68],
-    [-0.251, -0.63],
-    [-0.251, -0.55],
-    [-0.371, -0.55],
-    [-0.371, -0.63],
+/// The index each side of the neutral mark: "a 1-minute turn of 360°
+/// when the pointer is coinciding with the index" (TM 1-413 ¶127c), so
+/// 6 °/s, where the needle stands 10.56° off upright. Each mark is
+/// centred on that needle line, 1.2 from the pivot.
+const INDEX_LEFT: &[[f32; 2]] = &[
+    [-0.22, -0.68],
+    [-0.17, -0.64],
+    [-0.17, -0.57],
+    [-0.27, -0.57],
+    [-0.27, -0.64],
 ];
-const DOGHOUSE_RIGHT: &[[f32; 2]] = &[
-    [0.311, -0.68],
-    [0.371, -0.63],
-    [0.371, -0.55],
-    [0.251, -0.55],
-    [0.251, -0.63],
+const INDEX_RIGHT: &[[f32; 2]] = &[
+    [0.22, -0.68],
+    [0.27, -0.64],
+    [0.27, -0.57],
+    [0.17, -0.57],
+    [0.17, -0.64],
 ];
 
 /// The liquid in the tube, behind the ball.
@@ -328,8 +354,9 @@ const TUBE: &[Mark<'static>] = &[
     },
 ];
 
-/// The turn and bank indicator. The needle reads the body yaw rate a
-/// rate gyro senses; the ball reads the lateral specific force. A needle
+/// The turn and bank indicator, to the AAF pattern of 1942-44: the
+/// index marks a one-minute (360°/min) turn, not a two-minute standard
+/// rate. The needle reads the body yaw rate a rate gyro senses; the ball reads the lateral specific force. A needle
 /// with no rate rests upright, as a run-down gyro's does, and raises the
 /// flag; a ball with no force is left out.
 pub const TURN_AND_BANK: AnalogDialSpec<'static> = AnalogDialSpec {
@@ -348,7 +375,22 @@ pub const TURN_AND_BANK: AnalogDialSpec<'static> = AnalogDialSpec {
     extra: &[],
     input_range: None,
     rings: &[],
-    legends: &[],
+    // "The dial is plain, having only the letters L and R, the neutral
+    // mark, and an index on each side" (TM 1-413 ¶127c).
+    legends: &[
+        Legend {
+            text: "L",
+            at: [-0.55, -0.3],
+            size: 0.16,
+            paint: MARKING,
+        },
+        Legend {
+            text: "R",
+            at: [0.55, -0.3],
+            size: 0.16,
+            paint: MARKING,
+        },
+    ],
     pointers: &[
         PointerSpec {
             channel: Channel::Secondary,
@@ -388,11 +430,20 @@ pub const TURN_AND_BANK: AnalogDialSpec<'static> = AnalogDialSpec {
     }),
     marks: &[
         Mark {
-            shape: Shape::Polygon(DOGHOUSE_LEFT),
+            shape: Shape::Polygon(INDEX_LEFT),
             paint: MARKING,
         },
         Mark {
-            shape: Shape::Polygon(DOGHOUSE_RIGHT),
+            shape: Shape::Polygon(INDEX_RIGHT),
+            paint: MARKING,
+        },
+        // The neutral mark, above the needle's upright tip.
+        Mark {
+            shape: Shape::Line {
+                from: [0.0, -0.72],
+                to: [0.0, -0.82],
+                width: 0.03,
+            },
             paint: MARKING,
         },
         tube(TUBE_LIQUID),
