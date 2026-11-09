@@ -34,7 +34,7 @@ mod style;
 mod tessellate;
 
 pub use encode::{FaceDef, GlyphDef, Kern, Seg, Shape, StrokeDef, encode_face, encoded_len};
-pub use face::{Face, InkBox, PlacedGlyph};
+pub use face::{Face, FaceTable, InkBox, PlacedGlyph};
 pub use geometry::{GlyphXform, OutlineEdges, StrokeSegments};
 pub use style::TextStyle;
 pub use tessellate::{Triangle, tessellate_glyph, tessellate_run};

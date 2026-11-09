@@ -464,6 +464,7 @@ fn layer_class(e: &LayerError) -> String {
 fn raster_class(e: &RasterError) -> String {
     match e {
         RasterError::Glyph(_) => "Glyph",
+        RasterError::Typeface(_) => "Typeface",
         RasterError::ZeroFramebuffer => "ZeroFramebuffer",
         RasterError::FramebufferTooLarge { .. } => "FramebufferTooLarge",
         RasterError::StrideTooSmall { .. } => "StrideTooSmall",

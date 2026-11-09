@@ -219,3 +219,34 @@ fn layout_typeface<'a>(
     }
     Ok(pen_x)
 }
+
+/// The host's binding of face slots to faces: slot `k` is `slots[k]`.
+/// A slot past the table, and every slot of an empty table, draws in
+/// slot 0's binding, or in [`Face::Reference`] when slot 0 is unbound
+/// too. A host that binds nothing therefore letters every scene in the
+/// default face.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FaceTable<'a> {
+    slots: &'a [Face<'a>],
+}
+
+impl<'a> FaceTable<'a> {
+    /// No bindings: every slot draws in the reference face.
+    pub const DEFAULT: FaceTable<'static> = FaceTable { slots: &[] };
+
+    /// Binds `slots[k]` to slot `k`.
+    #[must_use]
+    pub const fn new(slots: &'a [Face<'a>]) -> Self {
+        Self { slots }
+    }
+
+    /// The face slot `slot` draws in.
+    #[must_use]
+    pub fn face(&self, slot: u8) -> Face<'a> {
+        self.slots
+            .get(usize::from(slot))
+            .or_else(|| self.slots.first())
+            .copied()
+            .unwrap_or(Face::Reference)
+    }
+}

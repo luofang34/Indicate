@@ -48,6 +48,7 @@ pub use glyph::{
 pub use indicate_sha256::sha256;
 pub use manifest::{GlyphManifest, PANEL_GLYPHS};
 pub use typeface::{
-    Face, GlyphKind, GlyphView, InkBox, PlacedGlyph, TextStyle, Triangle, Typeface, TypefaceError,
+    Face, FaceTable, GlyphKind, GlyphView, InkBox, PlacedGlyph, TextStyle, Triangle, Typeface,
+    TypefaceError,
 };
 pub use vocabulary::{FLAG_VOCABULARY, PANEL_STRINGS, PANEL_VOCABULARY};

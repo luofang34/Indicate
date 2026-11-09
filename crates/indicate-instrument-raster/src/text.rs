@@ -112,6 +112,8 @@ pub(crate) fn draw_arc_run(
     Ok(())
 }
 
+pub(crate) mod face;
+
 /// A text run.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Run<'a> {

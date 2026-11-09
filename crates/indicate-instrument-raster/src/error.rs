@@ -18,6 +18,10 @@ pub enum RasterError {
     /// a character the pack does not cover; nothing substitutes.
     #[error(transparent)]
     Glyph(#[from] GlyphError),
+    /// A loaded face refused a run: a character it lacks, or a glyph
+    /// too complex to render; nothing substitutes.
+    #[error(transparent)]
+    Typeface(#[from] indicate_instrument_glyphs::TypefaceError),
     /// The framebuffer has a zero width or height.
     #[error("framebuffer width and height must be non-zero")]
     ZeroFramebuffer,

@@ -153,6 +153,7 @@ fn paint_slot(
             origin: (slot.rect.x, slot.rect.y),
             extent: Some((slot.rect.width, slot.rect.height)),
         },
+        &indicate_instrument_glyphs::typeface::FaceTable::DEFAULT,
     )?;
     painted.unknown_opcodes = painted.unknown_opcodes.wrapping_add(unknown);
     painted.layers_present |= layers;
