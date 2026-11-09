@@ -2,7 +2,7 @@
 use crate::context::HudProjection;
 use indicate_frames::{Quat, ROTATION_NORM_TOLERANCE};
 use indicate_instrument_descriptor::DesignFrame;
-use indicate_instrument_state::{HeadingReference, PanelData, Sig, SignalStatus};
+use indicate_instrument_state::{PanelData, Sig, SignalStatus};
 
 /// A position in the logical frame, y down.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -27,16 +27,16 @@ pub struct Camera {
 /// Directions this close to the image plane are behind the viewer.
 const MIN_FORWARD: f32 = 0.02;
 
+/// Bound on projected coordinates so downstream Q8.8 fixed-point rasterizers
+/// and GPU tessellators (`±32767 px` limit) never overflow at narrow FOVs or
+/// `2560 × 1600` frames even after adding symbol offsets.
+const MAX_PROJECTED_PX: f32 = 16_384.0;
+
 impl Camera {
     /// Builds a camera; the attitude bases exist only for live, finite signals.
     pub fn new(data: &PanelData, projection: HudProjection, frame: DesignFrame) -> Self {
         let half = libm::tanf(projection.vertical_fov_rad * 0.5);
-        let true_heading = matches!(
-            data.heading.reference,
-            HeadingReference::True | HeadingReference::SimLocalTrue
-        )
-        .then_some(data.heading.value_rad)
-        .and_then(live);
+        let true_heading = live(data.heading.true_heading_rad());
         Self {
             centre: ScreenPoint {
                 x: frame.width * 0.5,
@@ -79,9 +79,15 @@ impl Camera {
         self.level_basis() && self.true_heading.is_some()
     }
 
-    /// Projects a body-axis direction (forward, right, down); `None` behind the viewer.
+    /// Projects a body-axis direction (forward, right, down); `None` behind the viewer
+    /// or beyond [`MAX_PROJECTED_PX`].
     pub fn project_body(&self, v: [f32; 3]) -> Option<ScreenPoint> {
-        let v = self.body_to_view(v)?;
+        self.project_view(self.body_to_view(v)?)
+    }
+
+    /// Projects a view-axis vector (forward, right, down); `None` behind the viewer
+    /// or beyond [`MAX_PROJECTED_PX`].
+    pub(crate) fn project_view(&self, v: [f32; 3]) -> Option<ScreenPoint> {
         let length = libm::sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
         if !length.is_finite() || length <= 0.0 || v[0] < MIN_FORWARD * length {
             return None;
@@ -90,7 +96,16 @@ impl Camera {
             x: self.centre.x + self.focal * v[1] / v[0],
             y: self.centre.y + self.focal * v[2] / v[0],
         };
-        (point.x.is_finite() && point.y.is_finite()).then_some(point)
+        (point.x.is_finite()
+            && point.y.is_finite()
+            && point.x.abs() <= MAX_PROJECTED_PX
+            && point.y.abs() <= MAX_PROJECTED_PX)
+            .then_some(point)
+    }
+
+    /// Rotates a north/east/down vector directly into view coordinates.
+    pub(crate) fn ned_to_view(&self, v: [f32; 3]) -> Option<[f32; 3]> {
+        self.body_to_view(self.ned_to_body(v)?)
     }
 
     /// The unit screen direction from the boresight toward a body direction, also behind the viewer.

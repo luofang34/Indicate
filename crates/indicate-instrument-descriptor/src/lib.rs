@@ -19,7 +19,10 @@ mod space;
 pub mod states;
 
 pub use aux::{AuxChannelId, AuxEntry, MAX_AUX_ENTRIES, custom_aux_id};
-pub use config::{CONFIG_BLOB_MAX, ConfigBlob, ConfigError, ConfigKey, EMPTY_CONFIG, keys};
+pub use config::{
+    CONFIG_BLOB_MAX, ConfigBlob, ConfigError, ConfigKey, EMPTY_CONFIG, V_SPEEDS_BANDS_BYTES,
+    V_SPEEDS_EXTENDED_BYTES, decode_v_speeds_payload, encode_v_speeds_payload, keys,
+};
 pub use context::{
     DRAW_CONTEXT_HEADER_BYTES, DRAW_CONTEXT_WIRE_VERSION, DecodedDrawContext, DrawContext,
     DrawContextWireError, decode_draw_context, encode_draw_context,

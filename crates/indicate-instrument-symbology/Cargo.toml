@@ -12,4 +12,5 @@ workspace = true
 indicate-alerts = { workspace = true }
 indicate-instrument-scene = { workspace = true }
 indicate-instrument-state = { workspace = true }
+libm = { workspace = true }
 thiserror = { workspace = true }

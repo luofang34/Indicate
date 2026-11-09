@@ -43,6 +43,7 @@ mod signal;
 mod source_compare;
 mod source_monitor;
 pub mod units;
+mod v_speeds;
 mod validate;
 
 pub use aircraft::{
@@ -81,6 +82,7 @@ pub use source_monitor::{
     SourceInputs, SourceMonitorReport, SourceMonitors, SourcePolicies, SourceSelection, SourceStep,
     Sourced, SourcedFunction, resolve_with_sources,
 };
+pub use v_speeds::{VSpeedBug, VSpeedBugs, VSpeeds};
 pub use validate::{
     GroupFault, QUAT_NORM_TOLERANCE, StateIntegrity, validate_quat, validate_state,
 };

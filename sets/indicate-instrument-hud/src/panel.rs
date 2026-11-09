@@ -274,7 +274,7 @@ pub fn draw_hud(
     }
     scene.end_layer(LayerId::Attitude)?;
     scene.begin_layer(LayerId::Tapes)?;
-    readout::draw(data, &layout, scene)?;
+    readout::draw(data, context, &layout, scene)?;
     scene.end_layer(LayerId::Tapes)?;
     let runway = context.approach.as_ref().filter(|r| r.usable());
     let combat = context.profile == HudProfile::Screen;

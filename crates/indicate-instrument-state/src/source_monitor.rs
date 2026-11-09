@@ -250,14 +250,17 @@ fn apply_scalar_sources(
         };
     }
     if !inputs.heading.is_empty() {
+        let variation = panel.heading.variation;
         panel.heading = match selected_candidate(inputs.heading, &report.heading) {
             Some(c) => ResolvedHeading {
                 value_rad: Sig::valid(wrap_2pi(c.measurement.heading_rad)),
                 reference: c.measurement.reference,
+                variation,
             },
             None => ResolvedHeading {
                 value_rad: FAILED_F32,
                 reference: HeadingReference::Unknown,
+                variation: None,
             },
         };
     }

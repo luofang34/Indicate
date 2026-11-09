@@ -373,6 +373,7 @@ dependencies = [
  "indicate-alerts",
  "indicate-instrument-scene",
  "indicate-instrument-state",
+ "libm",
  "thiserror",
 ]
 

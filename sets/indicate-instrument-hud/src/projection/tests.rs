@@ -79,6 +79,83 @@ fn magnetic_heading_cannot_place_world_vectors() {
     assert!(camera.level_basis());
     assert!(!camera.world_basis());
     assert!(camera.project_ned([1000.0, 0.0, 0.0]).is_none());
+
+    let mut state = crate::panel::tests::flight_state(0.0, 0.0, 1.0);
+    state.heading.data = Some(indicate_instrument_state::HeadingSample {
+        heading_rad: 1.0,
+        reference: indicate_instrument_state::HeadingReference::Magnetic,
+    });
+    let resolved_without_var = indicate_instrument_state::resolve(
+        &state,
+        &indicate_instrument_state::FreshnessPolicy::default(),
+    );
+    let cam_without_var = Camera::new(&resolved_without_var, projection, FRAME);
+    assert!(!cam_without_var.world_basis());
+    assert!(cam_without_var.project_ned([1000.0, 0.0, 0.0]).is_none());
+
+    // Stale variation also fails closed for conformal world placement.
+    state.variation = indicate_instrument_state::Stamped {
+        data: Some(indicate_instrument_state::MagneticVariation {
+            east_positive_rad: 0.2,
+            source: indicate_instrument_state::VariationSourceId(1),
+        }),
+        age_ms: Some(900.0),
+    };
+    state.valid.variation = true;
+    let resolved_stale_var = indicate_instrument_state::resolve(
+        &state,
+        &indicate_instrument_state::FreshnessPolicy::default(),
+    );
+    let cam_stale_var = Camera::new(&resolved_stale_var, projection, FRAME);
+    assert!(!cam_stale_var.world_basis());
+    assert!(cam_stale_var.project_ned([1000.0, 0.0, 0.0]).is_none());
+}
+
+#[test]
+fn magnetic_heading_with_valid_variation_places_world_vectors_at_true_heading() {
+    let mag_heading = 0.7_f32;
+    let east_var = 0.2_f32;
+    let expected_true = mag_heading + east_var;
+
+    let mut state = crate::panel::tests::flight_state(0.0, 0.0, expected_true);
+    state.heading.data = Some(indicate_instrument_state::HeadingSample {
+        heading_rad: mag_heading,
+        reference: indicate_instrument_state::HeadingReference::Magnetic,
+    });
+    state.variation = indicate_instrument_state::Stamped {
+        data: Some(indicate_instrument_state::MagneticVariation {
+            east_positive_rad: east_var,
+            source: indicate_instrument_state::VariationSourceId(1),
+        }),
+        age_ms: Some(20.0),
+    };
+    state.valid.variation = true;
+
+    let data = indicate_instrument_state::resolve(
+        &state,
+        &indicate_instrument_state::FreshnessPolicy::default(),
+    );
+    let projection = HudProjection {
+        vertical_fov_rad: 1.0,
+        body_from_view: indicate_frames::Quat::IDENTITY,
+        source: WorldSource::Synthetic,
+    };
+    let camera = Camera::new(&data, projection, FRAME);
+    assert!(camera.world_basis());
+    assert!((camera.true_heading().expect("true heading") - expected_true).abs() < 1e-6);
+
+    let ahead_ned = [
+        1000.0 * libm::cosf(expected_true),
+        1000.0 * libm::sinf(expected_true),
+        0.0,
+    ];
+    let boresight = camera
+        .project_ned(ahead_ned)
+        .expect("true heading is ahead");
+    assert!(
+        close(boresight.x, 500.0) && close(boresight.y, 400.0),
+        "{boresight:?}"
+    );
 }
 
 #[test]
