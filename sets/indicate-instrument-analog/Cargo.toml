@@ -1,0 +1,24 @@
+[package]
+name = "indicate-instrument-analog"
+description = "Round analog instruments from one dial description: a 2D scene and a physical build a 3D backend extrudes (ADR-0029, ADR-0033)"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+# Kernel only, like every set: the tier that judges a set is a dev
+# dependency, never a shipping one.
+[dependencies]
+indicate-instrument-descriptor = { workspace = true }
+indicate-instrument-scene = { workspace = true }
+indicate-instrument-state = { workspace = true }
+indicate-instrument-symbology = { workspace = true }
+libm = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+indicate-instrument-conformance = { workspace = true }
+indicate-instrument-raster = { workspace = true }
+indicate-instrument-registry = { workspace = true }

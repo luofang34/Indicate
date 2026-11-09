@@ -58,6 +58,13 @@ A v8 frame is refused by version, so a producer moves to v9 and writes the 20-by
 `GroupId::index` slots are append-only: `Engine` takes slot 19 and no existing slot moves.
 A `GroupSet` travels as raw bits in signed plugin descriptors, so a moved slot would change what an existing package declares.
 
+The new `indicate-instrument-analog` set draws round instruments from one `AnalogDialSpec`: airspeed in knots and in miles per hour, a sensitive altimeter with three hands and a Kollsman window, vertical speed, manifold pressure, and a tachometer.
+The same spec gives a 3D backend a `PhysicalBuild` (pointer outlines, pivots, stack heights, paints, drums) and `pose`, the pure function from state to every pointer angle and drum offset.
+The set ships outside the flight set, so the shipped panel set does not change.
+
+Admission now accepts printed legends: a configuration-claimed text run is admitted in the planar matrix when every case at a frame draws it with the same text, ink rectangle, and clip.
+A configuration-claimed run that changes, moves, appears, or disappears still fails as `ConfigClaim`, and the angular and volumetric matrices still refuse it.
+
 The composition digest and the screen-composition digest move because the scene digest hashes the ABI version byte.
 No paint changed: every raster baseline, the criticality bands, the glyph pack, and the corpus are byte-identical.
 

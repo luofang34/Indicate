@@ -39,7 +39,7 @@ cargo check --locked -p indicate-frames -p indicate-alerts -p indicate-sha256 \
   -p indicate-instrument-hud -p indicate-instrument-volumes \
   -p indicate-instrument-raster -p indicate-instrument-feeder \
   -p indicate-intent -p indicate-interaction -p indicate-plugin-abi \
-  -p indicate-instrument-registry \
+  -p indicate-instrument-registry -p indicate-instrument-analog \
   --target thumbv7em-none-eabihf
 cargo run --locked -q -p instrument-bench
 cargo run --locked -q -p indicate-evidence --bin evidence-gate -- \
