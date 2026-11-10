@@ -60,11 +60,17 @@ pub(super) fn verify_planar_scene(
     let mut alpha_stack = vec![255u8];
 
     for item in cmds {
-        if pending.is_some() && !matches!(item, Ok(Cmd::Text { .. })) {
+        if pending.is_some() && !matches!(item, Ok(Cmd::Text { .. } | Cmd::TextArc(_))) {
             return Err(PluginHostError::MisplacedClaim { state });
         }
         let cmd = item.map_err(indicate_instrument_scene::LayerError::Decode)?;
         match cmd {
+            // An arc run is a text run for every honesty rule.
+            Cmd::TextArc(arc) => runs.push(ClaimedRun {
+                text: arc.text.to_string(),
+                attribution: pending.take(),
+                visible: true,
+            }),
             Cmd::BeginLayer {
                 layer: LayerId::Background,
             } => in_bg = true,

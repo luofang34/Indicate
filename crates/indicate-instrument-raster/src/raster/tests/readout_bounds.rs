@@ -17,6 +17,7 @@
 //! body — the window is the containment proof for the digits behind
 //! it.
 
+use indicate_instrument_glyphs::typeface::Face;
 use indicate_instrument_glyphs::{ADVANCE, CELL_H, CELL_W};
 use indicate_instrument_panels::{BUILTIN_FRAME, PANEL_W, PfdConfig, draw_pfd};
 use indicate_instrument_scene::{
@@ -223,6 +224,15 @@ const IAS_SWEEP_KT: [f32; 6] = [0.0, 78.0, 145.0, 460.0, 999.0, 1_043.0];
 /// ink stays inside the window — the window is the containment proof
 /// for the digit behind it.
 fn check_readout(readout: &Readout, alt_ft: f32, ias_kt: f32) {
+    check_readout_with(readout, alt_ft, ias_kt, &ink_extents);
+}
+
+fn check_readout_with(
+    readout: &Readout,
+    alt_ft: f32,
+    ias_kt: f32,
+    extents: &dyn Fn(&Run) -> (f32, f32),
+) {
     const TOLERANCE: f32 = 1e-3;
     assert!(
         !readout.runs.is_empty(),
@@ -230,7 +240,7 @@ fn check_readout(readout: &Readout, alt_ft: f32, ias_kt: f32) {
     );
     for run in &readout.runs {
         assert!(!run.text.is_empty(), "readout shows a value");
-        let (left, ink_right) = ink_extents(run);
+        let (left, ink_right) = extents(run);
         match run.window {
             Some([wx, wy, ww, wh]) => {
                 assert!(
@@ -279,6 +289,53 @@ fn readout_runs_stay_inside_their_boxes_across_the_value_range() {
             assert_eq!(found.len(), 2, "both tape readouts at {alt_ft}/{ias_kt}");
             for readout in &found {
                 check_readout(readout, alt_ft, ias_kt);
+            }
+        }
+    }
+}
+
+/// Ink extents of a run in `face`: the face's advance width places the
+/// anchor, and its ink box bounds the paint, exactly as the backend's
+/// loaded-face path lays the run out.
+fn face_ink_extents(face: &Face<'_>, run: &Run) -> (f32, f32) {
+    let width = face
+        .advance_width(run.size, &run.text)
+        .expect("the face covers the readout");
+    let left = match run.anchor.h {
+        HAlign::Left => run.x,
+        HAlign::Center => run.x - width / 2.0,
+        HAlign::Right => run.x - width,
+    };
+    let ink = face
+        .ink_box(run.size, &run.text, crate::text::face::TOLERANCE_PX)
+        .expect("lays out")
+        .expect("a readout run has ink");
+    (left + ink.min_x, left + ink.max_x)
+}
+
+/// The same containment, for every face the repository ships: a cockpit
+/// that letters the PFD in a bound face keeps every readout inside its
+/// box across the whole value range. The reference face's extents here
+/// must agree with the bitmap metrics above, which ties the two paths.
+#[test]
+fn readout_runs_stay_inside_their_boxes_in_every_face() {
+    for (name, face) in super::faces::every_face() {
+        for alt_ft in ALT_SWEEP_FT {
+            for ias_kt in IAS_SWEEP_KT {
+                for readout in &readouts(&pfd_scene(alt_ft, ias_kt)) {
+                    if matches!(face, Face::Reference) {
+                        for run in &readout.runs {
+                            let (a, b) = (ink_extents(run), face_ink_extents(&face, run));
+                            assert!(
+                                (a.0 - b.0).abs() < 1e-3 && (a.1 - b.1).abs() < 1e-3,
+                                "{name}"
+                            );
+                        }
+                    }
+                    check_readout_with(readout, alt_ft, ias_kt, &|run| {
+                        face_ink_extents(&face, run)
+                    });
+                }
             }
         }
     }

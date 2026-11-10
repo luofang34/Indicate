@@ -185,6 +185,8 @@ pub const AIRSPEED_KT: AnalogDialSpec<'static> = AnalogDialSpec {
     cards: &[],
     tapes: &[],
     overlays: &[],
+    lettering: crate::spec::Lettering::DEFAULT,
+    arc_legends: &[],
 };
 
 const MPH_POINTS: [ScalePoint; 7] = [

@@ -23,6 +23,7 @@ mod color;
 mod decode;
 mod encode;
 mod layer;
+mod lettering;
 mod opcode;
 mod text_metrics;
 pub mod volume;
@@ -35,6 +36,7 @@ pub use layer::{
     LAYER_COUNT, LayerError, LayerId, LayerReport, MAX_LAYER_COMMANDS, MAX_SCENE_BYTES,
     MAX_STACK_DEPTH, validate_layers,
 };
+pub use lettering::{ArcAlign, ArcRun, ArcSense, FaceSlot};
 pub use text_metrics::{
     NOMINAL_ADVANCE_RATIO, NOMINAL_GLYPH_RATIO, nominal_text_ink_width, nominal_text_width,
 };

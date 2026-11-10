@@ -18,8 +18,10 @@ use crate::report::{FrameId, FramebufferDims, RenderReport, RenderStatus};
 use crate::state::RenderState;
 use crate::stroke::stroke_path;
 use crate::surface::Surface;
+use crate::text::face as face_text;
 use crate::text::{self, Run};
 use crate::transform::Affine;
+use indicate_instrument_glyphs::typeface::{Face, FaceTable};
 
 /// Renders an encoded scene into a caller-provided RGBA8 framebuffer.
 ///
@@ -34,9 +36,22 @@ pub fn render(
     dims: FramebufferDims,
     frame: FrameId,
 ) -> Result<RenderReport, RasterError> {
+    render_with_faces(scene, pixels, dims, frame, &FaceTable::DEFAULT)
+}
+
+/// [`render`] with the host's face bindings: text in face slot `k`
+/// draws in `faces.face(k)`. [`render`] binds nothing, so every slot
+/// draws in the reference face.
+pub fn render_with_faces(
+    scene: &[u8],
+    pixels: &mut [u8],
+    dims: FramebufferDims,
+    frame: FrameId,
+    faces: &FaceTable<'_>,
+) -> Result<RenderReport, RasterError> {
     let mut surface = Surface::new(pixels, dims)?;
     surface.clear();
-    match paint_at(scene, &mut surface, Placement::WHOLE_SURFACE) {
+    match paint_at(scene, &mut surface, Placement::WHOLE_SURFACE, faces) {
         Ok((unknown_opcodes, layers_present)) => Ok(RenderReport {
             scene_version: scene.first().copied().unwrap_or(0),
             status: RenderStatus::Painted,
@@ -89,6 +104,7 @@ pub(crate) fn paint_at(
     scene: &[u8],
     surface: &mut Surface<'_>,
     placement: Placement,
+    faces: &FaceTable<'_>,
 ) -> Result<(u32, u8), RasterError> {
     let report = validate_layers(scene)?;
     // The controlled glyph pack is part of the display's integrity
@@ -103,7 +119,7 @@ pub(crate) fn paint_at(
     }
     let mut unknown: u32 = 0;
     for item in SceneCmds::new(scene)? {
-        run(&item?, &mut state, surface, &mut unknown)?;
+        run(&item?, &mut state, surface, &mut unknown, faces)?;
     }
     Ok((unknown, report.present))
 }
@@ -113,6 +129,7 @@ fn run(
     state: &mut RenderState,
     surface: &mut Surface<'_>,
     unknown: &mut u32,
+    faces: &FaceTable<'_>,
 ) -> Result<(), RasterError> {
     match cmd {
         Cmd::Save => state.save(),
@@ -126,6 +143,19 @@ fn run(
         Cmd::Stroke { color, width } => state.set_stroke(*color, *width),
         // Provenance metadata for the admission harness; paints nothing.
         Cmd::Attribute { .. } => Ok(()),
+        Cmd::Font { slot } => {
+            state.set_font(*slot);
+            Ok(())
+        }
+        Cmd::TextArc(arc_run) => {
+            let gs = state.current();
+            match faces.face(gs.font.0) {
+                Face::Reference => text::draw_arc_run(surface, gs.clip, &gs.ctm, arc_run, gs.fill),
+                face => {
+                    face_text::draw_face_arc_run(surface, gs.clip, &gs.ctm, &face, arc_run, gs.fill)
+                }
+            }
+        }
         Cmd::ClipRect { x, y, w, h } => clip(state, *x, *y, *w, *h),
         Cmd::Line { x1, y1, x2, y2 } => line(state, surface, [*x1, *y1, *x2, *y2]),
         Cmd::Polyline { points } => polyline(state, surface, points),
@@ -145,7 +175,7 @@ fn run(
             size,
             anchor,
             text: run_text,
-        } => draw_text(state, surface, [*x, *y, *size], *anchor, run_text),
+        } => draw_text(state, surface, [*x, *y, *size], *anchor, run_text, faces),
         Cmd::BeginLayer { .. } | Cmd::EndLayer { .. } => Ok(()),
         Cmd::Unknown { .. } => {
             *unknown = unknown.wrapping_add(1);
@@ -320,6 +350,7 @@ fn draw_text(
     v: [f32; 3],
     anchor: Anchor,
     run_text: &str,
+    faces: &FaceTable<'_>,
 ) -> Result<(), RasterError> {
     let gs = state.current();
     let run = Run {
@@ -329,7 +360,10 @@ fn draw_text(
         anchor,
         text: run_text,
     };
-    text::draw_run(surface, gs.clip, &gs.ctm, run, gs.fill)
+    match faces.face(gs.font.0) {
+        Face::Reference => text::draw_run(surface, gs.clip, &gs.ctm, run, gs.fill),
+        face => face_text::draw_face_run(surface, gs.clip, &gs.ctm, &face, run, gs.fill),
+    }
 }
 
 /// Transforms the four corners of a logical rectangle to snapped device

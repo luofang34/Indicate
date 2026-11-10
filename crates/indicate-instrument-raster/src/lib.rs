@@ -85,9 +85,9 @@ mod text;
 pub mod timing;
 mod transform;
 
-pub use composition::{CompositionInputs, render_composition};
+pub use composition::{CompositionInputs, render_composition, render_composition_with_faces};
 pub use error::RasterError;
-pub use raster::render;
+pub use raster::{render, render_with_faces};
 pub use report::{FrameId, FramebufferDims, RenderReport, RenderStatus, RenderWork};
 
 /// Largest framebuffer dimension accepted per axis, in pixels.

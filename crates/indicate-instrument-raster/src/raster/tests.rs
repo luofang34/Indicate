@@ -8,7 +8,10 @@ use crate::{FrameId, FramebufferDims, RasterError, RenderReport, RenderStatus, r
 
 mod attitude_behavior;
 mod conformance;
+mod face_ink;
+mod faces;
 mod frame_hashes;
+mod lettering;
 mod readout_bounds;
 mod work_budget;
 

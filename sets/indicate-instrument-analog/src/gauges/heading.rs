@@ -160,6 +160,8 @@ pub const DIRECTIONAL_GYRO: AnalogDialSpec<'static> = AnalogDialSpec {
         shapes: DG_LUBBER,
         stack_height_mm: 2.0,
     }],
+    lettering: crate::spec::Lettering::DEFAULT,
+    arc_legends: &[],
 };
 
 const COMPASS_WINDOW: [f32; 4] = [-0.72, -0.27, 1.44, 0.54];
@@ -200,4 +202,6 @@ pub const MAGNETIC_COMPASS: AnalogDialSpec<'static> = AnalogDialSpec {
         shapes: COMPASS_LUBBER,
         stack_height_mm: 2.0,
     }],
+    lettering: crate::spec::Lettering::DEFAULT,
+    arc_legends: &[],
 };

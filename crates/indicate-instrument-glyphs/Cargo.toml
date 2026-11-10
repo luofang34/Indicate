@@ -10,4 +10,5 @@ workspace = true
 
 [dependencies]
 indicate-sha256 = { workspace = true }
+libm = { workspace = true }
 thiserror = { workspace = true }

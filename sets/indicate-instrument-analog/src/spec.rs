@@ -18,11 +18,13 @@
 
 mod check;
 mod input;
+mod lettering;
 mod parts;
 mod unit;
 
 pub use check::SpecError;
 pub use input::{Channel, DialChannel, DialInput};
+pub use lettering::{ArcLegend, Lettering};
 pub use parts::{
     CardSpec, CardTurn, MAX_CARDS, MAX_TAPES, Mark, OverlaySpec, Shape, TapeSense, TapeSpec,
     TapeTicks, Travel,
@@ -403,6 +405,10 @@ pub struct AnalogDialSpec<'a> {
     pub tapes: &'a [TapeSpec<'a>],
     /// Fixed parts in front of the moving parts.
     pub overlays: &'a [OverlaySpec<'a>],
+    /// Which face slots the numerals and legends are lettered in.
+    pub lettering: Lettering,
+    /// Legends along an arc of the face.
+    pub arc_legends: &'a [ArcLegend<'a>],
 }
 
 impl AnalogDialSpec<'_> {

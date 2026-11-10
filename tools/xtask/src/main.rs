@@ -8,6 +8,7 @@ mod fixture;
 mod manifest;
 mod output;
 mod setdoc;
+mod typeface;
 mod workspace;
 
 use output::print_line;
@@ -28,6 +29,9 @@ Commands:
       Regenerate the descriptor block of every set document under
       docs/instruments/ from the descriptors that own the facts. With
       --check, compare only and fail on a difference.
+  gen-typeface
+      Regenerate the typefaces Indicate ships as test data, in
+      testdata/typefaces/, from their source definitions.
   help
       Show this message.";
 
@@ -59,13 +63,21 @@ fn run(args: &[String]) -> Result<(), error::XtaskError> {
         }
         "gen-release-manifest" => manifest::run(manifest::parse_args(rest)?),
         "gen-set-docs" => setdoc::run(setdoc::parse_args(rest)?),
+        "gen-typeface" => {
+            if let Some(extra) = rest.first() {
+                return Err(error::XtaskError::Usage {
+                    message: format!("gen-typeface takes no arguments, got {extra:?}"),
+                });
+            }
+            typeface::run()
+        }
         "help" | "--help" | "-h" => {
             print_line(USAGE);
             Ok(())
         }
         other => Err(error::XtaskError::Usage {
             message: format!(
-                "unknown command {other:?} (expected gen-state-fixture, gen-release-manifest, gen-set-docs, or help)"
+                "unknown command {other:?} (expected gen-state-fixture, gen-release-manifest, gen-set-docs, gen-typeface, or help)"
             ),
         }),
     }

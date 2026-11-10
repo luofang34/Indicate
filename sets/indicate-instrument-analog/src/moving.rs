@@ -14,7 +14,7 @@
 //! height, then the fixed overlays by stack height.
 
 use indicate_instrument_descriptor::PanelDrawError;
-use indicate_instrument_scene::{Anchor, PaintMode, SceneWriter};
+use indicate_instrument_scene::{Anchor, FaceSlot, PaintMode, SceneWriter};
 use indicate_instrument_symbology::safety;
 
 use crate::face::Placement;
@@ -114,6 +114,10 @@ fn draw_window(
     let pitch = h * DIGIT_PITCH_SHARE;
     let size = window.digit_size * place.scale;
     scene.save()?;
+    // Drum digits are numerals: they letter in the numerals' face.
+    if spec.lettering.numerals != FaceSlot::DEFAULT {
+        scene.font(spec.lettering.numerals)?;
+    }
     scene.clip_rect(x, y, w, h)?;
     scene.fill_color(window.paint.under(lighting))?;
     let mut right = x + w;

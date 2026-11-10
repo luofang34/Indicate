@@ -20,6 +20,10 @@
 //! a later upgrade behind this same manifest contract, gated by a version
 //! bump.
 //!
+//! Beside the built-in pack, [`typeface`] reads stroke and outline faces
+//! from bytes at run time (format version 2), with per-face metrics and
+//! tessellation. The built-in pack stays the default face.
+//!
 //! The crate is `#![no_std]`: glyphs are static data and verification runs
 //! over borrowed bytes with no allocator.
 
@@ -33,6 +37,7 @@ mod error;
 mod font;
 mod glyph;
 mod manifest;
+pub mod typeface;
 mod vocabulary;
 
 pub use canonical::{CANONICAL_LEN, RECORDED_HASH};
@@ -42,4 +47,8 @@ pub use glyph::{
 };
 pub use indicate_sha256::sha256;
 pub use manifest::{GlyphManifest, PANEL_GLYPHS};
+pub use typeface::{
+    Face, FaceTable, GlyphKind, GlyphView, InkBox, PlacedGlyph, TextStyle, Triangle, Typeface,
+    TypefaceError,
+};
 pub use vocabulary::{FLAG_VOCABULARY, PANEL_STRINGS, PANEL_VOCABULARY};

@@ -61,6 +61,8 @@ pub struct WindowBuild {
     pub channel: Channel,
     /// Digit paint.
     pub paint: Paint,
+    /// The face slot the digit strip is lettered in.
+    pub face: indicate_instrument_scene::FaceSlot,
 }
 
 /// One card, ready to build.
@@ -93,6 +95,9 @@ pub struct TapeBuild<'a> {
     /// Which way the drum's values run past the window. A drum turns
     /// by `TapePose::value / period` of a turn.
     pub sense: TapeSense,
+    /// The face slot its numerals are lettered in: the dial's numeral
+    /// slot.
+    pub face: indicate_instrument_scene::FaceSlot,
 }
 
 /// Everything a 3D backend needs beyond the face texture.
@@ -117,6 +122,9 @@ pub struct PhysicalBuild<'a> {
     pub tapes: [Option<TapeBuild<'a>>; MAX_TAPES],
     /// Fixed parts in front of the moving parts, in face units.
     pub overlays: &'a [OverlaySpec<'a>],
+    /// The face slots the dial is lettered in; the host binds them to
+    /// faces and styles for both the face texture and the drum strips.
+    pub lettering: crate::spec::Lettering,
 }
 
 /// Bits of the bands the face-only scene emits.
@@ -155,6 +163,7 @@ pub fn physical_build<'a>(spec: &AnalogDialSpec<'a>) -> Result<PhysicalBuild<'a>
             digit_height_mm: window.digit_size * mm,
             channel: window.channel,
             paint: window.paint,
+            face: spec.lettering.numerals,
         });
     }
     let mut cards = [None; MAX_CARDS];
@@ -175,6 +184,7 @@ pub fn physical_build<'a>(spec: &AnalogDialSpec<'a>) -> Result<PhysicalBuild<'a>
             aperture_mm: [x * mm, y * mm, w * mm, h * mm],
             drum_radius_mm: tape.pitch * tape.period / core::f32::consts::TAU * mm,
             sense: tape.sense,
+            face: spec.lettering.numerals,
         });
     }
     Ok(PhysicalBuild {
@@ -186,5 +196,6 @@ pub fn physical_build<'a>(spec: &AnalogDialSpec<'a>) -> Result<PhysicalBuild<'a>
         cards,
         tapes,
         overlays: spec.overlays,
+        lettering: spec.lettering,
     })
 }

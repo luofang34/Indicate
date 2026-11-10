@@ -39,6 +39,12 @@ the same arc length. An overlay is a part fixed in front of the moving
 ones, such as a miniature aircraft, a lubber line, or a turn
 indicator's tube.
 
+A dial names the faces it is lettered in by scene face slot: one slot
+for scale numerals and drum digits, one for legends. The host binds each
+slot to a typeface and a style, and the same binding letters the 2D scene
+and the 3D build. A legend can also follow an arc of the face. The
+built-in gauges use the default face, so their scenes do not change.
+
 A spec holds borrowed slices and fixed capacities, so it needs no
 allocation. The registered panels use `static` specs. A simulator that
 reads its instrument packs at run time builds its own specs and calls

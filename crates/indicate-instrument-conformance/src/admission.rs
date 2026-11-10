@@ -23,13 +23,12 @@
 
 use indicate_alerts::AlertOutput;
 use indicate_instrument_glyphs::PANEL_VOCABULARY;
+use indicate_instrument_glyphs::typeface::FaceTable;
 use indicate_instrument_registry::{
     CANONICAL_STATES, DesignFrame, DrawContext, EMPTY_CONFIG, PanelCriticality, PanelDescriptor,
     PanelDrawError, Registry, RenderSpace, SceneTarget,
 };
-use indicate_instrument_scene::{
-    Cmd, LayerError, MAX_SCENE_BYTES, SceneCmds, SceneWriter, validate_layers,
-};
+use indicate_instrument_scene::{LayerError, MAX_SCENE_BYTES, SceneWriter, validate_layers};
 use indicate_instrument_state::{
     AircraftState, EngineSample, EngineSamples, FreshnessPolicy, GroupId, PanelData, TankSample,
     TankSamples, resolve, withhold_group,
@@ -45,20 +44,23 @@ mod frame_varies;
 mod geometry;
 mod ink;
 mod legend;
+mod lettering;
 mod provenance;
 mod regions;
+mod runs;
 mod volume;
 
 use alerts::saturated_stack;
 use background::check_background;
 use fixtures::check_fixture_engines;
 use frame_varies::check_frame_varies;
-use geometry::{Ctm, Rect, text_rect};
+use geometry::Rect;
 use legend::{LegendWitness, check_legends};
 use provenance::{ConfigClaims, check_provenance};
 use regions::check_non_vacuity;
+use runs::{RunsDefect, collect_runs};
 
-pub use criticality::criticality_bands;
+pub use criticality::{criticality_bands, criticality_bands_with_faces};
 pub use error::AdmissionError;
 
 /// One admission run's outcome: how much was covered, and what was
@@ -131,17 +133,30 @@ impl TextRun {
     }
 }
 
-/// Runs the full admission matrix over `registry`.
+/// Runs the full admission matrix over `registry` with no faces bound:
+/// every face slot letters in the reference face.
 pub fn admit(registry: &Registry) -> Result<AdmissionReport, AdmissionError> {
+    admit_with_faces(registry, &FaceTable::DEFAULT)
+}
+
+/// Runs the full admission matrix over `registry` with the host's face
+/// binding, so a dial lettered in a face slot is judged in the face it
+/// will be drawn in: frame overflow, printed-legend invariance, readout
+/// regions and criticality bands all use that face's ink, and a run
+/// the bound face cannot letter is refused.
+pub fn admit_with_faces(
+    registry: &Registry,
+    faces: &FaceTable<'_>,
+) -> Result<AdmissionReport, AdmissionError> {
     // Bands are measured before the judgements, so a report that
     // survives the matrix always carries them, and so the measurement
     // itself depends on nothing the matrix decides.
     let mut report = AdmissionReport {
-        criticality: criticality_bands(registry)?,
+        criticality: criticality_bands_with_faces(registry, faces)?,
         ..AdmissionReport::default()
     };
     for panel in registry.panels() {
-        admit_panel(panel, &mut report)?;
+        admit_panel(panel, &mut report, faces)?;
     }
     Ok(report)
 }
@@ -149,6 +164,7 @@ pub fn admit(registry: &Registry) -> Result<AdmissionReport, AdmissionError> {
 fn admit_panel(
     panel: &'static PanelDescriptor,
     report: &mut AdmissionReport,
+    faces: &FaceTable<'_>,
 ) -> Result<(), AdmissionError> {
     match panel.space {
         RenderSpace::Planar2D {
@@ -156,13 +172,13 @@ fn admit_panel(
         } => {
             check_fixture_engines(panel)?;
             for frame in canonical_frames {
-                admit_panel_at_frame(panel, *frame, report)?;
+                admit_panel_at_frame(panel, *frame, report, faces)?;
             }
-            check_non_vacuity(panel)?;
+            check_non_vacuity(panel, faces)?;
             check_frame_varies(panel)
         }
         RenderSpace::AngularSphere { overlay_frame } => {
-            angular::admit_angular(panel, overlay_frame, report)
+            angular::admit_angular(panel, overlay_frame, report, faces)
         }
         RenderSpace::Volume3D {
             extent_min_m,
@@ -183,10 +199,11 @@ fn admit_panel_at_frame(
     panel: &'static PanelDescriptor,
     frame: DesignFrame,
     report: &mut AdmissionReport,
+    faces: &FaceTable<'_>,
 ) -> Result<(), AdmissionError> {
     let mut legends = LegendWitness::default();
     for case in case_matrix(panel) {
-        check_case(panel, &case, frame, report, &mut legends)?;
+        check_case(panel, &case, frame, report, &mut legends, faces)?;
     }
     Ok(())
 }
@@ -265,10 +282,11 @@ fn check_case(
     frame: DesignFrame,
     report: &mut AdmissionReport,
     legends: &mut LegendWitness,
+    faces: &FaceTable<'_>,
 ) -> Result<(), AdmissionError> {
     let state_id = case.state_id;
     let data = resolve(&case.state, &FreshnessPolicy::default());
-    let runs = draw_runs(panel, case, &data, frame)?;
+    let runs = draw_runs(panel, case, &data, frame, faces)?;
     check_provenance(
         panel,
         state_id,
@@ -312,6 +330,7 @@ fn draw_runs(
     case: &Case,
     data: &PanelData,
     frame: DesignFrame,
+    faces: &FaceTable<'_>,
 ) -> Result<Vec<TextRun>, AdmissionError> {
     let state_id = case.state_id;
     let mut buf = vec![0u8; MAX_SCENE_BYTES];
@@ -346,23 +365,22 @@ fn draw_runs(
         });
     }
     check_background(panel, state_id, frame, scene)?;
-    match collect_runs(scene) {
-        Ok(runs) => Ok(runs),
-        Err(RunsDefect::Decode) => Err(AdmissionError::Decode {
-            panel: panel.id,
-            state: state_id,
-        }),
-        Err(RunsDefect::MisplacedClaim) => Err(AdmissionError::MisplacedClaim {
-            panel: panel.id,
-            state: state_id,
-        }),
-    }
+    collect_runs(scene, faces).map_err(|defect| defect.into_error(panel.id, state_id))
 }
 
-/// Why the run scanner refused a scene.
-enum RunsDefect {
-    Decode,
-    MisplacedClaim,
+impl RunsDefect {
+    fn into_error(self, panel: &'static str, state: &'static str) -> AdmissionError {
+        match self {
+            RunsDefect::Decode => AdmissionError::Decode { panel, state },
+            RunsDefect::MisplacedClaim => AdmissionError::MisplacedClaim { panel, state },
+            RunsDefect::Face { slot, source } => AdmissionError::FaceLettering {
+                panel,
+                state,
+                slot,
+                source,
+            },
+        }
+    }
 }
 
 fn draw_scene<'b>(
@@ -387,81 +405,6 @@ fn draw_scene<'b>(
     )?;
     let used = writer.finish();
     Ok(buf.get(..used).unwrap_or(&[]))
-}
-
-/// Decodes every text run into a design-space ink rectangle, tracking
-/// the transform and clip state the way a backend would, and pairing
-/// each run with the provenance claim prefixing it. A claim not
-/// immediately consumed by a text run is refused — stacked, dangling,
-/// or shape-interposed claims are structurally malformed.
-fn collect_runs(scene: &[u8]) -> Result<Vec<TextRun>, RunsDefect> {
-    let cmds = SceneCmds::new(scene).map_err(|_| RunsDefect::Decode)?;
-    let mut runs = Vec::new();
-    let mut pending: Option<u8> = None;
-    let mut stack = vec![(Ctm::IDENTITY, None::<Rect>)];
-    for cmd in cmds {
-        if pending.is_some() && !matches!(cmd, Ok(Cmd::Text { .. })) {
-            return Err(RunsDefect::MisplacedClaim);
-        }
-        match cmd {
-            Ok(Cmd::Attribute { group }) => pending = Some(group),
-            Ok(Cmd::Text {
-                x,
-                y,
-                size,
-                anchor,
-                text,
-            }) => {
-                let (ctm, clip) = stack.last().copied().ok_or(RunsDefect::Decode)?;
-                let local = text_rect(x, y, size, anchor.h, anchor.v, text.chars().count());
-                let rect = ctm.map_rect(&local);
-                runs.push(TextRun {
-                    visible: clip.is_none_or(|clip| rect.intersects(&clip)),
-                    rect,
-                    text: text.to_string(),
-                    attribution: pending.take(),
-                    clip,
-                });
-            }
-            Ok(Cmd::Save) => stack.push(stack.last().copied().ok_or(RunsDefect::Decode)?),
-            Ok(Cmd::Restore) => {
-                stack.pop();
-                if stack.is_empty() {
-                    stack.push((Ctm::IDENTITY, None));
-                }
-            }
-            Ok(Cmd::Translate { x, y }) => {
-                if let Some((ctm, _)) = stack.last_mut() {
-                    ctm.translate(x, y);
-                }
-            }
-            Ok(Cmd::Rotate { radians }) => {
-                if let Some((ctm, _)) = stack.last_mut() {
-                    ctm.rotate(radians);
-                }
-            }
-            Ok(Cmd::ClipRect { x, y, w, h }) => {
-                if let Some((ctm, clip)) = stack.last_mut() {
-                    let mapped = ctm.map_rect(&Rect {
-                        min_x: x,
-                        min_y: y,
-                        max_x: x + w,
-                        max_y: y + h,
-                    });
-                    *clip = Some(match clip {
-                        None => mapped,
-                        Some(previous) => previous.intersect(&mapped),
-                    });
-                }
-            }
-            Ok(_) => {}
-            Err(_) => return Err(RunsDefect::Decode),
-        }
-    }
-    if pending.is_some() {
-        return Err(RunsDefect::MisplacedClaim);
-    }
-    Ok(runs)
 }
 
 #[cfg(test)]

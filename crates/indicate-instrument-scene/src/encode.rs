@@ -256,6 +256,46 @@ impl<'a> SceneWriter<'a> {
         self.text(x, y, size, anchor, text)
     }
 
+    /// Selects the face slot later text uses ([`crate::Cmd::Font`]).
+    pub fn font(&mut self, slot: crate::FaceSlot) -> Result<(), SceneError> {
+        self.cmd(opcode::FONT, &[&[slot.0]])
+    }
+
+    /// A text run along a circle ([`crate::Cmd::TextArc`]).
+    pub fn text_arc(&mut self, run: &crate::ArcRun<'_>) -> Result<(), SceneError> {
+        if run.text.len() > MAX_TEXT_BYTES {
+            return Err(SceneError::TextTooLong);
+        }
+        let mut head = [0u8; 22];
+        for (k, v) in [run.size, run.cx, run.cy, run.radius, run.angle]
+            .iter()
+            .enumerate()
+        {
+            if let Some(slot) = head.get_mut(k * 4..k * 4 + 4) {
+                slot.copy_from_slice(&v.to_le_bytes());
+            }
+        }
+        head[20] = run.sense.to_u8();
+        head[21] = run.align.to_u8();
+        self.cmd(opcode::TEXT_ARC, &[&head, run.text.as_bytes()])
+    }
+
+    /// A text run along a circle, carrying its provenance claim, as
+    /// [`Self::text_attributed`] does for a straight run.
+    pub fn text_arc_attributed(
+        &mut self,
+        group: u8,
+        run: &crate::ArcRun<'_>,
+    ) -> Result<(), SceneError> {
+        let rollback = self.len;
+        self.cmd(opcode::ATTRIBUTE, &[&[group]])?;
+        let result = self.text_arc(run);
+        if result.is_err() {
+            self.len = rollback;
+        }
+        result
+    }
+
     /// Intersects the current clip with a rectangle.
     pub fn clip_rect(&mut self, x: f32, y: f32, w: f32, h: f32) -> Result<(), SceneError> {
         self.cmd_f32(opcode::CLIP_RECT, &[], &[x, y, w, h])

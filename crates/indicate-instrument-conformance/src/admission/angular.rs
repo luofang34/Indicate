@@ -1,6 +1,7 @@
 //! Admission matrix for `RenderSpace::AngularSphere` instruments (VOL-01).
 
 use indicate_instrument_glyphs::PANEL_VOCABULARY;
+use indicate_instrument_glyphs::typeface::FaceTable;
 use indicate_instrument_registry::{
     DesignFrame, DrawContext, EMPTY_CONFIG, PanelDescriptor, SceneTarget,
 };
@@ -22,6 +23,7 @@ pub(super) fn admit_angular(
     panel: &'static PanelDescriptor,
     overlay_frame: Option<DesignFrame>,
     report: &mut AdmissionReport,
+    faces: &FaceTable<'_>,
 ) -> Result<(), AdmissionError> {
     let mut ang_buf = vec![0u8; MAX_ANGULAR_SCENE_BYTES];
     let mut ov_buf = vec![0u8; MAX_SCENE_BYTES];
@@ -33,6 +35,7 @@ pub(super) fn admit_angular(
             &mut ang_buf,
             &mut ov_buf,
             report,
+            faces,
         )?;
     }
     Ok(())
@@ -45,6 +48,7 @@ fn check_angular_case(
     ang_buf: &mut [u8],
     ov_buf: &mut [u8],
     report: &mut AdmissionReport,
+    faces: &FaceTable<'_>,
 ) -> Result<(), AdmissionError> {
     let data = resolve(&case.state, &FreshnessPolicy::default());
     let ctx = DrawContext::new(&data)
@@ -59,7 +63,7 @@ fn check_angular_case(
     verify_angular_stream(panel, case, ang_bytes)?;
     if let Some(frame) = overlay_frame {
         let ov_bytes = ov_buf.get(..ov_used).unwrap_or(&[]);
-        verify_overlay_stream(panel, case, frame, ov_bytes, report)?;
+        verify_overlay_stream(panel, case, frame, ov_bytes, report, faces)?;
     }
     report.cases += 1;
     Ok(())
@@ -151,16 +155,8 @@ fn verify_angular_stream(
             missing,
         });
     }
-    let runs = collect_angular_runs(ang_bytes).map_err(|defect| match defect {
-        RunsDefect::Decode => AdmissionError::Decode {
-            panel: panel.id,
-            state: state_id,
-        },
-        RunsDefect::MisplacedClaim => AdmissionError::MisplacedClaim {
-            panel: panel.id,
-            state: state_id,
-        },
-    })?;
+    let runs =
+        collect_angular_runs(ang_bytes).map_err(|defect| defect.into_error(panel.id, state_id))?;
     check_provenance(panel, state_id, case.withheld, &runs, ConfigClaims::Refused)?;
     for run in &runs {
         for ch in run.text.chars() {
@@ -182,6 +178,7 @@ fn verify_overlay_stream(
     frame: DesignFrame,
     ov_bytes: &[u8],
     report: &mut AdmissionReport,
+    faces: &FaceTable<'_>,
 ) -> Result<(), AdmissionError> {
     let state_id = case.state_id;
     let layers = validate_layers(ov_bytes).map_err(|error| match error {
@@ -208,16 +205,8 @@ fn verify_overlay_stream(
         });
     }
     check_background(panel, state_id, frame, ov_bytes)?;
-    let runs = collect_runs(ov_bytes).map_err(|defect| match defect {
-        RunsDefect::Decode => AdmissionError::Decode {
-            panel: panel.id,
-            state: state_id,
-        },
-        RunsDefect::MisplacedClaim => AdmissionError::MisplacedClaim {
-            panel: panel.id,
-            state: state_id,
-        },
-    })?;
+    let runs =
+        collect_runs(ov_bytes, faces).map_err(|defect| defect.into_error(panel.id, state_id))?;
     check_provenance(panel, state_id, case.withheld, &runs, ConfigClaims::Refused)?;
     let bounds = Rect {
         min_x: 0.0,

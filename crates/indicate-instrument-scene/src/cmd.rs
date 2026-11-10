@@ -3,7 +3,8 @@
 use crate::color::Rgba8;
 use crate::layer::LayerId;
 
-/// Longest text payload a single [`Cmd::Text`] may carry, in UTF-8 bytes.
+/// Longest text payload a single [`Cmd::Text`] or [`Cmd::TextArc`] may
+/// carry, in UTF-8 bytes.
 pub const MAX_TEXT_BYTES: usize = 250;
 
 /// Whether a shape is filled, stroked, or both, using the current paints.
@@ -264,6 +265,20 @@ pub enum Cmd<'a> {
         /// [`ATTR_CONFIG`].
         group: u8,
     },
+    /// Select the face later text uses, by slot. The slot is graphics
+    /// state: it persists until changed and is restored by
+    /// [`Cmd::Restore`], like the paints. Every scene starts in
+    /// [`crate::FaceSlot::DEFAULT`]. A backend that does not know the
+    /// opcode keeps drawing in its default face.
+    Font {
+        /// The face slot.
+        slot: crate::FaceSlot,
+    },
+    /// A text run laid along a circle in the current face and fill
+    /// color. A preceding [`Cmd::Attribute`] claims it exactly as it
+    /// claims a [`Cmd::Text`]; the admission harness treats both as
+    /// text runs.
+    TextArc(crate::ArcRun<'a>),
     /// Intersect the current clip with an axis-aligned rectangle.
     ClipRect {
         /// Left edge.

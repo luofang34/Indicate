@@ -279,6 +279,7 @@ version = "0.1.0"
 dependencies = [
  "indicate-instrument-conformance",
  "indicate-instrument-descriptor",
+ "indicate-instrument-glyphs",
  "indicate-instrument-raster",
  "indicate-instrument-registry",
  "indicate-instrument-scene",
@@ -328,6 +329,7 @@ name = "indicate-instrument-glyphs"
 version = "0.1.0"
 dependencies = [
  "indicate-sha256",
+ "libm",
  "thiserror",
 ]
 

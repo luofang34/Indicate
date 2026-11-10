@@ -232,14 +232,20 @@ fn a_claimed_numeral_clipped_fully_away_is_tolerated() {
 fn a_dangling_claim_is_refused_by_the_scanner() {
     let bytes = [1u8, 0x31, 1, 0, 2, 0x31, 1, 0, 3];
     assert!(matches!(
-        super::super::collect_runs(&bytes),
+        super::super::collect_runs(
+            &bytes,
+            &indicate_instrument_glyphs::typeface::FaceTable::DEFAULT
+        ),
         Err(super::super::RunsDefect::MisplacedClaim)
     ));
     let bytes = [
         1u8, 0x31, 1, 0, 2, 0x23, 17, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63,
     ];
     assert!(matches!(
-        super::super::collect_runs(&bytes),
+        super::super::collect_runs(
+            &bytes,
+            &indicate_instrument_glyphs::typeface::FaceTable::DEFAULT
+        ),
         Err(super::super::RunsDefect::MisplacedClaim)
     ));
 }

@@ -79,6 +79,15 @@ The set ships outside the flight set, so the shipped panel set does not change.
 Admission now accepts printed legends: a configuration-claimed text run is admitted in the planar matrix when every case at a frame draws it with the same text, ink rectangle, and clip.
 A configuration-claimed run that changes, moves, appears, or disappears still fails as `ConfigClaim`, and the angular and volumetric matrices still refuse it.
 
+Instrument lettering is per face. `indicate-instrument-glyphs::typeface` reads faces from bytes at run time (format 2): stroke glyphs (a centreline with a round pen) and outline glyphs, per-glyph advance, ink box and kerning, glyph alternates, and a SHA-256 trailer over canonical bytes.
+A `TextStyle` (condense, pen, slant, alternates) letters one face several ways, and `tessellate_run` turns a run into triangles for a 3D builder.
+The built-in 5×7 pack, its version and its recorded hash do not change, and it stays the default face.
+The scene IR adds two append-only opcodes: `FONT` (`0x32`) selects a face slot, and `TEXT_ARC` (`0x33`) lays a run along a circle with glyph placement left to the backend.
+The host binds slots to faces out of band; `indicate-instrument-raster::render_with_faces` takes the binding, and `render` binds nothing, so existing scenes render byte for byte as before.
+The admission harness and the plugin host treat an arc run as a text run. The conformance corpus does not carry the new opcodes yet.
+Admission and composition take the host's face binding: `admit_with_faces`, `criticality_bands_with_faces` and `render_composition_with_faces` judge and paint each run in its bound face, and a run the bound face cannot letter is refused as `AdmissionError::FaceLettering`. The forms without a binding are unchanged. Criticality bands now include arc runs.
+The analog set letters dials by face slot, and `testdata/typefaces/us-ms33558/` ships an original stroke face drawn from MS33558 to MIL-M-18012B proportions.
+
 The composition digest and the screen-composition digest move because the scene digest hashes the ABI version byte.
 No paint changed: every raster baseline, the criticality bands, the glyph pack, and the corpus are byte-identical.
 

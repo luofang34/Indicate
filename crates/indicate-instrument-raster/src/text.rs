@@ -14,7 +14,7 @@
 //! coincide with `Baseline`.
 
 use indicate_instrument_glyphs::{ADVANCE, CELL_H, CELL_W, PANEL_GLYPHS};
-use indicate_instrument_scene::{Anchor, HAlign, VAlign};
+use indicate_instrument_scene::{Anchor, ArcRun, HAlign, VAlign};
 
 use crate::error::RasterError;
 use crate::paint::fill_polygon;
@@ -68,6 +68,51 @@ pub(crate) fn draw_run(
     }
     Ok(())
 }
+
+/// Renders a text run along a circle: each glyph on its own baseline
+/// point, turned to the reading direction, at the face's advance.
+pub(crate) fn draw_arc_run(
+    surface: &mut Surface<'_>,
+    clip: PixelRect,
+    ctm: &Affine,
+    run: &ArcRun<'_>,
+    color: [u8; 4],
+) -> Result<(), RasterError> {
+    if run.text.is_empty() || run.size <= 0.0 {
+        return Ok(());
+    }
+    if !(run.cx.is_finite()
+        && run.cy.is_finite()
+        && run.radius.is_finite()
+        && run.angle.is_finite())
+    {
+        return Err(RasterError::NonFinite);
+    }
+    let advance = f32::from(ADVANCE) * run.size / CELL_H as f32;
+    let length = run.text.chars().count() as f32 * advance;
+    let baseline_left = Anchor {
+        h: HAlign::Left,
+        v: VAlign::Baseline,
+    };
+    for (k, ch) in run.text.chars().enumerate() {
+        let (x, y, turn) = run.place(length, k as f32 * advance);
+        let mut local = *ctm;
+        local.translate(x, y);
+        local.rotate(turn);
+        let mut utf8 = [0u8; 4];
+        let glyph = Run {
+            x: 0.0,
+            y: 0.0,
+            size: run.size,
+            anchor: baseline_left,
+            text: ch.encode_utf8(&mut utf8),
+        };
+        draw_run(surface, clip, &local, glyph, color)?;
+    }
+    Ok(())
+}
+
+pub(crate) mod face;
 
 /// A text run.
 #[derive(Debug, Clone, Copy)]
