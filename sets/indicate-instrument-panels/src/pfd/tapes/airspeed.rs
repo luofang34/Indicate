@@ -11,7 +11,7 @@ use indicate_instrument_symbology::{fmt_label, palette, status_paint};
 
 use super::{
     CENTER_Y, IAS_READOUT, READOUT_BOTTOM, READOUT_TOP, SPEED_TAPE_TOP, TAPE_BOTTOM,
-    fitted_box_text_size, ladder_label_fits, pointed_readout,
+    fitted_box_text_size, ladder_label_fits, pointed_readout, source_band,
 };
 use crate::pfd::{VSpeedBugs, VSpeeds};
 
@@ -63,6 +63,10 @@ pub fn speed_tape(
         if let Some(v) = v {
             draw_linear_bands(scene, ias.value, v, &PFD_SPEED_SCALE)?;
         }
+        let keep_out = [
+            Some((READOUT_TOP, READOUT_BOTTOM)),
+            source_band(&data.sources.airspeed),
+        ];
         scene.save()?;
         scene.clip_rect(0.0, SPEED_TAPE_TOP, 90.0, TAPE_BOTTOM - SPEED_TAPE_TOP)?;
         scene.stroke(palette::WHITE, 2.0)?;
@@ -73,9 +77,7 @@ pub fn speed_tape(
             let kt = step * 5;
             let y = CENTER_Y - (kt as f32 - ias.value) * PX_PER_KT;
             scene.line(TICK_LEFT, y, 90.0, y)?;
-            if step % 2 == 0
-                && ladder_label_fits(y, 20.0, SPEED_TAPE_TOP, (READOUT_TOP, READOUT_BOTTOM))
-            {
+            if step % 2 == 0 && ladder_label_fits(y, 20.0, SPEED_TAPE_TOP, &keep_out) {
                 let label = fmt_label!(8, "{kt}");
                 scene.text_attributed(
                     GroupId::Air.to_u8(),

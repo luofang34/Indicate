@@ -18,8 +18,12 @@ use std::vec::Vec;
 use indicate_instrument_scene::{
     Cmd, HAlign, PaintMode, SceneCmds, VAlign, nominal_text_ink_width, nominal_text_width,
 };
-use indicate_instrument_state::{AltitudeClass, PanelData, Sig, SignalStatus, VSpeedBugs, VSpeeds};
+use indicate_instrument_state::{
+    AltitudeClass, PanelData, Sig, SignalStatus, SourceInputs, SourceMonitors, SourcePolicies,
+    UnusualAttitudeState, VSpeedBugs, VSpeeds,
+};
 
+use super::source_tests::{air_kt, alt_ft, frame};
 use super::tests::{PfdConfig, flying, render};
 use crate::{PANEL_H, PANEL_W};
 
@@ -251,9 +255,43 @@ const CLASSES: [AltitudeClass; 5] = [
     AltitudeClass::Agl,
 ];
 
-fn state(i: u16) -> PanelData {
+/// Two airspeed and two altitude sources that disagree, stepped until the
+/// miscompare is sustained: both source labels draw with their `CMP` row.
+fn miscomparing_sources() -> PanelData {
+    let policies = SourcePolicies::simulator();
+    let mut monitors = SourceMonitors::new();
+    let mut unusual = UnusualAttitudeState::default();
+    let mut panel = None;
+    for now in [0u64, 500, 1000] {
+        let air = [air_kt(1, now, 100.0), air_kt(2, now, 200.0)];
+        let alt = [alt_ft(1, now, 1000.0), alt_ft(2, now, 2000.0)];
+        panel = Some(frame(
+            &mut monitors,
+            &mut unusual,
+            &policies,
+            SourceInputs {
+                airspeed: &air,
+                altitude: &alt,
+                ..SourceInputs::default()
+            },
+            now,
+        ));
+    }
+    panel.expect("stepped")
+}
+
+fn state(i: u16, sources: &PanelData) -> PanelData {
     let step = f32::from(i);
     let mut data = flying();
+    if i.is_multiple_of(4) {
+        data.sources = sources.sources;
+    }
+    data.vsi_fpm = if i % 13 == 5 {
+        Sig::with_status(0.0, SignalStatus::Missing)
+    } else {
+        Sig::with_status((step * 37.0) % 5000.0 - 2500.0, SignalStatus::Valid)
+    };
+    data.altitude.setting_mismatch = i % 7 == 3;
     let ias = step * 0.37 % 210.0;
     data.ias_kt = Sig::with_status(ias, SignalStatus::Valid);
     data.tas_kt = Sig::with_status(ias * 1.1, SignalStatus::Valid);
@@ -269,8 +307,18 @@ fn state(i: u16) -> PanelData {
 #[test]
 fn no_pfd_text_is_cut_struck_or_overlapping_across_speed_and_altitude() {
     let cfg = light_single();
+    let sources = miscomparing_sources();
+    let mut seen = std::collections::BTreeSet::new();
     for i in 0..5000u16 {
-        check(&render(&state(i), &cfg), &std::format!("state {i}"));
+        let scene = render(&state(i, &sources), &cfg);
+        check(&scene, &std::format!("state {i}"));
+        seen.extend(layout(&scene).runs.into_iter().map(|run| run.text));
+    }
+    // The sweep reaches every conditional label it claims to check.
+    for label in [
+        "IAS CMP", "ALT CMP", "BARO SEL", "---", "-1500", "1500", "STD", "REL",
+    ] {
+        assert!(seen.contains(label), "the sweep never drew {label:?}");
     }
 }
 
@@ -294,7 +342,7 @@ fn degraded_readouts_keep_their_layout() {
         SignalStatus::Stale,
         SignalStatus::Failed,
     ] {
-        let mut data = state(1234);
+        let mut data = state(1234, &miscomparing_sources());
         data.ias_kt.status = status;
         data.tas_kt.status = status;
         data.gs_kt.status = status;

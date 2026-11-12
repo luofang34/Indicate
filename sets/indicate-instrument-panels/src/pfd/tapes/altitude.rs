@@ -12,7 +12,7 @@ use indicate_instrument_symbology::{fmt_label, palette, safety, status_paint};
 use super::super::drum;
 use super::{
     ALT_READOUT, ALTITUDE_TAPE_TOP, CENTER_Y, READOUT_TOP, TAPE_BOTTOM, fitted_box_text_size,
-    fitted_text_size, ladder_label_fits, pointed_box,
+    fitted_text_size, ladder_label_fits, pointed_box, source_band,
 };
 
 const PX_PER_FT: f32 = 1.2;
@@ -58,14 +58,33 @@ fn label_size(chars: usize) -> f32 {
     }
 }
 
+/// Row and run size of the amber `BARO SEL` flag, just above the
+/// barometric-setting box.
+const BARO_SEL_Y: f32 = TAPE_BOTTOM - 7.0;
+/// Run size of the `BARO SEL` flag.
+const BARO_SEL_SIZE: f32 = 11.0;
+
+/// The band a centered run of `size` at `y` occupies.
+fn band(y: f32, size: f32) -> (f32, f32) {
+    (y - size / 2.0, y + size / 2.0)
+}
+
+/// The band the `BARO SEL` flag occupies when it draws.
+fn baro_sel_band(data: &PanelData) -> Option<(f32, f32)> {
+    data.altitude
+        .setting_mismatch
+        .then(|| band(BARO_SEL_Y, BARO_SEL_SIZE))
+}
+
 /// Where the vertical-speed label sits, if it draws: at the bar's tip,
-/// kept clear of the boxes above and below the tape and of the readout
-/// band, so it never lands on a box or the reference label. A missing
-/// rate puts its dashes just above the readout.
+/// moved clear of the readout band, the reference label, the source
+/// label and the `BARO SEL` flag, so it never lands on a box or on
+/// another label. A missing rate puts its dashes just above the
+/// readout.
 fn vsi_label_y(data: &PanelData) -> Option<f32> {
     let v = data.vsi_fpm;
-    let clear_above = LADDER_KEEP_OUT.0 - VSI_LABEL_SIZE / 2.0;
-    let clear_below = LADDER_KEEP_OUT.1 + VSI_LABEL_SIZE / 2.0;
+    let half = VSI_LABEL_SIZE / 2.0;
+    let clear_above = LADDER_KEEP_OUT.0 - half;
     if !v.status.shows_value() {
         return Some(clear_above);
     }
@@ -73,15 +92,21 @@ fn vsi_label_y(data: &PanelData) -> Option<f32> {
         return None;
     }
     let len = vsi_length(v.value);
-    // Clamped clear of the selected-altitude box above and the baro box
-    // below: at full scale the label parks at the strip edge instead of
-    // sliding its ink under a readout box.
-    let tip_y = (CENTER_Y - len).clamp(32.0, 328.0);
-    Some(if len >= 0.0 {
-        tip_y.min(clear_above)
-    } else {
-        tip_y.max(clear_below)
-    })
+    // At full scale the label parks at the strip edge, clear of the
+    // selected-altitude box above and the baro box or flag below.
+    let floor = baro_sel_band(data).map_or(TAPE_BOTTOM, |(top, _)| top) - half - 1.0;
+    let tip_y = (CENTER_Y - len).clamp(ALTITUDE_TAPE_TOP + half + 2.0, floor);
+    if len >= 0.0 {
+        return Some(tip_y.min(clear_above));
+    }
+    let mut y = tip_y.max(LADDER_KEEP_OUT.1 + half);
+    if let Some((top, bottom)) = source_band(&data.sources.altitude)
+        && y + half > top
+        && y - half < bottom
+    {
+        y = bottom + half;
+    }
+    Some(y.min(floor))
 }
 
 /// Bar length for a vertical speed: ±1500 fpm full scale over 180 px.
@@ -115,18 +140,20 @@ pub fn altitude_tape(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<()
         )?;
         scene.stroke(palette::WHITE, 2.0)?;
         scene.fill_color(palette::WHITE)?;
-        let vsi_label = vsi_label_y(data);
+        let keep_out = [
+            Some(LADDER_KEEP_OUT),
+            source_band(&data.sources.altitude),
+            vsi_label_y(data).map(|y| band(y, VSI_LABEL_SIZE)),
+            baro_sel_band(data),
+        ];
         let lo = ((alt.value - 155.0) / 20.0) as i32;
         let hi = ((alt.value + 155.0) / 20.0) as i32;
         for step in lo..=hi {
             let ft = step * 20;
             let y = CENTER_Y - (ft as f32 - alt.value) * PX_PER_FT;
             scene.line(390.0, y, TICK_RIGHT, y)?;
-            let clear_of_vsi =
-                vsi_label.is_none_or(|v| (y - v).abs() >= (LABEL_SIZE + VSI_LABEL_SIZE) / 2.0);
             if step.rem_euclid(5) == 0
-                && clear_of_vsi
-                && ladder_label_fits(y, LABEL_SIZE, ALTITUDE_TAPE_TOP, LADDER_KEEP_OUT)
+                && ladder_label_fits(y, LABEL_SIZE, ALTITUDE_TAPE_TOP, &keep_out)
             {
                 let label = fmt_label!(12, "{ft}");
                 scene.text_attributed(
@@ -227,7 +254,7 @@ fn baro_and_sel_boxes(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(
         baro.status,
     )?;
     if data.altitude.setting_mismatch {
-        status_paint::draw_flag(scene, 435.0, 330.0, "BARO SEL")?;
+        status_paint::draw_flag(scene, 435.0, BARO_SEL_Y, "BARO SEL")?;
     }
     match (data.altitude.bug_compatible, data.selections.altitude_sel_m) {
         (true, Some(sel_m)) => {

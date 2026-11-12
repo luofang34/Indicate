@@ -208,7 +208,7 @@ fn annunciation_band(
         scene,
         GroupId::Air.to_u8(),
         45.0,
-        250.0,
+        tapes::SOURCE_LABEL_Y,
         "IAS",
         &data.sources.airspeed,
     )?;
@@ -216,7 +216,7 @@ fn annunciation_band(
         scene,
         GroupId::Kinematics.to_u8(),
         435.0,
-        250.0,
+        tapes::SOURCE_LABEL_Y,
         "ALT",
         &data.sources.altitude,
     )?;

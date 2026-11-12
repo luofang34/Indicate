@@ -12,7 +12,7 @@
 use indicate_instrument_scene::{
     Anchor, PaintMode, SceneError, SceneWriter, nominal_text_ink_width, nominal_text_width,
 };
-use indicate_instrument_state::{Sig, SignalStatus};
+use indicate_instrument_state::{ComparisonState, Sig, SignalStatus, SourcedFunction};
 use indicate_instrument_symbology::{palette, safety, status_paint};
 
 mod airspeed;
@@ -47,18 +47,42 @@ pub(super) const READOUT_BOTTOM: f32 = 205.0;
 const BOX_TEXT_INSET: f32 = 4.0;
 
 /// Whether a vertically centered ladder label stays wholly inside its
-/// visible tape and wholly clear of the band `keep_out` (top, bottom)
-/// that the tape's readout occupies.
+/// visible tape and wholly clear of every band in `keep_out` (top,
+/// bottom): the readout box, and the labels and flags drawn over the
+/// tape. A `None` band is one that is not drawn this frame.
 ///
 /// A label that crossed either would be cut by the tape edge or half
-/// hidden under the readout box, and a cut label can read as a
+/// hidden under a box or another label, and a cut label can read as a
 /// different number. Omitting it keeps every painted label whole.
-fn ladder_label_fits(y: f32, size: f32, top: f32, keep_out: (f32, f32)) -> bool {
+fn ladder_label_fits(y: f32, size: f32, top: f32, keep_out: &[Option<(f32, f32)>]) -> bool {
     let half_ink = size / 2.0;
     let (ink_top, ink_bottom) = (y - half_ink, y + half_ink);
     ink_top >= top
         && ink_bottom <= TAPE_BOTTOM
-        && (ink_bottom <= keep_out.0 || ink_top >= keep_out.1)
+        && keep_out
+            .iter()
+            .flatten()
+            .all(|&(band_top, band_bottom)| ink_bottom <= band_top || ink_top >= band_bottom)
+}
+
+/// Row of the source label (`IAS1`, `ALT2`) the annunciation band draws
+/// over each tape.
+pub(crate) const SOURCE_LABEL_Y: f32 = 250.0;
+
+/// Run size of the source label and of its `CMP` row.
+pub(crate) const SOURCE_LABEL_SIZE: f32 = 12.0;
+
+/// The band a tape's source label occupies when it draws: its own row,
+/// and the `CMP` row under it on a sustained miscompare.
+fn source_band<T: Copy>(selection: &SourcedFunction<T>) -> Option<(f32, f32)> {
+    selection.selected?;
+    let rows = if selection.state == ComparisonState::Miscompare {
+        2.0
+    } else {
+        1.0
+    };
+    let top = SOURCE_LABEL_Y - SOURCE_LABEL_SIZE / 2.0;
+    Some((top, top + rows * SOURCE_LABEL_SIZE))
 }
 
 /// Fits the text that [`status_paint::readout_box`] will paint inside a
