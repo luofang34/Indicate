@@ -22,7 +22,7 @@ use indicate_instrument_state::{
 };
 
 use crate::avionics::{Coherence, IngressSnapshot};
-use crate::nav_display::nav_display_state;
+use crate::nav_display::{LateralScaleProfile, nav_display_state};
 use crate::nav_guidance::NavSnapshot;
 
 /// Trust valid-flag bits the avionics gate authorizes, in the state
@@ -80,9 +80,14 @@ pub fn apply_avionics(snapshot: &IngressSnapshot, state: &mut AircraftState) {
 }
 
 /// Writes the navigation lane into `state` through the display profile,
-/// so absent guidance is absent and a NaN age is `Missing`.
-pub fn apply_nav(snapshot: Option<&NavSnapshot>, state: &mut AircraftState) {
-    state.nav = nav_display_state(snapshot).unwrap_or_default();
+/// so absent guidance is absent and a NaN age is `Missing`. `profile`
+/// gives the airframe class's full-scale width for each phase.
+pub fn apply_nav(
+    snapshot: Option<&NavSnapshot>,
+    profile: &LateralScaleProfile,
+    state: &mut AircraftState,
+) {
+    state.nav = nav_display_state(snapshot, profile).unwrap_or_default();
 }
 
 /// Writes aged flight reports into `state`; the ages inside are the

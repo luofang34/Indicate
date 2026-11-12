@@ -13,6 +13,7 @@ use crate::avionics::{
     AttitudeGroup, AvionicsIngress, AvionicsSample, IncarnationPolicy, IngressConfig,
     KinematicsGroup,
 };
+use crate::nav_display::LateralScaleProfile;
 use crate::stamp::{CLOCK_SIMULATION, ROLE_OPERATIONAL_ESTIMATE, RawStamp};
 
 const VEHICLE: u64 = 42;
@@ -125,7 +126,7 @@ fn quality_outside_the_declared_codes_is_unknown() {
 #[test]
 fn absent_navigation_and_flight_lanes_leave_defaults() {
     let mut state = AircraftState::default();
-    apply_nav(None, &mut state);
+    apply_nav(None, &LateralScaleProfile::GNSS_NAVIGATOR, &mut state);
     assert!(state.nav.data.is_none());
     apply_flight(Default::default(), &mut state);
     assert_eq!(state.flight, Default::default());

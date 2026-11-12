@@ -43,6 +43,46 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.10.0] — 2026-11-11
+
+The navigation guidance lane states its phase scale and its TO/FROM flag.
+The feeder no longer fixes every sample at terminal scale with a TO flag.
+
+- **`Guidance` gains `scale: NavScale` and `to_from: NavFromTo`.** Both
+  are required fields, so a struct literal that omits them stops
+  compiling. The source declares the phase because the phase follows
+  the flight plan.
+- **`nav_display_state` and `apply_nav` take a `LateralScaleProfile`.**
+  The profile gives the full-scale width in meters for each phase, per
+  airframe class. It has no `Default`, so each display names its
+  profile.
+- **Two profiles ship.** `LateralScaleProfile::GNSS_NAVIGATOR` is 2.0 NM
+  enroute, 1.0 NM terminal, and 0.3 NM approach.
+  `LateralScaleProfile::SMALL_UNMANNED` is 200 m, 50 m, and 20 m, which
+  are the widths the feeder used before.
+- **`FULL_SCALE_DOTS` replaces the three `LATERAL_M_PER_DOT_*`
+  constants and `lateral_m_per_dot`.** A width is the distance at two
+  dots. `LateralScaleProfile::m_per_dot` gives meters per dot.
+- **Absent and unknown values remove the display.** An `Unknown` phase,
+  a phase without a positive finite width, or an `Unknown` flag gives no
+  nav group. The display never falls back to a default width.
+- **The flag follows the source.** A tracked leg shows the stated `To`,
+  `From`, or `Off`. A leg without cross-track geometry shows `Off`. The
+  profile is linear and does not model a gradual change between phases.
+
+This release changes a public feeder API without changing the five
+contract values.
+
+| Value | This release |
+|---|---|
+| State ABI | 9 |
+| Scene format | 1 |
+| Corpus | 8 |
+| Composition digest | `c61cb54b60c31a2cbc614e809c29e7c8d363178d3c30bc01c55552092d236459` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
+
+Panel set changed since the previous release: no.
+
 ## [0.9.0] — 2026-11-09
 
 State ABI 9 carries the readings of mechanically modelled instruments.
