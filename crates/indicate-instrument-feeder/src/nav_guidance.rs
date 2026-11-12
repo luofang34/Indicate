@@ -10,7 +10,7 @@
 //! than judged: the panel's freshness policy owns when guidance stops
 //! showing, so there is no second staleness rule to diverge from it.
 
-use indicate_instrument_state::{IdentStr, NavFromTo, NavScale};
+use indicate_instrument_state::{IdentStr, NavFromTo, NavScale, NavSequencing};
 
 use crate::clock::{age_ms, clock_ok};
 use crate::stamp::{ROLE_NAVIGATION_SOLUTION, RawStamp, serial_is_newer, stamp_fault_for_role};
@@ -49,6 +49,11 @@ pub struct Guidance {
     /// `Off` removes the deviation bar, and `Unknown` removes the
     /// guidance display.
     pub to_from: NavFromTo,
+    /// Whether the source is sequencing its legs, holding, or has
+    /// suspended sequencing. The displays annunciate `HOLD` or `SUSP`,
+    /// so a TO/FROM flip over a holding fix does not read as a fault.
+    /// `Unknown` removes the guidance display.
+    pub sequencing: NavSequencing,
     /// Active leg index.
     pub leg_index: u32,
     /// Plan waypoint count.

@@ -13,7 +13,7 @@ it was written to remove.
 
 | Value | Where it lives |
 |---|---|
-| State ABI | `abi::v8::VERSION` in `indicate-instrument-state` |
+| State ABI | `VERSION` in the newest `abi::vN` module of `indicate-instrument-state` |
 | Scene format | `SCENE_FORMAT_VERSION` in `indicate-instrument-scene` |
 | Corpus | `corpusVersion` in `corpus/scene-conformance-corpus.json` |
 | Composition digest | `BUILTIN_SCENE_DIGEST` in `indicate-instrument-panels` |
@@ -42,6 +42,53 @@ below it is the second kind, and says so.
 Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
+
+## [0.12.0] — 2026-11-11
+
+State ABI 10 lets a navigation source declare what its receiver is tuned
+to and whether it is sequencing its legs
+([#105](https://github.com/luofang34/Indicate/issues/105)).
+
+- **The Nav group grows from 43 bytes to 45.** `facility_type` (offset
+  43) is 0 None, 1 VOR, or 2 Localizer. `sequencing` (offset 44) is
+  0 Sequencing, 1 HOLD, or 2 SUSP. Any other value decodes as `Unknown`
+  and fails the group. A producer that stamps version 10 and writes 43
+  bytes has the whole frame refused, so neither value is ever guessed.
+- **A facility must agree with its source.** GPS and no source take
+  None, and NAV1 and NAV2 take VOR or Localizer. Any other pair fails
+  the group as `GroupFault::Contradictory`. A later facility kind, such
+  as GLS, is an appended value.
+- **`NavData` gains `facility: NavFacility` and `sequencing:
+  NavSequencing`.** Both default to `Unknown`, so a literal built with
+  `..NavData::default()` fails the nav group until it declares both.
+- **The feeder's `Guidance` gains `sequencing`.** The GPS lane writes
+  facility None.
+- **The displays read both.**
+  - The HSI receiver label names the facility (`NAV1 VOR`, `NAV2 LOC`)
+    and moves six units left to keep clear of the rose.
+  - The HSI shows `HOLD` or `SUSP` at lower right under the needle's
+    gate.
+  - The head-worn CDI label carries the facility and the sequencing
+    state, and claims `GS` only for a localizer.
+  - The HUD approach scales read `LOC`/`GS`, `VOR`/`VDEV`, or
+    `LNAV`/`VNAV` from the facility.
+
+The module is `abi::v10`, and the golden frames are
+`state-abi-v10.*.hex`. A v9 frame is refused by version, so a producer
+moves to v10 and writes the two new bytes. The composition digest, the
+screen-composition digest, the HSI raster baseline, and the analog and
+volume scene digests move with the ABI version byte and the HSI labels.
+The corpus does not move.
+
+| Value | This release |
+|---|---|
+| State ABI | 10 |
+| Scene format | 1 |
+| Corpus | 9 |
+| Composition digest | `26fdba99a83fbbfc340f06350ab8f77e086e33b066a6c9d33a02a6fafad05189` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
+
+Panel set changed since the previous release: no.
 
 ## [0.11.1] — 2026-11-11
 

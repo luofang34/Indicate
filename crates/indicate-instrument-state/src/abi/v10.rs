@@ -72,7 +72,7 @@ mod stamped;
 mod tank_tests;
 
 /// Version stamped in the frame's first byte.
-pub const VERSION: u8 = 9;
+pub const VERSION: u8 = 10;
 
 /// Buffer capacity a feeder allocates for a frame of ordinary size.
 /// This is an allocation bound, not wire shape: the frame is
@@ -87,7 +87,7 @@ pub const VERSION: u8 = 9;
 /// all; it reads the bytes it was given.
 pub const CAPACITY: usize = 4096;
 
-/// Why a v9 frame failed to encode or decode.
+/// Why a v10 frame failed to encode or decode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum AbiError {
     /// The buffer ends before the announced content does.
@@ -155,7 +155,7 @@ const fn min_len(id: GroupId) -> usize {
         GroupId::Attitude => 32,
         GroupId::Kinematics => 28,
         GroupId::Air => 20,
-        GroupId::Nav => 43,
+        GroupId::Nav => 45,
         GroupId::Wind => 12,
         GroupId::Selections => 20,
         GroupId::Trust => 8,
@@ -256,7 +256,7 @@ fn encode_group(
     }
 }
 
-/// Decodes a v9 frame.
+/// Decodes a v10 frame.
 pub fn decode_state(buf: &[u8]) -> Result<DecodeReport, AbiError> {
     let version = *buf.first().ok_or(AbiError::Truncated)?;
     if version != VERSION {
@@ -305,14 +305,14 @@ pub fn decode_state(buf: &[u8]) -> Result<DecodeReport, AbiError> {
     Ok(report)
 }
 
-/// Encodes `state` as a canonical v9 frame — present groups only, in
+/// Encodes `state` as a canonical v10 frame — present groups only, in
 /// ascending tag order — returning the used length. A state with an
 /// engine header needs its samples: use [`encode_state_with`].
 pub fn encode_state(state: &AircraftState, buf: &mut [u8]) -> Result<usize, AbiError> {
     encode_state_with(state, &crate::engine::EngineSamples::EMPTY, buf)
 }
 
-/// Encodes `state` and the engine samples beside it as a canonical v9
+/// Encodes `state` and the engine samples beside it as a canonical v10
 /// frame, returning the used length. The samples must number exactly
 /// the engine header's count.
 pub fn encode_state_with(
@@ -328,7 +328,7 @@ pub fn encode_state_with(
 }
 
 /// Encodes `state` and every record group beside it (engines and fuel
-/// tanks) as a canonical v9 frame, returning the used length. Each
+/// tanks) as a canonical v10 frame, returning the used length. Each
 /// group's records must number exactly its header's count.
 pub fn encode_state_samples(
     state: &AircraftState,

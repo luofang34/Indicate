@@ -120,8 +120,9 @@ fn guidance(
         // Both labels draw under the needle's own gate: which receiver
         // drives it and what a dot is worth are only readable while
         // there is a needle to read them against.
-        cdi::draw_receiver_label(scene, data.nav.data.source)?;
+        cdi::draw_receiver_label(scene, &data.nav.data)?;
         cdi::draw_scale_label(scene, &data.nav)?;
+        cdi::draw_sequencing_label(scene, &data.nav.data)?;
     }
     bearing::draw_bearing_pointers(scene, &data.bearings.value, data.bearings_rose_rad, up_rad)?;
     Ok(needle)
@@ -183,6 +184,8 @@ fn annunciation_band(
     Ok(())
 }
 
+#[cfg(test)]
+mod facility_tests;
 #[cfg(test)]
 mod source_tests;
 #[cfg(test)]

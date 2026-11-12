@@ -185,6 +185,8 @@ pub(super) fn hsi_reciprocal_course() -> AircraftState {
             // fail-closed Unknown, which would fail the nav group and
             // leave this fixture stressing nothing.
             scale: NavScale::Approach,
+            facility: indicate_instrument_state::NavFacility::None,
+            sequencing: indicate_instrument_state::NavSequencing::Sequencing,
             ..NavData::default()
         }),
         age_ms: Some(40.0),

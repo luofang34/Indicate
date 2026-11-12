@@ -37,6 +37,8 @@ fn vertical_only(scale: NavScale) -> PanelData {
                 fromto: NavFromTo::To,
                 vdev_dots: Some(0.8),
                 scale,
+                facility: indicate_instrument_state::NavFacility::None,
+                sequencing: indicate_instrument_state::NavSequencing::Sequencing,
                 ..NavData::default()
             }),
             age_ms: Some(10.0),

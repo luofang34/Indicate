@@ -127,6 +127,8 @@ fn gps_course_draws_cdi_and_course_box() {
             // The vertical pointer, like the needle, draws only at a
             // named scale.
             scale: indicate_instrument_state::NavScale::Terminal,
+            facility: indicate_instrument_state::NavFacility::None,
+            sequencing: indicate_instrument_state::NavSequencing::Sequencing,
             ..NavData::default()
         },
         status: SignalStatus::Valid,
@@ -333,6 +335,8 @@ fn degraded_navigation_cue_is_an_annunciation() {
             vdev_dots: Some(0.4),
             dist_nm: Some(40.3),
             course_reference: indicate_instrument_state::HeadingReference::SimLocalTrue,
+            facility: indicate_instrument_state::NavFacility::None,
+            sequencing: indicate_instrument_state::NavSequencing::Sequencing,
             ..NavData::default()
         },
         status: SignalStatus::Degraded,
@@ -413,6 +417,8 @@ fn incompatible_course_shows_dashes_and_no_cdi() {
             vdev_dots: Some(0.4),
             dist_nm: Some(40.3),
             course_reference: indicate_instrument_state::HeadingReference::True,
+            facility: indicate_instrument_state::NavFacility::None,
+            sequencing: indicate_instrument_state::NavSequencing::Sequencing,
             ..NavData::default()
         },
         status: SignalStatus::Valid,

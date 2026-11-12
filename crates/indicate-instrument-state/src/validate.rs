@@ -42,6 +42,9 @@ pub enum GroupFault {
     /// does not match its count and presence masks, or a mask names a
     /// field outside the group's registry.
     MalformedPayload,
+    /// Two declared values contradict each other, such as a GPS course
+    /// tuned to a VOR. Neither can be believed, so the group fails.
+    Contradictory,
 }
 
 /// Per-group validation results; `None` means the group's received data
@@ -161,13 +164,20 @@ fn selections_fault(selections: &Selections) -> Option<GroupFault> {
 ///
 /// An unknown scale fails with the other unknown enumerations: the
 /// deflection is in dots, and a dot means nothing until the scale says
-/// what it is worth.
+/// what it is worth. A facility that cannot belong to the source fails
+/// too: the label would name a receiver state the source denies.
 fn nav_fault(nav: &crate::aircraft::NavData) -> Option<GroupFault> {
+    use crate::aircraft::{NavFacility, NavScale, NavSequencing};
     if matches!(nav.source, NavSource::Unknown)
         || matches!(nav.fromto, NavFromTo::Unknown)
-        || matches!(nav.scale, crate::aircraft::NavScale::Unknown)
+        || matches!(nav.scale, NavScale::Unknown)
+        || matches!(nav.facility, NavFacility::Unknown)
+        || matches!(nav.sequencing, NavSequencing::Unknown)
     {
         return Some(GroupFault::UnknownEnum);
+    }
+    if !nav.facility.fits(nav.source) {
+        return Some(GroupFault::Contradictory);
     }
     if nav.to_ident.is_invalid() || nav.from_ident.is_invalid() {
         return Some(GroupFault::MalformedIdent);

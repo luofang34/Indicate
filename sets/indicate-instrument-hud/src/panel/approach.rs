@@ -6,7 +6,7 @@
 //! so they keep the receiver's own validity and provenance.
 use super::*;
 use crate::runway::Runway;
-use indicate_instrument_state::{NavFromTo, NavScale, NavSource};
+use indicate_instrument_state::{NavFacility, NavFromTo, NavScale, NavSource};
 
 mod outline;
 
@@ -168,10 +168,10 @@ fn deviations(
         layout,
         scene,
     )?;
-    let label = if nav.source == NavSource::Gps {
-        "LNAV"
-    } else {
-        "LOC"
+    let label = match nav.facility {
+        NavFacility::Localizer => "LOC",
+        NavFacility::Vor => "VOR",
+        NavFacility::None | NavFacility::Unknown => "LNAV",
     };
     scene.fill_color(HUD_GREEN)?;
     scene.text_attributed(
@@ -188,10 +188,11 @@ fn deviations(
             layout,
             scene,
         )?;
-        let label = if nav.source == NavSource::Gps {
-            "VNAV"
-        } else {
-            "GS"
+        // Only a localizer pairs with a glideslope.
+        let label = match nav.facility {
+            NavFacility::Localizer => "GS",
+            NavFacility::Vor => "VDEV",
+            NavFacility::None | NavFacility::Unknown => "VNAV",
         };
         scene.fill_color(HUD_GREEN)?;
         scene.text_attributed(

@@ -10,7 +10,7 @@ use indicate_instrument_scene::{
     SceneWriter,
     angular::{AngularSceneWriter, MAX_ANGULAR_SCENE_BYTES},
 };
-use indicate_instrument_state::{FreshnessPolicy, abi::v9::fixtures, resolve};
+use indicate_instrument_state::{FreshnessPolicy, abi::v10::fixtures, resolve};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, thiserror::Error)]

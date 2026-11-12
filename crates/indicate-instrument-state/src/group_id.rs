@@ -66,7 +66,8 @@
 //! | Air (0x03) | `tas_mps f32`, NaN-absent (12 to 16 bytes) |
 //! | Air (0x03) | `vsi_mps f32`, the rate-of-climb instrument's reading, NaN-absent (16 to 20 bytes; ABI v9) |
 //! | Dynamics (0x0B) | `ias_trend f32` (d(IAS)/dt), NaN-absent, plus Trust valid bit 9 (16 to 20 bytes) |
-//! | Nav (0x04) | `scale_mode u8` (Enroute/Terminal/Approach, 255 fail-closed Unknown) and `facility_type u8`, both after the group's existing tail (42 to 43 to 44 bytes) |
+//! | Nav (0x04) | `scale_mode u8` (Enroute/Terminal/Approach, 255 fail-closed Unknown; 42 to 43 bytes) |
+//! | Nav (0x04) | `facility_type u8` (None/VOR/Localizer, any other value fail-closed Unknown, and a facility that cannot belong to the source fails the group) then `sequencing u8` (Sequencing/HOLD/SUSP, any other value fail-closed Unknown; 43 to 45 bytes; ABI v10). A later facility kind such as GLS is an appended value. |
 
 use crate::aircraft::AircraftState;
 use crate::signal::SignalStatus;
