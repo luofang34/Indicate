@@ -18,7 +18,7 @@ fn s(text: &str) -> String {
 }
 
 /// An airspeed candidate whose value renders as `kt` knots on the tape.
-fn air_kt(src: u8, now: u64, kt: f32) -> Candidate<ScalarMeasure> {
+pub(super) fn air_kt(src: u8, now: u64, kt: f32) -> Candidate<ScalarMeasure> {
     base(
         src,
         now,
@@ -30,7 +30,7 @@ fn air_kt(src: u8, now: u64, kt: f32) -> Candidate<ScalarMeasure> {
 }
 
 /// An altitude candidate whose value renders as `ft` feet on the tape.
-fn alt_ft(src: u8, now: u64, ft: f32) -> Candidate<SourceAltitude> {
+pub(super) fn alt_ft(src: u8, now: u64, ft: f32) -> Candidate<SourceAltitude> {
     base(
         src,
         now,
@@ -75,7 +75,7 @@ fn base<M>(src: u8, now: u64, measurement: M) -> Candidate<M> {
     }
 }
 
-fn frame(
+pub(super) fn frame(
     monitors: &mut SourceMonitors,
     unusual: &mut UnusualAttitudeState,
     policies: &SourcePolicies,
