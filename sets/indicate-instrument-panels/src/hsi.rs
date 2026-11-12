@@ -80,10 +80,16 @@ pub fn draw_hsi(
     scene.end_layer(LayerId::Tapes)?;
 
     scene.begin_layer(LayerId::Guidance)?;
-    if let Some((up_rad, _)) = up {
-        guidance(scene, data, up_rad)?;
+    let needle = match up {
+        Some((up_rad, _)) => guidance(scene, data, up_rad)?,
+        None => false,
+    };
+    // The vertical pointer is phase-scaled like the needle, so it never
+    // stands without the scale label. The needle's gate already drew
+    // the label when there is a needle.
+    if boxes::vertical_deviation(scene, data)? && !needle {
+        cdi::draw_scale_label(scene, &data.nav)?;
     }
-    boxes::vertical_deviation(scene, data)?;
     scene.end_layer(LayerId::Guidance)?;
 
     annunciation_band(scene, data, alerts)?;
@@ -94,17 +100,22 @@ pub fn draw_hsi(
 ///
 /// The two answer different questions and so carry different gates: the
 /// CDI needs a selected course on a usable receiver at a scale somebody
-/// named, while a pointer needs only its own receiver.
-fn guidance(scene: &mut SceneWriter<'_>, data: &PanelData, up_rad: f32) -> Result<(), SceneError> {
-    if data.nav.data.source != NavSource::None
+/// named, while a pointer needs only its own receiver. Returns whether
+/// the CDI drew.
+fn guidance(
+    scene: &mut SceneWriter<'_>,
+    data: &PanelData,
+    up_rad: f32,
+) -> Result<bool, SceneError> {
+    let needle = data.nav.data.source != NavSource::None
         && data.nav.status.shows_value()
         && data.nav.course_rose_rad.status.shows_value()
         // Belt and suspenders, like the rose basis: the group's fault
         // path already fails an unknown scale, and the needle still
         // refuses to draw without one. A deflection in dots is not a
         // distance until the scale says what a dot is worth.
-        && !data.nav.data.scale.label().is_empty()
-    {
+        && !data.nav.data.scale.label().is_empty();
+    if needle {
         cdi::draw_cdi(scene, &data.nav, up_rad)?;
         // Both labels draw under the needle's own gate: which receiver
         // drives it and what a dot is worth are only readable while
@@ -112,7 +123,8 @@ fn guidance(scene: &mut SceneWriter<'_>, data: &PanelData, up_rad: f32) -> Resul
         cdi::draw_receiver_label(scene, data.nav.data.source)?;
         cdi::draw_scale_label(scene, &data.nav)?;
     }
-    bearing::draw_bearing_pointers(scene, &data.bearings.value, data.bearings_rose_rad, up_rad)
+    bearing::draw_bearing_pointers(scene, &data.bearings.value, data.bearings_rose_rad, up_rad)?;
+    Ok(needle)
 }
 
 /// The Annunciation band: nav degradation flag, the rose-basis
@@ -175,3 +187,5 @@ fn annunciation_band(
 mod source_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod vertical_tests;
