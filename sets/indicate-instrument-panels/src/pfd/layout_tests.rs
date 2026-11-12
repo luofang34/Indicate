@@ -153,7 +153,7 @@ fn is_tape_strip(clip: Rect) -> bool {
 
 fn check(scene: &[u8], case: &str) {
     let layout = layout(scene);
-    let frame = [0.0, 0.0, PANEL_W as f32, PANEL_H as f32];
+    let frame = [0.0, 0.0, PANEL_W, PANEL_H];
     let (ladder, free): (Vec<&Run>, Vec<&Run>) = layout
         .runs
         .iter()
@@ -179,7 +179,12 @@ fn check(scene: &[u8], case: &str) {
         }
     }
     for (i, run) in free.iter().enumerate() {
-        assert!(inside(run.ink, frame), "{case}: {run:?} leaves the frame");
+        assert!(
+            inside(run.ink, frame),
+            "{case}: {:?} at {:?} leaves the frame",
+            run.text,
+            run.ink
+        );
         for other in free.iter().skip(i + 1).chain(ladder.iter()) {
             assert!(
                 !intersects(run.ink, other.ink),
@@ -256,8 +261,8 @@ fn state(i: u16) -> PanelData {
     data.altitude.value_ft = Sig::with_status(step * 4.3 - 1200.0, SignalStatus::Valid);
     data.altitude.class = CLASSES[usize::from(i) % CLASSES.len()];
     data.baro_hpa = Sig::with_status(1013.0, SignalStatus::Valid);
-    data.altitude.bug_compatible = i % 2 == 0;
-    data.selections.altitude_sel_m = (i % 3 != 0).then_some(f32::from(i % 70) * 152.4);
+    data.altitude.bug_compatible = i.is_multiple_of(2);
+    data.selections.altitude_sel_m = (!i.is_multiple_of(3)).then_some(f32::from(i % 70) * 152.4);
     data
 }
 
