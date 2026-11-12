@@ -73,6 +73,10 @@ and no longer fixes the vertical scale at 8 m per dot.
 - **The flag follows the source.** A tracked leg shows the stated `To`,
   `From`, or `Off`. A leg without cross-track geometry shows `Off`. The
   profile is linear and does not model a gradual change between phases.
+- **The HSI honours the flag and the scale.** `Off` removes the
+  deviation bar and keeps the course arrow. The vertical pointer draws
+  only at a named scale, and it shows the scale label when no needle
+  draws.
 
 This release changes a public feeder API without changing the five
 contract values.

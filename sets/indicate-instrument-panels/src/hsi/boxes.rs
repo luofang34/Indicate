@@ -141,12 +141,22 @@ pub fn heading_sel_box(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<
 }
 
 /// Vertical deviation (glideslope/glidepath) scale at the right edge.
-pub fn vertical_deviation(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneError> {
+/// Returns whether it drew.
+///
+/// A dot is worth a different height in each phase, so the pointer
+/// needs a named scale, as the needle does.
+pub fn vertical_deviation(
+    scene: &mut SceneWriter<'_>,
+    data: &PanelData,
+) -> Result<bool, SceneError> {
     let Some(vdev) = data.nav.data.vdev_dots else {
-        return Ok(());
+        return Ok(false);
     };
-    if !data.nav.status.shows_value() || data.nav.data.source == NavSource::None {
-        return Ok(());
+    if !data.nav.status.shows_value()
+        || data.nav.data.source == NavSource::None
+        || data.nav.data.scale.label().is_empty()
+    {
+        return Ok(false);
     }
     // ±2.5 dots over ±96 px (38.4 px/dot).
     let x = 452.0;
@@ -169,5 +179,5 @@ pub fn vertical_deviation(scene: &mut SceneWriter<'_>, data: &PanelData) -> Resu
     };
     scene.fill_color(color)?;
     scene.text(x, super::CY - 108.0, 13.0, Anchor::CENTER, tag)?;
-    Ok(())
+    Ok(true)
 }

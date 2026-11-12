@@ -124,6 +124,9 @@ fn gps_course_draws_cdi_and_course_box() {
             vdev_dots: Some(0.4),
             dist_nm: Some(40.3),
             course_reference: indicate_instrument_state::HeadingReference::SimLocalTrue,
+            // The vertical pointer, like the needle, draws only at a
+            // named scale.
+            scale: indicate_instrument_state::NavScale::Terminal,
             ..NavData::default()
         },
         status: SignalStatus::Valid,
