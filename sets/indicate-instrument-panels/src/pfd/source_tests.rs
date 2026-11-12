@@ -196,9 +196,11 @@ fn altitude_tape_value_and_label_share_one_source_and_switch_together() {
         },
         0,
     );
+    // The ladder label at the readout is omitted under the box, so the
+    // tape is read by the label one hundred feet above it.
     let t = texts(&render(&panel, &PfdConfig::default()));
     assert!(
-        t.contains(&s("1000")) && t.contains(&s("ALT1")),
+        t.contains(&s("1100")) && t.contains(&s("ALT1")),
         "authoritative altitude and label are the primary: {t:?}"
     );
 
@@ -221,11 +223,11 @@ fn altitude_tape_value_and_label_share_one_source_and_switch_together() {
     );
     let t = texts(&render(&panel, &PfdConfig::default()));
     assert!(
-        t.contains(&s("2000")) && t.contains(&s("ALT2")),
+        t.contains(&s("2100")) && t.contains(&s("ALT2")),
         "altitude value and label switched together: {t:?}"
     );
     assert!(
-        !t.contains(&s("1000")) && !t.contains(&s("ALT1")),
+        !t.contains(&s("1100")) && !t.contains(&s("ALT1")),
         "the old altitude and label must not linger: {t:?}"
     );
 }

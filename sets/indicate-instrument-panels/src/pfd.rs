@@ -186,7 +186,9 @@ fn annunciation_band(
         status_paint::draw_red_x(scene, 110.0, 50.0, 260.0, 240.0, "ATT")?;
     }
     if !data.flight.speed_present && data.ias_kt.status == SignalStatus::Failed {
-        status_paint::draw_red_x(scene, 8.0, 60.0, 74.0, 200.0, "IAS")?;
+        // The cross covers the strip above the readout box, so its label
+        // never lands on the box's own dashes.
+        status_paint::draw_red_x(scene, 8.0, 30.0, 74.0, 120.0, "IAS")?;
     }
     modes::draw(
         scene,
@@ -200,7 +202,7 @@ fn annunciation_band(
         },
     )?;
     if data.altitude.value_ft.status == SignalStatus::Failed {
-        status_paint::draw_red_x(scene, 398.0, 60.0, 74.0, 200.0, "ALT")?;
+        status_paint::draw_red_x(scene, 398.0, 30.0, 74.0, 120.0, "ALT")?;
     }
     source_label::draw_source_label(
         scene,
@@ -330,6 +332,8 @@ mod director_tests;
 mod drum_tests;
 #[cfg(test)]
 mod dyn_tests;
+#[cfg(test)]
+mod layout_tests;
 #[cfg(test)]
 mod source_tests;
 #[cfg(test)]

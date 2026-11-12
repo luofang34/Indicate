@@ -35,10 +35,36 @@ pub(super) const ALTITUDE_TAPE_TOP: f32 = 24.0;
 /// showing.
 pub(super) const TAPE_BOTTOM: f32 = 335.0;
 
-/// Whether a centered ladder label stays inside its visible tape.
-fn ladder_label_fits(y: f32, size: f32, top: f32) -> bool {
+/// Top edge of both pointed readout boxes.
+pub(super) const READOUT_TOP: f32 = 155.0;
+
+/// Bottom edge of both pointed readout boxes.
+pub(super) const READOUT_BOTTOM: f32 = 205.0;
+
+/// Clearance between a boxed readout's border and its text, each side.
+/// The border is painted on the box edge, so text fitted to the full
+/// box width would run into it.
+const BOX_TEXT_INSET: f32 = 4.0;
+
+/// Whether a vertically centered ladder label stays wholly inside its
+/// visible tape and wholly clear of the band `keep_out` (top, bottom)
+/// that the tape's readout occupies.
+///
+/// A label that crossed either would be cut by the tape edge or half
+/// hidden under the readout box, and a cut label can read as a
+/// different number. Omitting it keeps every painted label whole.
+fn ladder_label_fits(y: f32, size: f32, top: f32, keep_out: (f32, f32)) -> bool {
     let half_ink = size / 2.0;
-    y - half_ink >= top && y + half_ink <= TAPE_BOTTOM
+    let (ink_top, ink_bottom) = (y - half_ink, y + half_ink);
+    ink_top >= top
+        && ink_bottom <= TAPE_BOTTOM
+        && (ink_bottom <= keep_out.0 || ink_top >= keep_out.1)
+}
+
+/// Fits the text that [`status_paint::readout_box`] will paint inside a
+/// box `box_width` wide, clear of its border.
+fn fitted_box_text_size(box_width: f32, text: &str, preferred: f32, status: SignalStatus) -> f32 {
+    fitted_readout_size(box_width - 2.0 * BOX_TEXT_INSET, text, preferred, status)
 }
 
 /// Fits the text that [`status_paint::readout_box`] will paint.
@@ -128,13 +154,13 @@ fn pointed_box(
     scene.polygon(
         PaintMode::FillStroke,
         &[
-            [geo.far_x, 155.0],
-            [geo.near_x, 155.0],
+            [geo.far_x, READOUT_TOP],
+            [geo.near_x, READOUT_TOP],
             [geo.near_x, 168.0],
             [geo.tip_x, 180.0],
             [geo.near_x, 192.0],
-            [geo.near_x, 205.0],
-            [geo.far_x, 205.0],
+            [geo.near_x, READOUT_BOTTOM],
+            [geo.far_x, READOUT_BOTTOM],
         ],
     )?;
     scene.fill_color(if sig.status.shows_value() {

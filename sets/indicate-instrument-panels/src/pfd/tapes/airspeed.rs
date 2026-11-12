@@ -10,12 +10,19 @@ use indicate_instrument_symbology::v_speeds::{
 use indicate_instrument_symbology::{fmt_label, palette, status_paint};
 
 use super::{
-    CENTER_Y, IAS_READOUT, SPEED_TAPE_TOP, TAPE_BOTTOM, fitted_readout_size, ladder_label_fits,
-    pointed_readout,
+    CENTER_Y, IAS_READOUT, READOUT_BOTTOM, READOUT_TOP, SPEED_TAPE_TOP, TAPE_BOTTOM,
+    fitted_box_text_size, ladder_label_fits, pointed_readout,
 };
 use crate::pfd::{VSpeedBugs, VSpeeds};
 
 const PX_PER_KT: f32 = 7.2;
+
+/// Left end of the gradation ticks, which run to the tape's inner edge.
+const TICK_LEFT: f32 = 78.0;
+
+/// Right edge of the ladder labels: a gap short of the ticks, so no tick
+/// strikes through a digit.
+const LABEL_RIGHT: f32 = TICK_LEFT - 2.0;
 
 const PFD_SPEED_SCALE: LinearVSpeedScale = LinearVSpeedScale {
     edge_x: 90.0,
@@ -65,15 +72,17 @@ pub fn speed_tape(
         for step in lo..=hi {
             let kt = step * 5;
             let y = CENTER_Y - (kt as f32 - ias.value) * PX_PER_KT;
-            scene.line(78.0, y, 90.0, y)?;
-            if step % 2 == 0 && ladder_label_fits(y, 20.0, SPEED_TAPE_TOP) {
+            scene.line(TICK_LEFT, y, 90.0, y)?;
+            if step % 2 == 0
+                && ladder_label_fits(y, 20.0, SPEED_TAPE_TOP, (READOUT_TOP, READOUT_BOTTOM))
+            {
                 let label = fmt_label!(8, "{kt}");
                 scene.text_attributed(
                     GroupId::Air.to_u8(),
-                    70.0,
+                    LABEL_RIGHT,
                     y,
                     20.0,
-                    Anchor::CENTER,
+                    Anchor::MIDDLE_RIGHT,
                     label.as_str(),
                 )?;
             }
@@ -215,7 +224,7 @@ fn tas_box(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneErr
         SPEED_TAPE_TOP,
         tas_text.as_str(),
         palette::WHITE,
-        fitted_readout_size(90.0, tas_text.as_str(), 16.0, tas.status),
+        fitted_box_text_size(90.0, tas_text.as_str(), 16.0, tas.status),
         tas.status,
     )
 }
@@ -235,7 +244,7 @@ fn gs_box(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneErro
         25.0,
         gs_text.as_str(),
         palette::MAGENTA,
-        fitted_readout_size(90.0, gs_text.as_str(), 16.0, gs.status),
+        fitted_box_text_size(90.0, gs_text.as_str(), 16.0, gs.status),
         gs.status,
     )
 }

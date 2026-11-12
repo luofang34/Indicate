@@ -116,7 +116,7 @@ Crate: `indicate-instrument-panels`
 | Config keys | `0x0001`, `0x0002`, `0x0003`, `0x0004` |
 | Group regions | Air at (20, 162) size 40×36, Air at (390, 335) size 90×25, Air at (0, 0) size 90×25, Kinematics at (0, 335) size 90×25, Kinematics at (424, 162) size 36×36, Kinematics at (440, 28) size 26×307 |
 | Extreme states | `extended-flight-guidance`, `unusual-inverted`, `readout-extremes`, `director-engaged`, `level-accelerating` |
-| Raster baselines | 480×360 `1ffd3ff80047da054823de9cef9a5017b9c8b08d4b048b0db7db7ea1f827eea1` |
+| Raster baselines | 480×360 `f4298c93891de5db18f439d56134f2162e97a03528b922b279fa3ae7612c8411` |
 
 #### Panel `hsi` — HSI
 
