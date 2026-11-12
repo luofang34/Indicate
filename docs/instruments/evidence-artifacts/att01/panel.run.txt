@@ -2,10 +2,10 @@ Indicate evidence — captured verification run (SIM / NOT FOR FLIGHT)
 scope: ATT-01
 suite: PFD attitude panel
 command: cargo test -p indicate-instrument-panels
-config-digest: 5da6bbaf68264c93c9ca6c99b09546b0ff54f45e
+config-digest: cfc9d6eb170b5eec4a09506337e567195a9cebb8
 tool-version: rustc 1.99.0 (b940084d7 2026-09-28)
-run-id: local:5da6bbaf68264c93c9ca6c99b09546b0ff54f45e
+run-id: local:cfc9d6eb170b5eec4a09506337e567195a9cebb8
 outcome: pass
 summary:
-test result: ok. 136 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 140 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
