@@ -200,13 +200,21 @@ fn deviations(
     Ok(())
 }
 
+/// How far the integrity word's line sits below the lateral label, in
+/// layout units: one run height plus a gap.
+const INTEGRITY_LINE_DROP: f32 = 12.0;
+
 /// The lateral scale's label: what the deviation is measured against,
 /// and for a flight-management course the sensor that positions it.
 ///
-/// "LOC", "VOR", "LNAV", "LNAV VIS", "LNAV DR EXCL". The position words
-/// are a second run, because they take the caution color when the
-/// position is dead reckoning, degraded, or short of an excluded
-/// sensor. The pair is centered as one label.
+/// "LOC", "VOR", "LNAV", "LNAV VIS", "LNAV DR". The position word is a
+/// second run, because it takes the caution color when the position is
+/// dead reckoning, degraded, or short of an excluded sensor. The pair
+/// is centered as one label.
+///
+/// The integrity word draws on its own line beneath. The pitch ladder
+/// crosses this row, and one long line would reach past the gap in a
+/// ladder bar.
 fn lateral_label(
     nav: &NavData,
     at: [f32; 2],
@@ -226,14 +234,8 @@ fn lateral_label(
         scene.text_attributed(GroupId::Nav.to_u8(), x, y, size, Anchor::CENTER, label)?;
         return Ok(());
     }
-    let integrity = nav.position_integrity.label();
-    let words = fmt_label!(
-        12,
-        "{position}{}{integrity}",
-        if integrity.is_empty() { "" } else { " " }
-    );
     let label_chars = label.chars().count() + 1;
-    let all_chars = label_chars + words.as_str().chars().count();
+    let all_chars = label_chars + position.chars().count();
     let left = x - nominal_text_width(size, all_chars) / 2.0;
     scene.text_attributed(
         GroupId::Nav.to_u8(),
@@ -243,8 +245,9 @@ fn lateral_label(
         Anchor::MIDDLE_LEFT,
         label,
     )?;
+    let caution = status_color(layout, SignalStatus::Degraded);
     if nav.position_is_caution() {
-        scene.fill_color(status_color(layout, SignalStatus::Degraded))?;
+        scene.fill_color(caution)?;
     }
     scene.text_attributed(
         GroupId::Nav.to_u8(),
@@ -252,8 +255,20 @@ fn lateral_label(
         y,
         size,
         Anchor::MIDDLE_LEFT,
-        words.as_str(),
+        position,
     )?;
+    let integrity = nav.position_integrity.label();
+    if !integrity.is_empty() {
+        scene.fill_color(caution)?;
+        scene.text_attributed(
+            GroupId::Nav.to_u8(),
+            x,
+            y + INTEGRITY_LINE_DROP * layout.unit,
+            size,
+            Anchor::CENTER,
+            integrity,
+        )?;
+    }
     Ok(())
 }
 

@@ -84,8 +84,9 @@ Both profiles draw approach symbology while a valid runway is supplied:
 - Lateral and vertical deviation scales from an approach-scale source,
   labelled `LOC` and `GS`, or `LNAV` and `VNAV` for a computed course. A
   flight-management course names its position sensor beside `LNAV`, for
-  example `LNAV VIS`. The position words take the caution color for dead
-  reckoning, a degraded position, or an excluded sensor. Without such a
+  example `LNAV VIS`. The position word takes the caution color for dead
+  reckoning, a degraded position, or an excluded sensor. `DGRD` or `EXCL`
+  draws on its own line beneath, in the caution color. Without such a
   source, `LOC GS UNAVAILABLE` or the group status shows, and the runway
   geometry stays.
 
