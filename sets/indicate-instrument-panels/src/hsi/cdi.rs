@@ -130,9 +130,15 @@ pub fn draw_cdi(
     }
 
     // Deviation bar: where the course line *is*, relative to the aircraft.
-    let dx = (nav.data.cdi_dots.clamp(-2.4, 2.4)) * PX_PER_DOT;
+    // Only a TO or FROM resolution has a deviation to show. Without one
+    // the bar is removed, as the HUD and HMD remove theirs: a centered
+    // bar would read as on course. The course arrow stays, because the
+    // course is still valid.
     scene.fill_color(color)?;
-    scene.rect(PaintMode::Fill, dx - 2.5, -36.0, 5.0, 72.0)?;
+    if matches!(nav.data.fromto, NavFromTo::To | NavFromTo::From) {
+        let dx = (nav.data.cdi_dots.clamp(-2.4, 2.4)) * PX_PER_DOT;
+        scene.rect(PaintMode::Fill, dx - 2.5, -36.0, 5.0, 72.0)?;
+    }
 
     // TO/FROM triangle beside the fore shaft.
     match nav.data.fromto {
@@ -153,3 +159,6 @@ pub fn draw_cdi(
     scene.restore()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

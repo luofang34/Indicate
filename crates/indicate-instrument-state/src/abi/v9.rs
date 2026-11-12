@@ -452,6 +452,8 @@ mod bearing_tests;
 #[cfg(test)]
 mod fixture_tests;
 #[cfg(test)]
+mod nav_tests;
+#[cfg(test)]
 mod posture_tests;
 #[cfg(test)]
 mod tests;
