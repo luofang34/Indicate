@@ -87,29 +87,37 @@ Panel set changed since the previous release: no.
 ## [0.10.0] — 2026-11-11
 
 The navigation guidance lane states its phase scale and its TO/FROM flag.
-The feeder no longer fixes every sample at terminal scale with a TO flag.
+The feeder no longer fixes every sample at terminal scale with a TO flag,
+and no longer fixes the vertical scale at 8 m per dot.
 
 - **`Guidance` gains `scale: NavScale` and `to_from: NavFromTo`.** Both
   are required fields, so a struct literal that omits them stops
   compiling. The source declares the phase because the phase follows
   the flight plan.
-- **`nav_display_state` and `apply_nav` take a `LateralScaleProfile`.**
-  The profile gives the full-scale width in meters for each phase, per
-  airframe class. It has no `Default`, so each display names its
-  profile.
-- **Two profiles ship.** `LateralScaleProfile::GNSS_NAVIGATOR` is 2.0 NM
-  enroute, 1.0 NM terminal, and 0.3 NM approach.
-  `LateralScaleProfile::SMALL_UNMANNED` is 200 m, 50 m, and 20 m, which
-  are the widths the feeder used before.
-- **`FULL_SCALE_DOTS` replaces the three `LATERAL_M_PER_DOT_*`
-  constants and `lateral_m_per_dot`.** A width is the distance at two
-  dots. `LateralScaleProfile::m_per_dot` gives meters per dot.
+- **`nav_display_state` and `apply_nav` take a `DeviationScaleProfile`.**
+  The profile gives a `PhaseWidths` for each phase: the lateral and the
+  vertical deviation at the outer dot, in meters, per airframe class. It
+  has no `Default`, so each display names its profile.
+- **Two profiles ship.** `DeviationScaleProfile::GNSS_NAVIGATOR` is
+  2.0 NM, 1.0 NM and 0.3 NM lateral, and 1000 ft, 1000 ft and 150 ft
+  vertical. `DeviationScaleProfile::SMALL_UNMANNED` is 200 m, 50 m and
+  20 m lateral, and 16 m vertical, which are the widths the feeder used
+  before.
+- **`OUTER_DOT` replaces the three `LATERAL_M_PER_DOT_*` constants,
+  `lateral_m_per_dot` and `VDEV_M_PER_DOT`.** A width is the deviation
+  at two dots on either axis. `lateral_m_per_dot` and
+  `vertical_m_per_dot` on the profile give meters per dot.
 - **Absent and unknown values remove the display.** An `Unknown` phase,
-  a phase without a positive finite width, or an `Unknown` flag gives no
-  nav group. The display never falls back to a default width.
+  a phase without a positive finite width on both axes, or an `Unknown`
+  flag gives no nav group. The display never falls back to a default
+  width.
 - **The flag follows the source.** A tracked leg shows the stated `To`,
   `From`, or `Off`. A leg without cross-track geometry shows `Off`. The
   profile is linear and does not model a gradual change between phases.
+- **The HSI honours the flag and the scale.** `Off` removes the
+  deviation bar and keeps the course arrow. The vertical pointer draws
+  only at a named scale, and it shows the scale label when no needle
+  draws.
 
 This release changes a public feeder API without changing the five
 contract values.
