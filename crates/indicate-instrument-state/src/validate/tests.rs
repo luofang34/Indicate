@@ -53,6 +53,8 @@ fn trusted_full_state() -> AircraftState {
             course_reference: HeadingReference::SimLocalTrue,
             facility: crate::aircraft::NavFacility::None,
             sequencing: crate::aircraft::NavSequencing::Sequencing,
+            position_source: crate::aircraft::PositionSource::None,
+            position_integrity: crate::aircraft::PositionIntegrity::Normal,
             ..NavData::default()
         }),
         wind: stamped(Wind {

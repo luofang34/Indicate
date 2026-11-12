@@ -185,6 +185,8 @@ fn with_nav(source: NavSource) -> PanelData {
                 indicate_instrument_state::NavFacility::Vor
             },
             sequencing: indicate_instrument_state::NavSequencing::Sequencing,
+            position_source: indicate_instrument_state::PositionSource::None,
+            position_integrity: indicate_instrument_state::PositionIntegrity::Normal,
             ..NavData::default()
         },
         status: SignalStatus::Valid,
@@ -394,6 +396,8 @@ fn nav_at_scale(scale: indicate_instrument_state::NavScale) -> PanelData {
             scale,
             facility: indicate_instrument_state::NavFacility::None,
             sequencing: indicate_instrument_state::NavSequencing::Sequencing,
+            position_source: indicate_instrument_state::PositionSource::None,
+            position_integrity: indicate_instrument_state::PositionIntegrity::Normal,
             ..NavData::default()
         }),
         age_ms: Some(10.0),

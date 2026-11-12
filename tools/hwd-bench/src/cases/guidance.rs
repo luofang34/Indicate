@@ -1,12 +1,16 @@
 //! Approach deviations and recovery cases use declared sources and measured attitudes.
 use super::*;
-use indicate_instrument_state::{NavFacility, NavFromTo, NavScale, NavSequencing, NavSource};
+use indicate_instrument_state::{
+    NavFacility, NavFromTo, NavScale, NavSequencing, NavSource, PositionIntegrity, PositionSource,
+};
 
 fn ils(data: &mut PanelData) {
     data.nav.status = SignalStatus::Valid;
     data.nav.data.source = NavSource::Nav1;
     data.nav.data.facility = NavFacility::Localizer;
     data.nav.data.sequencing = NavSequencing::Sequencing;
+    data.nav.data.position_source = PositionSource::None;
+    data.nav.data.position_integrity = PositionIntegrity::Normal;
     data.nav.data.course_reference = HeadingReference::True;
     data.nav.data.course_rad = 90_f32.to_radians();
     data.nav.course_rose_rad = Sig::valid(90_f32.to_radians());

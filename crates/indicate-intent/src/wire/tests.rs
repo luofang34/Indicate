@@ -51,6 +51,7 @@ fn round_trips_all_core_and_custom_requests() {
         Intent::SelectNavSource(NavSource::Nav1),
         Intent::SelectNavSource(NavSource::Nav2),
         Intent::SelectNavSource(NavSource::Gps),
+        Intent::SelectNavSource(NavSource::Fms),
         Intent::AcknowledgeAlert(AlertId(0x0101)),
         Intent::AcknowledgeAllAlerts,
         Intent::SelectPage(PageId(4)),

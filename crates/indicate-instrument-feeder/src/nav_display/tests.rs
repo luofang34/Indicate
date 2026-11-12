@@ -5,7 +5,8 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 use indicate_instrument_state::{
-    IdentStr, NavData, NavFacility, NavFromTo, NavScale, NavSequencing,
+    IdentStr, NavData, NavFacility, NavFromTo, NavScale, NavSequencing, NavSource,
+    PositionIntegrity, PositionSource, validate_state,
 };
 
 use super::{DeviationScaleProfile, M_PER_FT, M_PER_NM, OUTER_DOT, PhaseWidths, nav_display_state};
@@ -33,6 +34,8 @@ fn guidance() -> Guidance {
         scale: NavScale::Terminal,
         to_from: NavFromTo::To,
         sequencing: NavSequencing::Sequencing,
+        position_source: PositionSource::Gps,
+        position_integrity: PositionIntegrity::Normal,
         leg_index: 1,
         waypoint_count: 4,
         solution_quality: 0,
@@ -288,7 +291,7 @@ fn the_flag_and_scale_flip_in_the_sample_that_flips_them() {
 }
 
 #[test]
-fn the_stated_sequencing_reaches_the_group_and_gps_names_no_facility() {
+fn the_stated_sequencing_reaches_the_group_and_the_lane_names_no_facility() {
     for state in [
         NavSequencing::Sequencing,
         NavSequencing::Hold,
@@ -303,4 +306,60 @@ fn the_stated_sequencing_reaches_the_group_and_gps_names_no_facility() {
     let mut unknown = guidance();
     unknown.sequencing = NavSequencing::Unknown;
     assert!(nav(unknown, &GNSS).is_none(), "an unknown state is absent");
+}
+
+/// The lane is flight-management guidance on every position sensor, so
+/// the group never claims a GPS receiver the vehicle is not steering on.
+#[test]
+fn the_lane_is_flight_management_and_carries_the_stated_position() {
+    for position in [
+        PositionSource::Gps,
+        PositionSource::Visual,
+        PositionSource::Inertial,
+        PositionSource::DeadReckoning,
+        PositionSource::Blended,
+    ] {
+        for integrity in [
+            PositionIntegrity::Normal,
+            PositionIntegrity::Degraded,
+            PositionIntegrity::SensorExcluded,
+        ] {
+            let mut sample = guidance();
+            sample.position_source = position;
+            sample.position_integrity = integrity;
+            let nav = nav(sample, &GNSS).expect("displays");
+            assert_eq!(nav.source, NavSource::Fms);
+            assert_eq!(
+                (nav.position_source, nav.position_integrity),
+                (position, integrity)
+            );
+            let state = indicate_instrument_state::AircraftState {
+                nav: indicate_instrument_state::Stamped {
+                    data: Some(nav),
+                    age_ms: Some(120.0),
+                },
+                ..Default::default()
+            };
+            assert_eq!(
+                validate_state(&state).nav,
+                None,
+                "{position:?} {integrity:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_lane_without_a_stated_position_or_integrity_is_absent() {
+    for position in [PositionSource::None, PositionSource::Unknown] {
+        let mut sample = guidance();
+        sample.position_source = position;
+        assert!(nav(sample, &GNSS).is_none(), "{position:?}");
+    }
+    let mut sample = guidance();
+    sample.position_integrity = PositionIntegrity::Unknown;
+    assert!(
+        nav(sample, &GNSS).is_none(),
+        "an unknown integrity is absent"
+    );
 }

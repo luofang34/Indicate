@@ -1,25 +1,30 @@
 //! The course deviation indicator: course arrow, deviation bar, scale
 //! dots, and TO/FROM triangle.
 
-use indicate_instrument_scene::{Anchor, PaintMode, Rgba8, SceneError, SceneWriter};
+use indicate_instrument_scene::{
+    Anchor, PaintMode, Rgba8, SceneError, SceneWriter, nominal_text_width,
+};
 use indicate_instrument_state::{GroupId, NavData, NavFromTo, NavResolved, NavSource};
 
 use indicate_instrument_symbology::fixed_str::FixedStr;
-use indicate_instrument_symbology::{fmt_label, palette};
+use indicate_instrument_symbology::{fmt_label, palette, safety};
 
 /// Two dots of lateral deviation = 75 px (37.5 px/dot, G5 proportions).
 const PX_PER_DOT: f32 = 37.5;
 
 pub(crate) fn source_color(source: NavSource) -> Rgba8 {
-    match source {
-        NavSource::Gps => palette::MAGENTA,
-        _ => palette::GREEN,
+    // A computed course is magenta and a ground facility is green, so
+    // the color answers "whose course" before the label is read.
+    if source.is_computed() {
+        palette::MAGENTA
+    } else {
+        palette::GREEN
     }
 }
 
-/// Which receiver drives the needle, and what it is tuned to: `GPS`,
-/// `NAV1 VOR`, `NAV2 LOC`. Nav1 and Nav2 wear the same green, so the
-/// text is the only thing that tells them apart, and a VOR and a
+/// Which source drives the needle, and what it is tuned to: `GPS`,
+/// `NAV1 VOR`, `NAV2 LOC`, `FMS`. Nav1 and Nav2 wear the same green, so
+/// the text is the only thing that tells them apart, and a VOR and a
 /// localizer read differently (a localizer has no TO/FROM and pairs
 /// with a glideslope). The numerals make this a claimed run — it
 /// derives from the nav group, so it claims `GroupId::Nav`, and the
@@ -28,17 +33,15 @@ pub(crate) fn source_color(source: NavSource) -> Rgba8 {
 ///
 /// Distinct from [`indicate_instrument_symbology::source_label`], which
 /// names the SENSOR feeding a function and colors it by health. This
-/// names the receiver a selection points at, and colors it by source
+/// names the source a selection points at, and colors it by source
 /// class. One panel paints both, so they never share a name.
 pub(crate) fn receiver_text(nav: &NavData) -> Option<FixedStr<12>> {
-    let receiver = match nav.source {
-        NavSource::Gps => "GPS",
-        NavSource::Nav1 => "NAV1",
-        NavSource::Nav2 => "NAV2",
-        // No source is gated out by the caller; an unknown one fails the
-        // nav group in resolve. Neither may invent a label here.
-        NavSource::None | NavSource::Unknown => return None,
-    };
+    let receiver = nav.source.label();
+    // No source is gated out by the caller; an unknown one fails the
+    // nav group in resolve. Neither has a label to draw.
+    if receiver.is_empty() {
+        return None;
+    }
     let facility = nav.facility.label();
     Some(if facility.is_empty() {
         fmt_label!(12, "{receiver}")
@@ -60,18 +63,82 @@ pub(crate) const RECEIVER_LABEL_SIZE: f32 = 14.0;
 /// Draws the receiver label in the source color, claimed from the nav
 /// group. Draws nothing for `None`/`Unknown` — the caller's gate already
 /// excludes both, and this arm keeps that property local.
+///
+/// A flight-management source also names the sensor that positions it:
+/// `FMS GPS`, `FMS VIS`, `FMS DR`. The position word is a second run,
+/// because it takes the caution color while the source word keeps the
+/// source color. The pair is centered as one label, so it occupies the
+/// box a one-run label of the same length occupies.
 pub fn draw_receiver_label(scene: &mut SceneWriter<'_>, nav: &NavData) -> Result<(), SceneError> {
     let Some(text) = receiver_text(nav) else {
         return Ok(());
     };
+    let (x, y) = RECEIVER_LABEL_POS;
+    let position = nav.position_source.label();
     scene.fill_color(source_color(nav.source))?;
+    if position.is_empty() {
+        scene.text_attributed(
+            GroupId::Nav.to_u8(),
+            x,
+            y,
+            RECEIVER_LABEL_SIZE,
+            Anchor::CENTER,
+            text.as_str(),
+        )?;
+        return Ok(());
+    }
+    let source_chars = text.as_str().chars().count();
+    let all_chars = source_chars + 1 + position.chars().count();
+    let left = x - nominal_text_width(RECEIVER_LABEL_SIZE, all_chars) / 2.0;
     scene.text_attributed(
         GroupId::Nav.to_u8(),
-        RECEIVER_LABEL_POS.0,
-        RECEIVER_LABEL_POS.1,
+        left,
+        y,
         RECEIVER_LABEL_SIZE,
-        Anchor::CENTER,
+        Anchor::MIDDLE_LEFT,
         text.as_str(),
+    )?;
+    if nav.position_is_caution() {
+        scene.fill_color(safety::CAUTION_AMBER)?;
+    }
+    scene.text_attributed(
+        GroupId::Nav.to_u8(),
+        left + nominal_text_width(RECEIVER_LABEL_SIZE, source_chars + 1),
+        y,
+        RECEIVER_LABEL_SIZE,
+        Anchor::MIDDLE_LEFT,
+        position,
+    )?;
+    Ok(())
+}
+
+/// Where the position integrity word sits: lower right under the
+/// sequencing annunciation, mirroring the scale label under the
+/// receiver label.
+pub(crate) const INTEGRITY_LABEL_POS: (f32, f32) = (410.0, super::CY + 128.0);
+
+/// The run size the position integrity word paints at.
+pub(crate) const INTEGRITY_LABEL_SIZE: f32 = 14.0;
+
+/// Draws `DGRD` or `EXCL` in the caution color, under the needle's
+/// gate.
+///
+/// The needle is only as good as the position it is computed from. The
+/// source declares a degraded position or an excluded sensor, and the
+/// word says so beside the needle. A normal position draws nothing.
+pub fn draw_integrity_label(scene: &mut SceneWriter<'_>, nav: &NavData) -> Result<(), SceneError> {
+    let label = nav.position_integrity.label();
+    if label.is_empty() {
+        return Ok(());
+    }
+    scene.fill_color(safety::CAUTION_AMBER)?;
+    scene.text_attributed(
+        GroupId::Nav.to_u8(),
+        INTEGRITY_LABEL_POS.0,
+        INTEGRITY_LABEL_POS.1,
+        INTEGRITY_LABEL_SIZE,
+        Anchor::CENTER,
+        label,
     )?;
     Ok(())
 }

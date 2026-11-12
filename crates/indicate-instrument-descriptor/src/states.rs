@@ -7,9 +7,9 @@ use indicate_instrument_state::{
     AirData, AircraftState, AltitudeClass, AltitudeDeclaration, ApEngagement, ApModes, ApTargets,
     Attitude, BearingPointer, BearingPointers, DynSample, EngineGroup, EngineSample,
     EstimateQuality, GeoidModelId, HeadingReference, HeadingSample, IdentStr, Kinematics,
-    LateralMode, MonitorText, NavData, NavFromTo, NavSource, Quat, Selections, SnapshotCoherence,
-    SnapshotMeta, Stamped, TankGroup, TankSample, TextLine, TurnBasis, TurnSample, ValidFlags,
-    VerticalMode, Wind,
+    LateralMode, MonitorText, NavData, NavFromTo, NavSource, PositionIntegrity, PositionSource,
+    Quat, Selections, SnapshotCoherence, SnapshotMeta, Stamped, TankGroup, TankSample, TextLine,
+    TurnBasis, TurnSample, ValidFlags, VerticalMode, Wind,
 };
 
 /// One shared corpus entry.
@@ -65,6 +65,18 @@ pub const CANONICAL_STATES: &[CanonicalState] = &[
     CanonicalState {
         id: "nav2-source",
         build: nav2_source,
+        engines: TYPICAL_ENGINES,
+        tanks: TYPICAL_TANKS,
+    },
+    CanonicalState {
+        id: "fms-visual",
+        build: fms_visual,
+        engines: TYPICAL_ENGINES,
+        tanks: TYPICAL_TANKS,
+    },
+    CanonicalState {
+        id: "fms-position-caution",
+        build: fms_position_caution,
         engines: TYPICAL_ENGINES,
         tanks: TYPICAL_TANKS,
     },
@@ -287,6 +299,8 @@ fn typical_nav() -> Stamped<NavData> {
             scale: indicate_instrument_state::NavScale::Terminal,
             facility: indicate_instrument_state::NavFacility::None,
             sequencing: indicate_instrument_state::NavSequencing::Sequencing,
+            position_source: PositionSource::None,
+            position_integrity: PositionIntegrity::Normal,
             ..NavData::default()
         }),
         age_ms: Some(80.0),
@@ -326,6 +340,8 @@ pub fn fully_fed() -> AircraftState {
             from_ident: ident("WPT-2"),
             facility: indicate_instrument_state::NavFacility::Vor,
             sequencing: indicate_instrument_state::NavSequencing::Sequencing,
+            position_source: PositionSource::None,
+            position_integrity: PositionIntegrity::Normal,
         }),
         age_ms: Some(40.0),
     };
@@ -410,6 +426,31 @@ pub fn nav2_source() -> AircraftState {
         nav.source = NavSource::Nav2;
         // A NAV receiver is tuned to a ground facility; GPS has none.
         nav.facility = indicate_instrument_state::NavFacility::Vor;
+    }
+    state
+}
+
+/// Flight-management guidance on a camera position. The source word
+/// and the position word are separate facts, and this state puts both
+/// on every panel that draws nav guidance.
+pub fn fms_visual() -> AircraftState {
+    let mut state = typical();
+    if let Some(nav) = state.nav.data.as_mut() {
+        nav.source = NavSource::Fms;
+        nav.position_source = PositionSource::Visual;
+    }
+    state
+}
+
+/// Flight-management guidance on dead reckoning after a monitor
+/// excluded a sensor: both caution words at once, so their paint and
+/// their clearance are exercised on every panel.
+pub fn fms_position_caution() -> AircraftState {
+    let mut state = typical();
+    if let Some(nav) = state.nav.data.as_mut() {
+        nav.source = NavSource::Fms;
+        nav.position_source = PositionSource::DeadReckoning;
+        nav.position_integrity = PositionIntegrity::SensorExcluded;
     }
     state
 }

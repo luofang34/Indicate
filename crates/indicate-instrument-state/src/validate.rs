@@ -165,18 +165,27 @@ fn selections_fault(selections: &Selections) -> Option<GroupFault> {
 /// An unknown scale fails with the other unknown enumerations: the
 /// deflection is in dots, and a dot means nothing until the scale says
 /// what it is worth. A facility that cannot belong to the source fails
-/// too: the label would name a receiver state the source denies.
+/// too: the label would name a receiver state the source denies. So
+/// does a position sensor or a position integrity that cannot belong to
+/// the source.
 fn nav_fault(nav: &crate::aircraft::NavData) -> Option<GroupFault> {
-    use crate::aircraft::{NavFacility, NavScale, NavSequencing};
+    use crate::aircraft::{
+        NavFacility, NavScale, NavSequencing, PositionIntegrity, PositionSource,
+    };
     if matches!(nav.source, NavSource::Unknown)
         || matches!(nav.fromto, NavFromTo::Unknown)
         || matches!(nav.scale, NavScale::Unknown)
         || matches!(nav.facility, NavFacility::Unknown)
         || matches!(nav.sequencing, NavSequencing::Unknown)
+        || matches!(nav.position_source, PositionSource::Unknown)
+        || matches!(nav.position_integrity, PositionIntegrity::Unknown)
     {
         return Some(GroupFault::UnknownEnum);
     }
-    if !nav.facility.fits(nav.source) {
+    if !(nav.facility.fits(nav.source)
+        && nav.position_source.fits(nav.source)
+        && nav.position_integrity.fits(nav.position_source))
+    {
         return Some(GroupFault::Contradictory);
     }
     if nav.to_ident.is_invalid() || nav.from_ident.is_invalid() {

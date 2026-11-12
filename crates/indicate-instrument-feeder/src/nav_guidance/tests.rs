@@ -2,7 +2,9 @@
 
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_instrument_state::{IdentStr, NavFromTo, NavScale, NavSequencing};
+use indicate_instrument_state::{
+    IdentStr, NavFromTo, NavScale, NavSequencing, PositionIntegrity, PositionSource,
+};
 
 use super::{Guidance, NavGuidanceTracker, NavReject};
 use crate::stamp::{CLOCK_HOST_MONOTONIC, ROLE_NAVIGATION_SOLUTION, RawStamp};
@@ -31,6 +33,8 @@ fn guidance(course_rad: f32) -> Guidance {
         scale: NavScale::Terminal,
         to_from: NavFromTo::To,
         sequencing: NavSequencing::Sequencing,
+        position_source: PositionSource::Gps,
+        position_integrity: PositionIntegrity::Normal,
         leg_index: 1,
         waypoint_count: 4,
         solution_quality: 0,

@@ -22,7 +22,6 @@
 //! to benign ones, and no non-finite value can reach scene generation.
 
 #![no_std]
-
 #[cfg(test)]
 extern crate std;
 
@@ -52,7 +51,8 @@ mod validate;
 pub use aircraft::{
     AirData, AircraftState, AirframeConfig, Attitude, BearingPointer, BearingPointers, ClockSample,
     EstimateQuality, Kinematics, NavData, NavFacility, NavFromTo, NavScale, NavSequencing,
-    NavSource, Selections, SnapshotCoherence, SnapshotMeta, Stamped, ValidFlags, Wind,
+    NavSource, PositionIntegrity, PositionSource, Selections, SnapshotCoherence, SnapshotMeta,
+    Stamped, ValidFlags, Wind,
 };
 pub use altitude::{AltitudeClass, AltitudeDeclaration, AltitudeReference, GeoidModelId, OriginId};
 pub use autopilot::{ApEngagement, ApModes, ApTargets, LateralMode, VerticalMode};

@@ -3,7 +3,7 @@
 
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_instrument_state::abi::v10::{CAPACITY, decode_state, encode_state_samples, fixtures};
+use indicate_instrument_state::abi::v11::{CAPACITY, decode_state, encode_state_samples, fixtures};
 
 #[test]
 fn a_canonical_frame_reports_no_trailing_bytes() {

@@ -7,8 +7,10 @@ use crate::ident::IdentStr;
 use indicate_frames::Quat;
 
 mod navigation;
+mod position;
 
 pub use navigation::{NavFacility, NavScale, NavSequencing};
+pub use position::{PositionIntegrity, PositionSource};
 
 /// Attitude estimate: orientation and body rotation rates.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -54,12 +56,16 @@ pub enum NavSource {
     /// No source selected; the HSI is a directional gyro.
     #[default]
     None,
-    /// GPS/FMS course (magenta).
+    /// The course of a GPS receiver (magenta).
     Gps,
     /// NAV radio 1 (green).
     Nav1,
     /// NAV radio 2 (green).
     Nav2,
+    /// Flight-management guidance (magenta). The lane steers on the
+    /// vehicle's position solution, whatever sensor supplies it, and
+    /// [`NavData::position_source`] names that sensor.
+    Fms,
     /// The wire carried a source this build does not know. Guidance from
     /// an unidentifiable source must not display; the nav group fails
     /// rather than quietly pretending no source is selected.
@@ -111,6 +117,11 @@ pub struct NavData {
     /// Whether the source is sequencing its legs, holding, or has
     /// suspended sequencing.
     pub sequencing: NavSequencing,
+    /// The sensor that positions a flight-management lane. It must
+    /// agree with `source`.
+    pub position_source: PositionSource,
+    /// What the source reports about the integrity of that position.
+    pub position_integrity: PositionIntegrity,
 }
 
 /// Pilot selections and bugs. These are local UI state, not sensed data,

@@ -1,10 +1,12 @@
 //! Receiver deviations are fly-to indications, distinct from flight-director commands.
 use super::*;
 use indicate_instrument_state::{
-    HeadingReference, NavFacility, NavFromTo, NavScale, NavSequencing, NavSource,
+    HeadingReference, NavData, NavFacility, NavFromTo, NavScale, NavSequencing, NavSource,
+    PositionIntegrity, PositionSource,
 };
 
 mod deviation;
+mod label;
 
 pub(super) fn draw(
     data: &PanelData,
@@ -25,33 +27,8 @@ pub(super) fn draw(
         deviation::draw(scene, center, nav.cdi_dots, false, color)?;
         scene.fill_color(color)?;
         scene.text(center[0], center[1] - 25.0, 12.0, Anchor::CENTER, "CDI")?;
-        // Receiver, facility, scale, flag, and the sequencing state:
-        // "NAV1 LOC APR TO", "GPS TERM FROM HOLD".
-        let facility = nav.facility.label();
-        let sequencing = nav.sequencing.label();
-        let label = fmt_label!(
-            32,
-            "{}{}{} {} {}{}{}",
-            receiver(nav.source),
-            if facility.is_empty() { "" } else { " " },
-            facility,
-            nav.scale.label(),
-            if nav.fromto == NavFromTo::To {
-                "TO"
-            } else {
-                "FROM"
-            },
-            if sequencing.is_empty() { "" } else { " " },
-            sequencing
-        );
-        scene.text_attributed(
-            GroupId::Nav.to_u8(),
-            center[0],
-            center[1] + 28.0,
-            12.0,
-            Anchor::CENTER,
-            label.as_str(),
-        )?;
+        label::draw(scene, nav, [center[0], center[1] + 28.0], color)?;
+        label::draw_integrity(scene, nav, center)?;
         vertical(data, compact, scene)?;
     } else {
         scene.fill_color(readout::color(data.nav.status))?;
@@ -77,12 +54,16 @@ fn available(data: &PanelData) -> bool {
     data.nav.status == SignalStatus::Valid
         && matches!(
             nav.source,
-            NavSource::Gps | NavSource::Nav1 | NavSource::Nav2
+            NavSource::Gps | NavSource::Nav1 | NavSource::Nav2 | NavSource::Fms
         )
         && matches!(nav.fromto, NavFromTo::To | NavFromTo::From)
         && nav.scale != NavScale::Unknown
         && nav.facility.fits(nav.source)
         && nav.sequencing != NavSequencing::Unknown
+        && nav.position_source != PositionSource::Unknown
+        && nav.position_source.fits(nav.source)
+        && nav.position_integrity != PositionIntegrity::Unknown
+        && nav.position_integrity.fits(nav.position_source)
         && nav.course_reference != HeadingReference::Unknown
         && live(data.nav.course_rose_rad)
         && nav.cdi_dots.is_finite()
@@ -112,7 +93,7 @@ fn vertical(
     } else {
         "VDEV"
     };
-    // A GPS path has no declared service level here, so it cannot claim an ILS glideslope or LPV.
+    // A computed path has no declared service level here, so it cannot claim an ILS glideslope or LPV.
     let color = source_color(nav.source);
     scene.fill_color(color)?;
     scene.text(center[0], center[1] - 118.0, 12.0, Anchor::CENTER, label)?;
@@ -120,19 +101,10 @@ fn vertical(
 }
 
 fn source_color(source: NavSource) -> Rgba8 {
-    if source == NavSource::Gps {
+    if source.is_computed() {
         palette::MAGENTA
     } else {
         HUD_GREEN
-    }
-}
-
-fn receiver(source: NavSource) -> &'static str {
-    match source {
-        NavSource::Gps => "GPS",
-        NavSource::Nav1 => "NAV1",
-        NavSource::Nav2 => "NAV2",
-        _ => "",
     }
 }
 

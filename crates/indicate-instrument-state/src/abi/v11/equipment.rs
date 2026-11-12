@@ -64,13 +64,7 @@ pub(super) fn encode_director(
 /// the bearing.
 fn decode_pointer(p: &[u8], at: usize) -> crate::aircraft::BearingPointer {
     crate::aircraft::BearingPointer {
-        source: match get_u8(p, at) {
-            0 => crate::aircraft::NavSource::None,
-            1 => crate::aircraft::NavSource::Gps,
-            2 => crate::aircraft::NavSource::Nav1,
-            3 => crate::aircraft::NavSource::Nav2,
-            _ => crate::aircraft::NavSource::Unknown,
-        },
+        source: crate::aircraft::NavSource::from_u8(get_u8(p, at)),
         reference: crate::heading::HeadingReference::from_u8(get_u8(p, at + 1)),
         valid: get_u8(p, at + 2) != 0,
         bearing_rad: get_f32(p, at + 4),
@@ -78,17 +72,7 @@ fn decode_pointer(p: &[u8], at: usize) -> crate::aircraft::BearingPointer {
 }
 
 fn encode_pointer(p: &mut [u8], at: usize, pointer: &crate::aircraft::BearingPointer) {
-    put_u8(
-        p,
-        at,
-        match pointer.source {
-            crate::aircraft::NavSource::None => 0,
-            crate::aircraft::NavSource::Gps => 1,
-            crate::aircraft::NavSource::Nav1 => 2,
-            crate::aircraft::NavSource::Nav2 => 3,
-            crate::aircraft::NavSource::Unknown => 255,
-        },
-    );
+    put_u8(p, at, pointer.source.to_u8());
     put_u8(p, at + 1, pointer.reference.to_u8());
     put_u8(p, at + 2, u8::from(pointer.valid));
     put_u8(p, at + 3, 0);

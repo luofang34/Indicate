@@ -5,7 +5,7 @@ use indicate_instrument_state::flight::{envelope::*, guidance::*};
 
 pub(super) fn append(out: &mut Vec<Case>) {
     let extended = resolve(
-        &indicate_instrument_state::abi::v10::fixtures::extended(),
+        &indicate_instrument_state::abi::v11::fixtures::extended(),
         &FreshnessPolicy::default(),
     );
     let mut add = |name, note, change: fn(&mut PanelData), head| {

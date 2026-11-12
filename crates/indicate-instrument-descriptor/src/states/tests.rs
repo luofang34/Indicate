@@ -2,7 +2,10 @@
 
 use indicate_instrument_state::{EstimateQuality, GroupId, NavSource};
 
-use super::{CANONICAL_STATES, fully_fed, nav2_source, nothing_fed, source_unusable, typical};
+use super::{
+    CANONICAL_STATES, fms_position_caution, fms_visual, fully_fed, nav2_source, nothing_fed,
+    source_unusable, typical,
+};
 
 #[test]
 fn corpus_ids_are_unique_and_well_formed() {
@@ -55,6 +58,23 @@ fn the_corpus_spans_the_intended_situations() {
         second.nav.data.expect("nav present").source,
         NavSource::Nav2
     );
+    // Flight management: named with its position sensor, and once with
+    // both caution words.
+    let visual = fms_visual().nav.data.expect("nav present");
+    assert_eq!(visual.source, NavSource::Fms);
+    assert!(!visual.position_is_caution());
+    let caution = fms_position_caution().nav.data.expect("nav present");
+    assert_eq!(caution.source, NavSource::Fms);
+    assert!(caution.position_is_caution());
+    for state in CANONICAL_STATES {
+        let built = (state.build)();
+        assert_eq!(
+            indicate_instrument_state::validate_state(&built).nav,
+            None,
+            "{} declares a nav group that contradicts itself",
+            state.id
+        );
+    }
 }
 
 #[test]

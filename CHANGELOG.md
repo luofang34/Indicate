@@ -43,6 +43,73 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.13.0] — 2026-11-12
+
+State ABI 11 separates the guidance source from the sensor that
+positions it. A flight-management lane reads `FMS`, and it no longer
+reads `GPS` when the vehicle steers on a camera or an inertial solution.
+
+- **`NavSource` gains `Fms`, wire code 4.** The nav group and each
+  bearing pointer share the coding: 0 None, 1 GPS, 2 NAV1, 3 NAV2,
+  4 FMS. `Gps` now means the course of a GPS receiver. `Fms` takes
+  facility None.
+- **The Nav group grows from 45 bytes to 47.** `position_source`
+  (offset 45) is 0 None, 1 GPS, 2 Visual, 3 Inertial, 4 DeadReckoning,
+  or 5 Blended. `position_integrity` (offset 46) is 0 Normal,
+  1 Degraded, or 2 SensorExcluded. Any other value decodes as `Unknown`
+  and fails the group. A producer that stamps version 11 and writes 45
+  bytes has the whole frame refused.
+- **A position must agree with its source.** `Fms` takes a position
+  source other than None. GPS, NAV1, NAV2 and no source take None,
+  because a receiver is its own sensor. An integrity other than Normal
+  needs a position source. Any other combination fails the group as
+  `GroupFault::Contradictory`.
+- **`NavData` gains `position_source: PositionSource` and
+  `position_integrity: PositionIntegrity`.** Both default to `Unknown`,
+  so a literal built with `..NavData::default()` fails the nav group
+  until it declares both.
+- **The feeder's `Guidance` gains the same two fields.** The lane now
+  writes `NavSource::Fms`. A lane that states position source None or
+  `Unknown`, or integrity `Unknown`, shows no guidance. The source
+  states the sensor; no display infers it.
+- **`Intent::SelectNavSource` accepts `NavSource::Fms`,** intent wire
+  code 4. The intent wire version stays 1.
+- **The displays read both.**
+  - The position words are `GPS`, `VIS`, `INS`, `DR` and `BLND`. The
+    integrity words are `DGRD` and `EXCL`.
+  - A position word takes the caution color for dead reckoning, a
+    degraded position, or an excluded sensor. An integrity word always
+    takes it.
+  - The HSI label reads `FMS VIS` in two runs. The integrity word draws
+    at lower right under `HOLD`/`SUSP`.
+  - The head-worn CDI label reads `FMS VIS TERM TO`. The integrity word
+    draws beside the `CDI` title.
+  - The HUD approach label reads `LNAV VIS`, or `LNAV DR EXCL` in the
+    caution color.
+  - Every display draws an `Fms` course in magenta and its vertical
+    deviation as a computed path.
+
+The module is `abi::v11`, and the golden frames are
+`state-abi-v11.*.hex`. The data-gateway frame carries `Fms` on a GPS
+position. A v10 frame is refused by version, so a producer moves to v11,
+writes the two new bytes, and writes source 4 for flight-management
+guidance.
+
+The canonical states gain `fms-visual` and `fms-position-caution`. The
+composition digest, the screen-composition digest, and the analog and
+volume scene digests move with them and with the ABI version byte. The
+raster baselines and the corpus do not move.
+
+| Value | This release |
+|---|---|
+| State ABI | 11 |
+| Scene format | 1 |
+| Corpus | 9 |
+| Composition digest | `c639c802936cc753bd8326fca34495fe16634c0a78313d4830bcd35616c588ba` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
+
+Panel set changed since the previous release: no.
+
 ## [0.12.0] — 2026-11-11
 
 State ABI 10 lets a navigation source declare what its receiver is tuned

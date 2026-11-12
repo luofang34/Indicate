@@ -20,7 +20,7 @@ fn takes_the_highest_of_several() {
 
 #[test]
 fn compares_numerically_not_lexically() {
-    assert_eq!(newest_module("pub mod v9;\npub mod v10;\n"), Some(10));
+    assert_eq!(newest_module("pub mod v10;\npub mod v11;\n"), Some(11));
 }
 
 #[test]
@@ -42,7 +42,7 @@ fn the_shipped_crate_declares_the_module_this_generator_reads() {
     let root = crate::workspace::repo_root();
     let abi = super::read(&root).expect("the shipped abi.rs declares the compiled module");
     assert_eq!(abi.module, format!("v{}", super::COMPILED_MODULE));
-    assert_eq!(abi.version, indicate_instrument_state::abi::v10::VERSION);
+    assert_eq!(abi.version, indicate_instrument_state::abi::v11::VERSION);
 }
 
 /// A declaration is not hidden by anything following the semicolon. A

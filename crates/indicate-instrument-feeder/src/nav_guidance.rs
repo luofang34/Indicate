@@ -10,7 +10,9 @@
 //! than judged: the panel's freshness policy owns when guidance stops
 //! showing, so there is no second staleness rule to diverge from it.
 
-use indicate_instrument_state::{IdentStr, NavFromTo, NavScale, NavSequencing};
+use indicate_instrument_state::{
+    IdentStr, NavFromTo, NavScale, NavSequencing, PositionIntegrity, PositionSource,
+};
 
 use crate::clock::{age_ms, clock_ok};
 use crate::stamp::{ROLE_NAVIGATION_SOLUTION, RawStamp, serial_is_newer, stamp_fault_for_role};
@@ -54,6 +56,19 @@ pub struct Guidance {
     /// so a TO/FROM flip over a holding fix does not read as a fault.
     /// `Unknown` removes the guidance display.
     pub sequencing: NavSequencing,
+    /// The sensor that positions this lane. The source states it,
+    /// because only the source knows what its position solution uses.
+    /// The displays name it beside `FMS`. `None` and `Unknown` remove
+    /// the guidance display, because the lane always steers on a
+    /// position.
+    pub position_source: PositionSource,
+    /// What the source reports about the integrity of that position.
+    /// The displays draw a caution word for a degraded position or an
+    /// excluded sensor. `Unknown` removes the guidance display.
+    ///
+    /// This is separate from `solution_quality`: an unusable solution
+    /// removes the display, and this field qualifies one that stays.
+    pub position_integrity: PositionIntegrity,
     /// Active leg index.
     pub leg_index: u32,
     /// Plan waypoint count.

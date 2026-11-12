@@ -67,7 +67,7 @@ pub const VOLUMES_SET: InstrumentSet = InstrumentSet {
 
 /// Pinned SHA-256 scene digest over [`VOLUMES_PANELS`] and the canonical corpus (`VOL-01`).
 pub const VOLUMES_SCENE_DIGEST: &str =
-    "cdf374097ac26064d01cee6b53d4034e6178159b1ee89d7f395f0a46f674053d";
+    "fc4c95fd683a8bd00343f644b7050b101e2e47b926f81756942ca197b1e15940";
 
 pub(crate) fn usable_sig(sig: Sig<f32>) -> bool {
     sig.status.shows_value() && sig.value.is_finite() && sig.value.abs() < 1_000_000.0

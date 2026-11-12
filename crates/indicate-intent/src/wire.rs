@@ -330,6 +330,7 @@ const fn encode_nav_source(source: NavSource) -> Result<u8, IntentWireError> {
         NavSource::Nav2 => Ok(1),
         NavSource::Gps => Ok(2),
         NavSource::None => Ok(3),
+        NavSource::Fms => Ok(4),
         NavSource::Unknown => Err(IntentWireError::InvalidDiscriminant {
             field: "NavSource",
             value: 255,
@@ -343,6 +344,7 @@ const fn decode_nav_source(raw: u8) -> Result<NavSource, IntentWireError> {
         1 => Ok(NavSource::Nav2),
         2 => Ok(NavSource::Gps),
         3 => Ok(NavSource::None),
+        4 => Ok(NavSource::Fms),
         value => Err(IntentWireError::InvalidDiscriminant {
             field: "NavSource",
             value,

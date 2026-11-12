@@ -172,7 +172,9 @@ pub fn vertical_deviation(
         PaintMode::Fill,
         &[[x, y - 9.0], [x + 7.0, y], [x, y + 9.0], [x - 7.0, y]],
     )?;
-    let tag = if data.nav.data.source == NavSource::Gps {
+    // A computed course has a computed path; only a receiver has a
+    // glideslope.
+    let tag = if data.nav.data.source.is_computed() {
         "V"
     } else {
         "G"

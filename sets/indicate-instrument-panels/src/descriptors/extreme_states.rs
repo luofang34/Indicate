@@ -187,6 +187,8 @@ pub(super) fn hsi_reciprocal_course() -> AircraftState {
             scale: NavScale::Approach,
             facility: indicate_instrument_state::NavFacility::None,
             sequencing: indicate_instrument_state::NavSequencing::Sequencing,
+            position_source: indicate_instrument_state::PositionSource::None,
+            position_integrity: indicate_instrument_state::PositionIntegrity::Normal,
             ..NavData::default()
         }),
         age_ms: Some(40.0),
