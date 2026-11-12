@@ -72,6 +72,8 @@ fn nav(course_rad: f32, cdi_dots: f32, to: &str, from: &str, age_ms: f32) -> Sta
             course_reference: HeadingReference::SimLocalTrue,
             to_ident: ident(to),
             from_ident: ident(from),
+            facility: crate::aircraft::NavFacility::None,
+            sequencing: crate::aircraft::NavSequencing::Sequencing,
         },
         age_ms,
     )

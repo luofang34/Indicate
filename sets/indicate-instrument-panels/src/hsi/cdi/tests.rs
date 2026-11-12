@@ -27,6 +27,8 @@ fn draw(fromto: NavFromTo, cdi_dots: f32) -> Fills {
             scale: NavScale::Terminal,
             fromto,
             cdi_dots,
+            facility: indicate_instrument_state::NavFacility::None,
+            sequencing: indicate_instrument_state::NavSequencing::Sequencing,
             ..NavData::default()
         },
         status: SignalStatus::Valid,

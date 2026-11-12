@@ -367,6 +367,8 @@ fn indicate_state_navdata_valid() -> crate::aircraft::NavData {
         vdev_dots: None,
         dist_nm: None,
         course_reference: crate::heading::HeadingReference::SimLocalTrue,
+        facility: crate::aircraft::NavFacility::None,
+        sequencing: crate::aircraft::NavSequencing::Sequencing,
         ..crate::aircraft::NavData::default()
     }
 }

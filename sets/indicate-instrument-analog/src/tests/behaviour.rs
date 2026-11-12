@@ -2,7 +2,9 @@
 //! cannot see a needle, so these are the failure-presentation proofs.
 
 use indicate_instrument_descriptor::states;
-use indicate_instrument_state::{BesideSamples, EngineSample, EngineSamples, TankSamples, abi::v9};
+use indicate_instrument_state::{
+    BesideSamples, EngineSample, EngineSamples, TankSamples, abi::v10,
+};
 
 /// The corpus's engine and tank samples, beside every state built from
 /// `typical`.
@@ -172,14 +174,14 @@ fn a_gauge_reads_engine_33_from_the_admitted_frame_bytes() {
         count: 33,
         fault: None,
     });
-    let mut frame = std::vec![0u8; v9::CAPACITY];
-    let len = v9::encode_state_with(&state, &EngineSamples::Slice(&samples), &mut frame)
+    let mut frame = std::vec![0u8; v10::CAPACITY];
+    let len = v10::encode_state_with(&state, &EngineSamples::Slice(&samples), &mut frame)
         .expect("encodes");
     let frame = &frame[..len];
-    let decoded = v9::decode_state(frame).expect("decodes").state;
+    let decoded = v10::decode_state(frame).expect("decodes").state;
     let engines = BesideSamples {
-        engines: v9::engine_samples(frame),
-        tanks: v9::tank_samples(frame),
+        engines: v10::engine_samples(frame),
+        tanks: v10::tank_samples(frame),
     };
     let mut tach = TACHOMETER;
     tach.primary.input = crate::DialInput::EngineRpm { engine: 32 };

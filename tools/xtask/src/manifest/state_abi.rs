@@ -15,12 +15,12 @@ mod tests;
 
 use std::path::Path;
 
-use indicate_instrument_state::abi::v9::VERSION;
+use indicate_instrument_state::abi::v10::VERSION;
 
 use crate::error::XtaskError;
 
 /// The module this generator reads [`VERSION`] from.
-const COMPILED_MODULE: u32 = 9;
+const COMPILED_MODULE: u32 = 10;
 
 /// Where the crate declares its ABI modules, relative to the workspace root.
 const MODULE_SOURCE: &str = "crates/indicate-instrument-state/src/abi.rs";

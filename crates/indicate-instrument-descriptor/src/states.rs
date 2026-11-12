@@ -285,6 +285,8 @@ fn typical_nav() -> Stamped<NavData> {
             dist_nm: Some(12.4),
             course_reference: HeadingReference::SimLocalTrue,
             scale: indicate_instrument_state::NavScale::Terminal,
+            facility: indicate_instrument_state::NavFacility::None,
+            sequencing: indicate_instrument_state::NavSequencing::Sequencing,
             ..NavData::default()
         }),
         age_ms: Some(80.0),
@@ -322,6 +324,8 @@ pub fn fully_fed() -> AircraftState {
             scale: indicate_instrument_state::NavScale::Approach,
             to_ident: ident("KMRY"),
             from_ident: ident("WPT-2"),
+            facility: indicate_instrument_state::NavFacility::Vor,
+            sequencing: indicate_instrument_state::NavSequencing::Sequencing,
         }),
         age_ms: Some(40.0),
     };
@@ -404,6 +408,8 @@ pub fn nav2_source() -> AircraftState {
     let mut state = typical();
     if let Some(nav) = state.nav.data.as_mut() {
         nav.source = NavSource::Nav2;
+        // A NAV receiver is tuned to a ground facility; GPS has none.
+        nav.facility = indicate_instrument_state::NavFacility::Vor;
     }
     state
 }

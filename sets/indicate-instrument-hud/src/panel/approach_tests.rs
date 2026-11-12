@@ -42,6 +42,8 @@ fn with_ils(cdi: f32, vdev: f32) -> PanelData {
             to_ident: IdentStr::EMPTY,
             from_ident: IdentStr::EMPTY,
             scale: NavScale::Approach,
+            facility: indicate_instrument_state::NavFacility::Localizer,
+            sequencing: indicate_instrument_state::NavSequencing::Sequencing,
         }),
         age_ms: Some(10.0),
     };
@@ -278,4 +280,34 @@ fn unpaved_and_displaced_threshold_runways_distinguish_surface_and_zones() {
         drawn_comp.lines.len() > draw(&data, &approach(final_approach(600.0))).lines.len(),
         "displaced ends add dashed pre-threshold and reciprocal sidelines"
     );
+}
+
+#[test]
+fn the_receiver_labels_follow_the_facility() {
+    for (source, facility, lateral, vertical) in [
+        (
+            NavSource::Nav1,
+            indicate_instrument_state::NavFacility::Localizer,
+            "LOC",
+            "GS",
+        ),
+        (
+            NavSource::Nav1,
+            indicate_instrument_state::NavFacility::Vor,
+            "VOR",
+            "VDEV",
+        ),
+        (
+            NavSource::Gps,
+            indicate_instrument_state::NavFacility::None,
+            "LNAV",
+            "VNAV",
+        ),
+    ] {
+        let mut data = with_ils(0.0, 0.0);
+        data.nav.data.source = source;
+        data.nav.data.facility = facility;
+        let drawn = draw(&data, &approach(final_approach(5000.0)));
+        assert!(drawn.has(lateral) && drawn.has(vertical), "{facility:?}");
+    }
 }

@@ -3,7 +3,7 @@
 
 use indicate_instrument_state::{
     AircraftState, BesideSamples,
-    abi::v9::{self, AbiError},
+    abi::v10::{self, AbiError},
 };
 
 use super::super::DrawContext;
@@ -50,7 +50,7 @@ fn encode_frame(
             needed: *off + 2,
             available: avail,
         })?;
-    let written = v9::encode_state_samples(state, beside, tail).map_err(|err| match err {
+    let written = v10::encode_state_samples(state, beside, tail).map_err(|err| match err {
         AbiError::Truncated => DrawContextWireError::BufferTooSmall {
             needed: avail.saturating_add(64),
             available: avail,

@@ -1,6 +1,8 @@
 //! Receiver deviations are fly-to indications, distinct from flight-director commands.
 use super::*;
-use indicate_instrument_state::{HeadingReference, NavFromTo, NavScale, NavSource};
+use indicate_instrument_state::{
+    HeadingReference, NavFacility, NavFromTo, NavScale, NavSequencing, NavSource,
+};
 
 mod deviation;
 
@@ -23,16 +25,24 @@ pub(super) fn draw(
         deviation::draw(scene, center, nav.cdi_dots, false, color)?;
         scene.fill_color(color)?;
         scene.text(center[0], center[1] - 25.0, 12.0, Anchor::CENTER, "CDI")?;
+        // Receiver, facility, scale, flag, and the sequencing state:
+        // "NAV1 LOC APR TO", "GPS TERM FROM HOLD".
+        let facility = nav.facility.label();
+        let sequencing = nav.sequencing.label();
         let label = fmt_label!(
-            24,
-            "{} {} {}",
+            32,
+            "{}{}{} {} {}{}{}",
             receiver(nav.source),
+            if facility.is_empty() { "" } else { " " },
+            facility,
             nav.scale.label(),
             if nav.fromto == NavFromTo::To {
                 "TO"
             } else {
                 "FROM"
-            }
+            },
+            if sequencing.is_empty() { "" } else { " " },
+            sequencing
         );
         scene.text_attributed(
             GroupId::Nav.to_u8(),
@@ -71,6 +81,8 @@ fn available(data: &PanelData) -> bool {
         )
         && matches!(nav.fromto, NavFromTo::To | NavFromTo::From)
         && nav.scale != NavScale::Unknown
+        && nav.facility.fits(nav.source)
+        && nav.sequencing != NavSequencing::Unknown
         && nav.course_reference != HeadingReference::Unknown
         && live(data.nav.course_rose_rad)
         && nav.cdi_dots.is_finite()
@@ -93,9 +105,9 @@ fn vertical(
     } else {
         [842.0, 286.0]
     };
-    let label = if matches!(nav.source, NavSource::Nav1 | NavSource::Nav2)
-        && nav.scale == NavScale::Approach
-    {
+    // Only a localizer pairs with a glideslope; any other vertical
+    // deviation is a computed path.
+    let label = if nav.facility == NavFacility::Localizer {
         "GS"
     } else {
         "VDEV"

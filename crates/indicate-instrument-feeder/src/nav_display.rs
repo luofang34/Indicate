@@ -11,7 +11,7 @@
 //! every display to one policy.
 
 use indicate_instrument_state::{
-    HeadingReference, NavData, NavFromTo, NavScale, NavSource, Stamped,
+    HeadingReference, NavData, NavFacility, NavFromTo, NavScale, NavSequencing, NavSource, Stamped,
 };
 
 use crate::nav_guidance::NavSnapshot;
@@ -150,7 +150,7 @@ const PRESENTABLE_QUALITIES: [u32; 2] = [0, 1];
 /// The guidance's own phase scale selects both widths from `profile`,
 /// and its own TO/FROM resolution sets the flag. An unknown phase, a
 /// phase without a usable lateral and vertical width, or an unknown
-/// TO/FROM removes the display.
+/// TO/FROM or sequencing state removes the display.
 pub fn nav_display_state(
     snapshot: Option<&NavSnapshot>,
     profile: &DeviationScaleProfile,
@@ -166,6 +166,9 @@ pub fn nav_display_state(
     let lateral_m_per_dot = profile.lateral_m_per_dot(guidance.scale)?;
     let vertical_m_per_dot = profile.vertical_m_per_dot(guidance.scale)?;
     let fromto = from_to(guidance.to_from, guidance.lateral_deviation_m)?;
+    if guidance.sequencing == NavSequencing::Unknown {
+        return None;
+    }
     Some(Stamped {
         data: Some(NavData {
             source: NavSource::Gps,
@@ -190,6 +193,10 @@ pub fn nav_display_state(
             dist_nm: Some(guidance.distance_to_waypoint_m / M_PER_NM),
             to_ident: guidance.to_ident,
             from_ident: guidance.from_ident,
+            // This lane is the GPS navigation solution: it is tuned to
+            // no ground facility.
+            facility: NavFacility::None,
+            sequencing: guidance.sequencing,
         }),
         age_ms: Some(snapshot.age_ms as f32),
     })

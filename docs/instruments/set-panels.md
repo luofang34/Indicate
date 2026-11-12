@@ -133,7 +133,7 @@ Crate: `indicate-instrument-panels`
 | Config keys | none |
 | Group regions | Wind at (2, 2) size 112×48, Nav at (366, 2) size 112×48, Nav at (2, 322) size 112×36, Selections at (366, 322) size 112×36, Heading at (206, 2) size 68×26 |
 | Extreme states | `reciprocal-course`, `track-up`, `bearing-split-references` |
-| Raster baselines | 480×360 `cfe8fb5eba7a2947aa69138e934f7a90be07580be22532cda099eedf990ea8ae` |
+| Raster baselines | 480×360 `5759b6a0c1f288f9ca38af2184cbbd393ce3a7653667481080a68a87a05a74e7` |
 
 #### Panel `autoflight` — Autoflight
 

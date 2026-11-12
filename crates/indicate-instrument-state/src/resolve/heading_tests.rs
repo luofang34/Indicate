@@ -166,6 +166,8 @@ fn with_course(
             dist_nm: None,
             course_reference: reference,
             scale: crate::aircraft::NavScale::Terminal,
+            facility: crate::aircraft::NavFacility::None,
+            sequencing: crate::aircraft::NavSequencing::Sequencing,
             ..crate::aircraft::NavData::default()
         }),
         age_ms: Some(20.0),

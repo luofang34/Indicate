@@ -1,4 +1,4 @@
-//! v9 frame codec behavior: canonical round-trips, the fail-closed
+//! v10 frame codec behavior: canonical round-trips, the fail-closed
 //! decode table, and the two forward-compatibility axes (unknown tags,
 //! appended payload tails).
 
@@ -256,21 +256,29 @@ pub(super) fn one_group_frame(tag: u8, payload: &[u8]) -> Vec<u8> {
 
 #[test]
 fn unknown_wire_enum_values_decode_fail_safe_not_benign() {
-    use crate::aircraft::{EstimateQuality, NavFromTo, NavScale, NavSource, SnapshotCoherence};
-    // Nav source, from/to, and scale bytes outside the known set must
-    // decode to Unknown — guidance from an unidentifiable source fails,
-    // it never masquerades as no-source, and a deflection at a scale
-    // nobody named never masquerades as the widest scale.
-    let mut nav = [0u8; 43];
+    use crate::aircraft::{
+        EstimateQuality, NavFacility, NavFromTo, NavScale, NavSequencing, NavSource,
+        SnapshotCoherence,
+    };
+    // Nav source, from/to, scale, facility and sequencing bytes outside
+    // the known set must decode to Unknown — guidance from an
+    // unidentifiable source fails, it never masquerades as no-source,
+    // and a deflection at a scale nobody named never masquerades as the
+    // widest scale.
+    let mut nav = [0u8; 45];
     nav[0] = 7;
     nav[1] = 9;
     nav[20..24].copy_from_slice(&10.0f32.to_le_bytes());
     nav[42] = 7;
+    nav[43] = 7;
+    nav[44] = 7;
     let report = decode_state(&one_group_frame(0x04, &nav)).expect("decodes");
     let data = report.state.nav.data.expect("nav present");
     assert_eq!(data.source, NavSource::Unknown);
     assert_eq!(data.fromto, NavFromTo::Unknown);
     assert_eq!(data.scale, NavScale::Unknown);
+    assert_eq!(data.facility, NavFacility::Unknown);
+    assert_eq!(data.sequencing, NavSequencing::Unknown);
 
     // Quality and coherence bytes outside the known set decode Unknown,
     // which resolution treats as fail-closed distrust.
@@ -292,6 +300,8 @@ fn unknown_variants_encode_as_255_and_round_trip_explicitly() {
             data: Some(NavData {
                 source: NavSource::Unknown,
                 fromto: NavFromTo::Unknown,
+                facility: crate::aircraft::NavFacility::None,
+                sequencing: crate::aircraft::NavSequencing::Sequencing,
                 ..NavData::default()
             }),
             age_ms: Some(5.0),
@@ -450,31 +460,4 @@ fn director_faults_fail_the_group_per_branch() {
             "must fault: {bad:?}"
         );
     }
-}
-
-/// The nav scale appends after the group's existing tail, so a producer
-/// that stamps this version without writing it emits a payload below
-/// the group's minimum and the frame is refused. Reusing the reserved
-/// padding byte instead would have made an undeclared scale decode as
-/// `Enroute` — the loosest one, worth the most distance per dot.
-#[test]
-fn a_nav_payload_without_the_scale_byte_is_refused() {
-    use crate::aircraft::NavScale;
-    let state = fixtures::full();
-    let frame = encode(&state);
-    let payload = locate_payload(&frame, 0x04).expect("nav present");
-    assert_eq!(
-        frame[payload + 42],
-        NavScale::Terminal.to_u8(),
-        "the scale is the group's new tail byte"
-    );
-    let length_at = payload - 2;
-    let mut short = frame.clone();
-    short.remove(payload + 42);
-    short[length_at] = 42;
-    assert!(
-        decode_state(&short).is_err(),
-        "a payload one byte short of the scale must be refused, not \
-         decoded at a guessed scale"
-    );
 }

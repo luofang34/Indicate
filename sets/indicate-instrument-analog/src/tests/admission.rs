@@ -45,7 +45,7 @@ fn hex(digest: [u8; 32]) -> String {
 /// extreme states. A mismatch means the paint changed: re-pin only for
 /// a change that meant to move it, and say why in the commit.
 const ANALOG_SCENE_DIGEST: &str =
-    "77b012d671b183a8d59174e3e427ffd2d870533ec1d81cb5d6939a5fdc8da9c9";
+    "b6fa0b3d67423d45f521e36873eb3af714f3fb289db8f290c59b497a76de9c1d";
 
 #[test]
 fn the_analog_scene_digest_is_pinned() {

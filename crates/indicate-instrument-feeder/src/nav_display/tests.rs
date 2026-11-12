@@ -4,7 +4,9 @@
 
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_instrument_state::{IdentStr, NavData, NavFromTo, NavScale};
+use indicate_instrument_state::{
+    IdentStr, NavData, NavFacility, NavFromTo, NavScale, NavSequencing,
+};
 
 use super::{DeviationScaleProfile, M_PER_FT, M_PER_NM, OUTER_DOT, PhaseWidths, nav_display_state};
 use crate::nav_guidance::{Guidance, NavGuidanceTracker, NavSnapshot};
@@ -30,6 +32,7 @@ fn guidance() -> Guidance {
         distance_to_waypoint_m: 1852.0,
         scale: NavScale::Terminal,
         to_from: NavFromTo::To,
+        sequencing: NavSequencing::Sequencing,
         leg_index: 1,
         waypoint_count: 4,
         solution_quality: 0,
@@ -282,4 +285,22 @@ fn the_flag_and_scale_flip_in_the_sample_that_flips_them() {
         let m_per_dot = GNSS.lateral_m_per_dot(phase).expect("width");
         assert!((nav.cdi_dots + 926.0 / m_per_dot).abs() < 1e-5);
     }
+}
+
+#[test]
+fn the_stated_sequencing_reaches_the_group_and_gps_names_no_facility() {
+    for state in [
+        NavSequencing::Sequencing,
+        NavSequencing::Hold,
+        NavSequencing::Suspended,
+    ] {
+        let mut sample = guidance();
+        sample.sequencing = state;
+        let nav = nav(sample, &GNSS).expect("displays");
+        assert_eq!(nav.sequencing, state);
+        assert_eq!(nav.facility, NavFacility::None);
+    }
+    let mut unknown = guidance();
+    unknown.sequencing = NavSequencing::Unknown;
+    assert!(nav(unknown, &GNSS).is_none(), "an unknown state is absent");
 }

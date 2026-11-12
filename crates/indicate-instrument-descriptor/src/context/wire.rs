@@ -3,7 +3,7 @@
 use indicate_alerts::{AlertOutput, AlertWireError, decode_alerts, encode_alerts};
 use indicate_instrument_state::{
     AircraftState, FreshnessPolicy, PanelData,
-    abi::v9::{self, AbiError},
+    abi::v10::{self, AbiError},
     resolve,
 };
 use indicate_intent::{
@@ -71,10 +71,10 @@ pub enum DrawContextWireError {
     /// Section or payload length overflows wire width.
     #[error("section length overflows wire integer width")]
     LengthOverflow,
-    /// State v9 codec failed or left trailing bytes.
+    /// State v10 codec failed or left trailing bytes.
     #[error("state wire error: {0}")]
     State(#[from] AbiError),
-    /// State v9 frame carried unannounced trailing bytes.
+    /// State v10 frame carried unannounced trailing bytes.
     #[error("state frame carried {0} trailing bytes")]
     StateTrailingBytes(u16),
     /// Config TLV blob failed validation.
@@ -381,9 +381,9 @@ fn decode_sections<'a>(
     let s_end = DRAW_CONTEXT_HEADER_BYTES + state_len;
     let c_end = s_end + config_len;
     let state_bytes = &bytes[DRAW_CONTEXT_HEADER_BYTES..s_end];
-    let report = v9::decode_state(state_bytes)?;
-    let engines = v9::engine_samples(state_bytes);
-    let tanks = v9::tank_samples(state_bytes);
+    let report = v10::decode_state(state_bytes)?;
+    let engines = v10::engine_samples(state_bytes);
+    let tanks = v10::tank_samples(state_bytes);
     if report.trailing_bytes != 0 {
         return Err(DrawContextWireError::StateTrailingBytes(
             report.trailing_bytes,

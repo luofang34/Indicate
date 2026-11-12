@@ -4,7 +4,7 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 use super::{GroupId, withhold_group};
-use crate::abi::v9::fixtures;
+use crate::abi::v10::fixtures;
 use crate::signal::{FreshnessPolicy, SignalStatus};
 
 #[test]

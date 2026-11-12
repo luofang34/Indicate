@@ -203,10 +203,10 @@ pub const PFD_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     extreme_states: &[
         ExtremeState {
             id: "extended-flight-guidance",
-            build: indicate_instrument_state::abi::v9::fixtures::extended,
-            engines: indicate_instrument_state::abi::v9::fixtures::ENGINES,
+            build: indicate_instrument_state::abi::v10::fixtures::extended,
+            engines: indicate_instrument_state::abi::v10::fixtures::ENGINES,
 
-            tanks: indicate_instrument_state::abi::v9::fixtures::TANKS,
+            tanks: indicate_instrument_state::abi::v10::fixtures::TANKS,
         },
         ExtremeState {
             id: "unusual-inverted",
@@ -354,7 +354,7 @@ pub const HSI_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
     ],
     raster_baselines: &[(
         BUILTIN_FRAME,
-        "cfe8fb5eba7a2947aa69138e934f7a90be07580be22532cda099eedf990ea8ae",
+        "5759b6a0c1f288f9ca38af2184cbbd393ce3a7653667481080a68a87a05a74e7",
     )],
     draw: draw_hsi_panel,
 };
@@ -396,7 +396,7 @@ pub const ALL_SETS: &[PanelSet] = &[BUILTIN_SET, CONFIG_SET];
 /// value moves once per deliberate contract change, re-pinned with a
 /// review note saying why.
 pub const BUILTIN_SCENE_DIGEST: &str =
-    "4e4a7a89fd3c2605e410e13f8003094295b7b84a3fd7755feded6e46252762ca";
+    "26fdba99a83fbbfc340f06350ab8f77e086e33b066a6c9d33a02a6fafad05189";
 
 pub use criticality_bands::BUILTIN_CRITICALITY_BANDS;
 pub use supplementary::{

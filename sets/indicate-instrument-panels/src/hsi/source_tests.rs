@@ -179,6 +179,12 @@ fn with_nav(source: NavSource) -> PanelData {
             // deflection nobody can convert into a distance: without
             // one there is no needle for these tests to read.
             scale: indicate_instrument_state::NavScale::Terminal,
+            facility: if source == NavSource::Gps {
+                indicate_instrument_state::NavFacility::None
+            } else {
+                indicate_instrument_state::NavFacility::Vor
+            },
+            sequencing: indicate_instrument_state::NavSequencing::Sequencing,
             ..NavData::default()
         },
         status: SignalStatus::Valid,
@@ -237,8 +243,8 @@ fn source_ink(data: &PanelData) -> SourceInk {
 fn receiver_label_cdi_and_course_box_switch_together() {
     let cases = [
         (NavSource::Gps, "GPS", palette::MAGENTA),
-        (NavSource::Nav1, "NAV1", palette::GREEN),
-        (NavSource::Nav2, "NAV2", palette::GREEN),
+        (NavSource::Nav1, "NAV1 VOR", palette::GREEN),
+        (NavSource::Nav2, "NAV2 VOR", palette::GREEN),
     ];
     let nav = GroupId::Nav.to_u8();
     for (source, label, color) in cases {
@@ -294,7 +300,7 @@ fn receiver_label_cdi_and_course_box_switch_together() {
 fn the_receiver_label_shares_the_cdi_gate() {
     // No source selected: no needle, no label.
     let t = texts(&heading_only_panel());
-    for label in ["GPS", "NAV1", "NAV2"] {
+    for label in ["GPS", "NAV1 VOR", "NAV2 VOR"] {
         assert!(
             !t.contains(&s(label)),
             "{label} without a selected source: {t:?}"
@@ -316,7 +322,7 @@ fn the_receiver_label_shares_the_cdi_gate() {
     data.nav.status = SignalStatus::Failed;
     let t = texts(&data);
     assert!(
-        !t.contains(&s("NAV1")),
+        !t.contains(&s("NAV1 VOR")),
         "a failed nav group shows neither needle nor label: {t:?}"
     );
 }
@@ -330,7 +336,7 @@ fn the_receiver_label_shares_the_cdi_gate() {
 fn the_receiver_label_clears_the_rose_rim() {
     use indicate_instrument_scene::nominal_text_width;
 
-    let widest = ["GPS", "NAV1", "NAV2"]
+    let widest = ["GPS", "NAV1 VOR", "NAV2 LOC"]
         .iter()
         .map(|t| t.chars().count())
         .max()
@@ -414,6 +420,8 @@ fn nav_at_scale(scale: indicate_instrument_state::NavScale) -> PanelData {
             cdi_dots: -1.2,
             fromto: NavFromTo::To,
             scale,
+            facility: indicate_instrument_state::NavFacility::None,
+            sequencing: indicate_instrument_state::NavSequencing::Sequencing,
             ..NavData::default()
         }),
         age_ms: Some(10.0),
