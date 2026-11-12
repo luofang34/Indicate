@@ -43,6 +43,13 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [Unreleased]
+
+- **The HUD draws the position integrity word on its own line.** The
+  approach label row reads `LNAV BLND`, and `DGRD` or `EXCL` draws
+  beneath it in the caution color. One long line reached past the gap in
+  a pitch-ladder bar. No contract value moves.
+
 ## [0.13.0] — 2026-11-12
 
 State ABI 11 separates the guidance source from the sensor that

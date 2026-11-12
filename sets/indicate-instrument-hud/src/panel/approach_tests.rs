@@ -346,35 +346,37 @@ fn a_flight_management_course_names_its_position_sensor() {
         ink(&visual, "LNAV"),
         "one ink while normal"
     );
-    for (position, integrity, words) in [
-        (
-            PositionSource::DeadReckoning,
-            PositionIntegrity::Normal,
-            "DR",
-        ),
+    let dead_reckoning = fms(PositionSource::DeadReckoning, PositionIntegrity::Normal);
+    assert_ne!(ink(&dead_reckoning, "DR"), ink(&dead_reckoning, "LNAV"));
+    for (position, integrity, sensor, word) in [
         (
             PositionSource::Visual,
             PositionIntegrity::Degraded,
-            "VIS DGRD",
+            "VIS",
+            "DGRD",
         ),
         (
             PositionSource::Blended,
             PositionIntegrity::SensorExcluded,
-            "BLND EXCL",
+            "BLND",
+            "EXCL",
         ),
     ] {
         let drawn = fms(position, integrity);
+        assert!(drawn.has("LNAV") && drawn.has(sensor) && drawn.has(word));
+        for caution in [sensor, word] {
+            assert_ne!(ink(&drawn, caution), ink(&drawn, "LNAV"), "{caution}");
+        }
+        // The integrity word has its own line under the label row, so
+        // the row stays short enough for the gap in a ladder bar.
+        assert_eq!(drawn.y(sensor), drawn.y("LNAV"));
         assert!(
-            drawn.has("LNAV") && drawn.has(words),
-            "{words}: {:?}",
-            drawn.texts
-        );
-        assert_ne!(
-            ink(&drawn, words),
-            ink(&drawn, "LNAV"),
-            "{words} is a caution"
+            drawn.y(word) >= drawn.y("LNAV") + 10.0,
+            "{:?}",
+            drawn.placed
         );
     }
+    assert!(!visual.has("DGRD") && !visual.has("EXCL"));
     // A receiver names no position sensor.
     let ils = draw(&with_ils(0.5, 0.5), &approach(final_approach(5000.0)));
     assert!(ils.has("LOC") && !ils.has("VIS") && !ils.has("GPS"));
