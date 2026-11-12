@@ -90,6 +90,38 @@ The corpus does not move.
 
 Panel set changed since the previous release: no.
 
+## [0.11.1] — 2026-11-11
+
+The PFD tapes keep clear of the labels and flags drawn over them, which
+the 0.11.0 sweep did not reach.
+
+- **Tape labels keep clear of the source labels.** A ladder label that
+  would run under the `IAS` or `ALT` source label, or its `CMP` row, is
+  omitted.
+- **`BARO SEL` sits above the barometric-setting box**, no longer
+  overlapping its top edge, and ladder labels keep clear of it.
+- **A descending vertical-speed label steps below the source label** and
+  stops above `BARO SEL`.
+
+`pfd::layout_tests` now also sweeps vertical speed, a setting mismatch
+and miscomparing sources. It asserts that the sweep draws each of those
+labels, so a branch it claims to check cannot drop out unnoticed. It
+does not cover the flight-guidance speed presentation or the
+selected-speed targets.
+
+This release changes PFD paint only in those states. No shipped fixture
+reaches them, so no contract value moves.
+
+| Value | This release |
+|---|---|
+| State ABI | 9 |
+| Scene format | 1 |
+| Corpus | 9 |
+| Composition digest | `4e4a7a89fd3c2605e410e13f8003094295b7b84a3fd7755feded6e46252762ca` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
+
+Panel set changed since the previous release: no.
+
 ## [0.11.0] — 2026-11-11
 
 The PFD paints no tape label that is cut, struck through, or overlapping
