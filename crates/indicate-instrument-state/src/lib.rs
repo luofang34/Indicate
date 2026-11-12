@@ -22,6 +22,7 @@
 //! to benign ones, and no non-finite value can reach scene generation.
 
 #![no_std]
+
 #[cfg(test)]
 extern crate std;
 
@@ -41,6 +42,7 @@ mod presentation;
 mod resolve;
 pub mod samples;
 mod signal;
+mod source;
 mod source_compare;
 mod source_monitor;
 mod tank;
@@ -80,16 +82,7 @@ pub use resolve::{
 };
 pub use samples::{BesideSamples, RawSample, Sample, SampleGroup, SampleIter, Samples};
 pub use signal::{FreshnessPolicy, PolicyError, Sig, SignalStatus};
-pub use source_compare::{
-    AirframeSourcePolicy, AttitudeMeasure, Candidate, Comparable, ComparisonState, FrameTag,
-    HeadingMeasure, IntegrityLevel, MAX_SOURCES, ScalarMeasure, ScalarUnit, SourceAltitude,
-    SourceComparator, SourceComparison, SourceEpoch, SourceId, SourceList, SourcePolicyError,
-    SourcePolicyLimits, VectorMeasure,
-};
-pub use source_monitor::{
-    SourceInputs, SourceMonitorReport, SourceMonitors, SourcePolicies, SourceSelection, SourceStep,
-    Sourced, SourcedFunction, resolve_with_sources,
-};
+pub use source::*;
 pub use tank::{
     TANK_FIELDS_MASK, TankField, TankGroup, TankIter, TankSample, TankSamples, parse_tank_samples,
     tank_sample_wire_bytes,
