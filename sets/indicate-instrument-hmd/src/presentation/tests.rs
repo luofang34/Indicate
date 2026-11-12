@@ -2,7 +2,7 @@
 use super::*;
 use indicate_instrument_descriptor::PanelDrawError;
 use indicate_instrument_scene::{Cmd, SceneCmds, SceneWriter};
-use indicate_instrument_state::{FreshnessPolicy, abi::v10::fixtures, resolve};
+use indicate_instrument_state::{FreshnessPolicy, abi::v11::fixtures, resolve};
 use std::vec::Vec;
 
 fn data() -> PanelData {

@@ -44,6 +44,8 @@ fn with_ils(cdi: f32, vdev: f32) -> PanelData {
             scale: NavScale::Approach,
             facility: indicate_instrument_state::NavFacility::Localizer,
             sequencing: indicate_instrument_state::NavSequencing::Sequencing,
+            position_source: indicate_instrument_state::PositionSource::None,
+            position_integrity: indicate_instrument_state::PositionIntegrity::Normal,
         }),
         age_ms: Some(10.0),
     };
@@ -310,4 +312,73 @@ fn the_receiver_labels_follow_the_facility() {
         let drawn = draw(&data, &approach(final_approach(5000.0)));
         assert!(drawn.has(lateral) && drawn.has(vertical), "{facility:?}");
     }
+}
+
+/// A flight-management course names the sensor that positions it beside
+/// the lateral label, and the words turn to the caution ink for dead
+/// reckoning, a degraded position, or an excluded sensor.
+#[test]
+fn a_flight_management_course_names_its_position_sensor() {
+    use indicate_instrument_state::{NavFacility, PositionIntegrity, PositionSource};
+    let ink = |drawn: &Drawn, text: &str| -> Option<std::string::String> {
+        let at = drawn
+            .commands
+            .iter()
+            .position(|c| c.starts_with("Text") && c.contains(&std::format!("\"{text}\"")))?;
+        drawn.commands[..at]
+            .iter()
+            .rev()
+            .find(|c| c.starts_with("FillColor"))
+            .cloned()
+    };
+    let fms = |position, integrity| {
+        let mut data = with_ils(0.5, 0.5);
+        data.nav.data.source = NavSource::Fms;
+        data.nav.data.facility = NavFacility::None;
+        data.nav.data.position_source = position;
+        data.nav.data.position_integrity = integrity;
+        draw(&data, &approach(final_approach(5000.0)))
+    };
+    let visual = fms(PositionSource::Visual, PositionIntegrity::Normal);
+    assert!(visual.has("LNAV") && visual.has("VNAV") && visual.has("VIS"));
+    assert_eq!(
+        ink(&visual, "VIS"),
+        ink(&visual, "LNAV"),
+        "one ink while normal"
+    );
+    for (position, integrity, words) in [
+        (
+            PositionSource::DeadReckoning,
+            PositionIntegrity::Normal,
+            "DR",
+        ),
+        (
+            PositionSource::Visual,
+            PositionIntegrity::Degraded,
+            "VIS DGRD",
+        ),
+        (
+            PositionSource::Blended,
+            PositionIntegrity::SensorExcluded,
+            "BLND EXCL",
+        ),
+    ] {
+        let drawn = fms(position, integrity);
+        assert!(
+            drawn.has("LNAV") && drawn.has(words),
+            "{words}: {:?}",
+            drawn.texts
+        );
+        assert_ne!(
+            ink(&drawn, words),
+            ink(&drawn, "LNAV"),
+            "{words} is a caution"
+        );
+    }
+    // A receiver names no position sensor.
+    let ils = draw(&with_ils(0.5, 0.5), &approach(final_approach(5000.0)));
+    assert!(ils.has("LOC") && !ils.has("VIS") && !ils.has("GPS"));
+    // A lane that does not name its sensor is not guidance.
+    let unnamed = fms(PositionSource::None, PositionIntegrity::Normal);
+    assert!(!unnamed.has("LNAV"), "{:?}", unnamed.texts);
 }

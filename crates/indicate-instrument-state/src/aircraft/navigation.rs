@@ -1,5 +1,6 @@
-//! The declared vocabularies of the nav group: the deflection scale,
-//! the facility a receiver is tuned to, and the leg sequencing state.
+//! The declared vocabularies of the nav group: the source coding, the
+//! deflection scale, the facility a receiver is tuned to, and the leg
+//! sequencing state.
 //!
 //! Each is declared by the guidance source and never inferred by a
 //! display. Each decodes fail-closed: a wire value this build does not
@@ -8,6 +9,57 @@
 //! for an old one.
 
 use super::NavSource;
+
+impl NavSource {
+    /// Fail-closed wire decoding. The nav group and each bearing
+    /// pointer share this coding.
+    #[must_use]
+    pub const fn from_u8(value: u8) -> Self {
+        match value {
+            0 => Self::None,
+            1 => Self::Gps,
+            2 => Self::Nav1,
+            3 => Self::Nav2,
+            4 => Self::Fms,
+            _ => Self::Unknown,
+        }
+    }
+
+    /// Wire encoding; `Unknown` round-trips as unknown.
+    #[must_use]
+    pub const fn to_u8(self) -> u8 {
+        match self {
+            Self::None => 0,
+            Self::Gps => 1,
+            Self::Nav1 => 2,
+            Self::Nav2 => 3,
+            Self::Fms => 4,
+            Self::Unknown => 255,
+        }
+    }
+
+    /// The word that names the source to the pilot; empty when there is
+    /// no source to name.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Gps => "GPS",
+            Self::Nav1 => "NAV1",
+            Self::Nav2 => "NAV2",
+            Self::Fms => "FMS",
+            Self::None | Self::Unknown => "",
+        }
+    }
+
+    /// Whether the source computes its own course, as opposed to a
+    /// receiver tuned to a ground facility. The displays draw a
+    /// computed course in magenta and its vertical deviation as a
+    /// computed path.
+    #[must_use]
+    pub const fn is_computed(self) -> bool {
+        matches!(self, Self::Gps | Self::Fms)
+    }
+}
 
 /// The deflection scale the guidance source is flying to.
 ///
@@ -76,7 +128,8 @@ impl NavScale {
 /// such as a GLS approach, is a new appended value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum NavFacility {
-    /// No ground facility: a GPS or RNAV course, or no source selected.
+    /// No ground facility: a GPS or flight-management course, or no
+    /// source selected.
     None,
     /// A VOR.
     Vor,
@@ -122,13 +175,14 @@ impl NavFacility {
         }
     }
 
-    /// Whether this facility can belong to `source`. A GPS course and no
-    /// source have no facility; a NAV receiver is tuned to a VOR or a
-    /// localizer. Any other pair is a source that contradicts itself.
+    /// Whether this facility can belong to `source`. A GPS course, a
+    /// flight-management course and no source have no facility. A NAV
+    /// receiver is tuned to a VOR or a localizer. Any other pair is a
+    /// source that contradicts itself.
     #[must_use]
     pub const fn fits(self, source: NavSource) -> bool {
         match source {
-            NavSource::None | NavSource::Gps => matches!(self, Self::None),
+            NavSource::None | NavSource::Gps | NavSource::Fms => matches!(self, Self::None),
             NavSource::Nav1 | NavSource::Nav2 => matches!(self, Self::Vor | Self::Localizer),
             NavSource::Unknown => false,
         }

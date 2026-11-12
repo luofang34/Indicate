@@ -161,7 +161,7 @@ fn valid_volume_3d_and_planar_2d_plugins_load_admit_and_draw() {
     let vol_pack = sign_pack(&vol_desc, &build_honest_volume_wasm());
     let mut vol_plugin = LoadedPlugin::load(&vol_pack, &test_verifier()).expect("loads");
     let adm = admit_plugin(&mut vol_plugin).expect("volume plugin passes admission");
-    assert_eq!(adm.cases_checked, 24);
+    assert_eq!(adm.cases_checked, 32);
     assert!(adm.max_case_fuel > 0);
 
     // Also verify a valid 2D Planar plugin!
@@ -200,7 +200,7 @@ fn valid_volume_3d_and_planar_2d_plugins_load_admit_and_draw() {
     let pack_2d = sign_pack(&desc_2d, &wasm_2d);
     let mut plug_2d = LoadedPlugin::load(&pack_2d, &test_verifier()).expect("loads 2d");
     let adm_2d = admit_plugin(&mut plug_2d).expect("2d plugin passes admission");
-    assert_eq!(adm_2d.cases_checked, 12);
+    assert_eq!(adm_2d.cases_checked, 16);
 
     let data = resolve(&AircraftState::default(), &FreshnessPolicy::default());
     let mut out_2d = vec![0u8; MAX_SCENE_BYTES];

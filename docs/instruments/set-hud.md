@@ -81,10 +81,13 @@ Both profiles draw approach symbology while a valid runway is supplied:
   the band's depression below the boresight, so with the wings level the
   marker sits inside it exactly when the angle of attack does. The top edge
   is the fast limit. The set reads no angle-of-attack signal for it.
-- Lateral and vertical deviation scales from an approach-scale receiver,
-  labelled `LOC` and `GS`, or `LNAV` and `VNAV` for a GPS source. Without
-  such a receiver, `LOC GS UNAVAILABLE` or the group status shows, and the
-  runway geometry stays.
+- Lateral and vertical deviation scales from an approach-scale source,
+  labelled `LOC` and `GS`, or `LNAV` and `VNAV` for a computed course. A
+  flight-management course names its position sensor beside `LNAV`, for
+  example `LNAV VIS`. The position words take the caution color for dead
+  reckoning, a degraded position, or an excluded sensor. Without such a
+  source, `LOC GS UNAVAILABLE` or the group status shows, and the runway
+  geometry stays.
 
 On a screen, the outside view is synthetic vision
 ([`AIR-OUT-005`](requirements.md#air-out-005)), so the screen profile

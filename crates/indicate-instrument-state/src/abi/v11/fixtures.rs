@@ -74,6 +74,8 @@ fn nav(course_rad: f32, cdi_dots: f32, to: &str, from: &str, age_ms: f32) -> Sta
             from_ident: ident(from),
             facility: crate::aircraft::NavFacility::None,
             sequencing: crate::aircraft::NavSequencing::Sequencing,
+            position_source: crate::aircraft::PositionSource::None,
+            position_integrity: crate::aircraft::PositionIntegrity::Normal,
         },
         age_ms,
     )
@@ -372,6 +374,11 @@ pub fn data_gateway() -> AircraftState {
     if let Some(data) = nav.data.as_mut() {
         data.dist_nm = Some(8.7);
         data.course_reference = HeadingReference::True;
+        // The bridge relays a flight plan flown on satellite position,
+        // so this frame pins the flight-management source code and a
+        // named position sensor on the wire.
+        data.source = NavSource::Fms;
+        data.position_source = crate::aircraft::PositionSource::Gps;
     }
     AircraftState {
         kinematics: kinematics([-2500.0, 800.0, -1200.0], [61.0, -4.0, 1.5], 120.0),

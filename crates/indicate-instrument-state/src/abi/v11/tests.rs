@@ -1,4 +1,4 @@
-//! v10 frame codec behavior: canonical round-trips, the fail-closed
+//! v11 frame codec behavior: canonical round-trips, the fail-closed
 //! decode table, and the two forward-compatibility axes (unknown tags,
 //! appended payload tails).
 
@@ -258,20 +258,22 @@ pub(super) fn one_group_frame(tag: u8, payload: &[u8]) -> Vec<u8> {
 fn unknown_wire_enum_values_decode_fail_safe_not_benign() {
     use crate::aircraft::{
         EstimateQuality, NavFacility, NavFromTo, NavScale, NavSequencing, NavSource,
-        SnapshotCoherence,
+        PositionIntegrity, PositionSource, SnapshotCoherence,
     };
-    // Nav source, from/to, scale, facility and sequencing bytes outside
-    // the known set must decode to Unknown — guidance from an
+    // Nav source, from/to, scale, facility, sequencing and position
+    // bytes outside the known set must decode to Unknown — guidance from an
     // unidentifiable source fails, it never masquerades as no-source,
     // and a deflection at a scale nobody named never masquerades as the
     // widest scale.
-    let mut nav = [0u8; 45];
+    let mut nav = [0u8; 47];
     nav[0] = 7;
     nav[1] = 9;
     nav[20..24].copy_from_slice(&10.0f32.to_le_bytes());
     nav[42] = 7;
     nav[43] = 7;
     nav[44] = 7;
+    nav[45] = 7;
+    nav[46] = 7;
     let report = decode_state(&one_group_frame(0x04, &nav)).expect("decodes");
     let data = report.state.nav.data.expect("nav present");
     assert_eq!(data.source, NavSource::Unknown);
@@ -279,6 +281,8 @@ fn unknown_wire_enum_values_decode_fail_safe_not_benign() {
     assert_eq!(data.scale, NavScale::Unknown);
     assert_eq!(data.facility, NavFacility::Unknown);
     assert_eq!(data.sequencing, NavSequencing::Unknown);
+    assert_eq!(data.position_source, PositionSource::Unknown);
+    assert_eq!(data.position_integrity, PositionIntegrity::Unknown);
 
     // Quality and coherence bytes outside the known set decode Unknown,
     // which resolution treats as fail-closed distrust.
@@ -302,6 +306,8 @@ fn unknown_variants_encode_as_255_and_round_trip_explicitly() {
                 fromto: NavFromTo::Unknown,
                 facility: crate::aircraft::NavFacility::None,
                 sequencing: crate::aircraft::NavSequencing::Sequencing,
+                position_source: crate::aircraft::PositionSource::None,
+                position_integrity: crate::aircraft::PositionIntegrity::Normal,
                 ..NavData::default()
             }),
             age_ms: Some(5.0),

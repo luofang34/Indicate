@@ -12,7 +12,7 @@ use indicate_instrument_descriptor::{
     DesignFrame, DrawContext, EMPTY_CONFIG, PanelDescriptor, PanelDrawError, SceneTarget,
 };
 use indicate_instrument_scene::{LayerId, SceneError};
-use indicate_instrument_state::{AircraftState, abi::v10::fixtures};
+use indicate_instrument_state::{AircraftState, abi::v11::fixtures};
 use indicate_instrument_template::TEMPLATE_DESCRIPTOR;
 
 use crate::{

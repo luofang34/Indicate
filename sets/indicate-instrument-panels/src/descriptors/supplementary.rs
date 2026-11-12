@@ -144,10 +144,10 @@ pub const AUTOFLIGHT_DESCRIPTOR: PanelDescriptor = PanelDescriptor {
         },
         ExtremeState {
             id: "extended-flight-guidance",
-            build: indicate_instrument_state::abi::v10::fixtures::extended,
-            engines: indicate_instrument_state::abi::v10::fixtures::ENGINES,
+            build: indicate_instrument_state::abi::v11::fixtures::extended,
+            engines: indicate_instrument_state::abi::v11::fixtures::ENGINES,
 
-            tanks: indicate_instrument_state::abi::v10::fixtures::TANKS,
+            tanks: indicate_instrument_state::abi::v11::fixtures::TANKS,
         },
         ExtremeState {
             id: "target-against-another-datum",

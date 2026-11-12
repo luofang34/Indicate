@@ -2,7 +2,7 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 use super::{envelope::*, guidance::*, presentation::*, speed::*};
-use crate::{FreshnessPolicy, SignalStatus, abi::v10::fixtures, resolve};
+use crate::{FreshnessPolicy, SignalStatus, abi::v11::fixtures, resolve};
 
 #[test]
 fn only_valid_commands_and_attitude_produce_steering() {

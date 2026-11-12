@@ -11,8 +11,8 @@ use std::vec::Vec;
 use indicate_instrument_scene::{Cmd, SceneCmds, SceneWriter, nominal_text_width};
 use indicate_instrument_state::{
     AircraftState, EstimateQuality, FreshnessPolicy, HeadingReference, HeadingSample, NavData,
-    NavFacility, NavFromTo, NavScale, NavSequencing, NavSource, PanelData, Stamped, ValidFlags,
-    resolve,
+    NavFacility, NavFromTo, NavScale, NavSequencing, NavSource, PanelData, PositionIntegrity,
+    PositionSource, Stamped, ValidFlags, resolve,
 };
 
 fn panel(source: NavSource, facility: NavFacility, sequencing: NavSequencing) -> PanelData {
@@ -40,6 +40,8 @@ fn panel(source: NavSource, facility: NavFacility, sequencing: NavSequencing) ->
                 scale: NavScale::Terminal,
                 facility,
                 sequencing,
+                position_source: PositionSource::None,
+                position_integrity: PositionIntegrity::Normal,
                 ..NavData::default()
             }),
             age_ms: Some(10.0),
@@ -145,7 +147,7 @@ fn the_sequencing_label_clears_the_rim_and_the_vertical_scale() {
 /// baseline that looks like any other re-pin.
 #[test]
 fn the_receiver_label_clears_the_rose_rim() {
-    let widest = ["GPS", "NAV1 VOR", "NAV2 LOC"]
+    let widest = ["GPS", "NAV1 VOR", "NAV2 LOC", "FMS BLND"]
         .iter()
         .map(|t| t.chars().count())
         .max()

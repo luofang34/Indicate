@@ -117,12 +117,13 @@ fn guidance(
         && !data.nav.data.scale.label().is_empty();
     if needle {
         cdi::draw_cdi(scene, &data.nav, up_rad)?;
-        // Both labels draw under the needle's own gate: which receiver
-        // drives it and what a dot is worth are only readable while
-        // there is a needle to read them against.
+        // Every label draws under the needle's own gate: which source
+        // drives it, what positions it and what a dot is worth are only
+        // readable while there is a needle to read them against.
         cdi::draw_receiver_label(scene, &data.nav.data)?;
         cdi::draw_scale_label(scene, &data.nav)?;
         cdi::draw_sequencing_label(scene, &data.nav.data)?;
+        cdi::draw_integrity_label(scene, &data.nav.data)?;
     }
     bearing::draw_bearing_pointers(scene, &data.bearings.value, data.bearings_rose_rad, up_rad)?;
     Ok(needle)
@@ -186,6 +187,8 @@ fn annunciation_band(
 
 #[cfg(test)]
 mod facility_tests;
+#[cfg(test)]
+mod position_tests;
 #[cfg(test)]
 mod source_tests;
 #[cfg(test)]

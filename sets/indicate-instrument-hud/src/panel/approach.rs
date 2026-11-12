@@ -6,7 +6,8 @@
 //! so they keep the receiver's own validity and provenance.
 use super::*;
 use crate::runway::Runway;
-use indicate_instrument_state::{NavFacility, NavFromTo, NavScale, NavSource};
+use indicate_instrument_scene::nominal_text_width;
+use indicate_instrument_state::{NavData, NavFacility, NavFromTo, NavScale, NavSource};
 
 mod outline;
 
@@ -128,10 +129,15 @@ fn available(data: &PanelData) -> bool {
     data.nav.status == SignalStatus::Valid
         && matches!(
             nav.source,
-            NavSource::Nav1 | NavSource::Nav2 | NavSource::Gps
+            NavSource::Nav1 | NavSource::Nav2 | NavSource::Gps | NavSource::Fms
         )
         && matches!(nav.fromto, NavFromTo::To | NavFromTo::From)
         && nav.scale == NavScale::Approach
+        // The group's fault path already fails a position the source
+        // cannot have. The scales still refuse to draw one, because a
+        // course whose position nobody names is not guidance.
+        && nav.position_source.fits(nav.source)
+        && nav.position_integrity.fits(nav.position_source)
         && nav.cdi_dots.is_finite()
 }
 
@@ -168,20 +174,7 @@ fn deviations(
         layout,
         scene,
     )?;
-    let label = match nav.facility {
-        NavFacility::Localizer => "LOC",
-        NavFacility::Vor => "VOR",
-        NavFacility::None | NavFacility::Unknown => "LNAV",
-    };
-    scene.fill_color(HUD_GREEN)?;
-    scene.text_attributed(
-        GroupId::Nav.to_u8(),
-        lateral[0],
-        lateral[1] + 14.0 * u,
-        layout.text(10.0),
-        Anchor::CENTER,
-        label,
-    )?;
+    lateral_label(nav, [lateral[0], lateral[1] + 14.0 * u], layout, scene)?;
     if let Some(vdev) = nav.vdev_dots.filter(|v| v.is_finite()) {
         diamond(
             [vertical[0], vertical[1] + vdev.clamp(-2.4, 2.4) * dot],
@@ -204,6 +197,63 @@ fn deviations(
             label,
         )?;
     }
+    Ok(())
+}
+
+/// The lateral scale's label: what the deviation is measured against,
+/// and for a flight-management course the sensor that positions it.
+///
+/// "LOC", "VOR", "LNAV", "LNAV VIS", "LNAV DR EXCL". The position words
+/// are a second run, because they take the caution color when the
+/// position is dead reckoning, degraded, or short of an excluded
+/// sensor. The pair is centered as one label.
+fn lateral_label(
+    nav: &NavData,
+    at: [f32; 2],
+    layout: &Layout,
+    scene: &mut SceneWriter<'_>,
+) -> Result<(), PanelDrawError> {
+    let label = match nav.facility {
+        NavFacility::Localizer => "LOC",
+        NavFacility::Vor => "VOR",
+        NavFacility::None | NavFacility::Unknown => "LNAV",
+    };
+    let size = layout.text(10.0);
+    let [x, y] = at;
+    let position = nav.position_source.label();
+    scene.fill_color(HUD_GREEN)?;
+    if position.is_empty() {
+        scene.text_attributed(GroupId::Nav.to_u8(), x, y, size, Anchor::CENTER, label)?;
+        return Ok(());
+    }
+    let integrity = nav.position_integrity.label();
+    let words = fmt_label!(
+        12,
+        "{position}{}{integrity}",
+        if integrity.is_empty() { "" } else { " " }
+    );
+    let label_chars = label.chars().count() + 1;
+    let all_chars = label_chars + words.as_str().chars().count();
+    let left = x - nominal_text_width(size, all_chars) / 2.0;
+    scene.text_attributed(
+        GroupId::Nav.to_u8(),
+        left,
+        y,
+        size,
+        Anchor::MIDDLE_LEFT,
+        label,
+    )?;
+    if nav.position_is_caution() {
+        scene.fill_color(status_color(layout, SignalStatus::Degraded))?;
+    }
+    scene.text_attributed(
+        GroupId::Nav.to_u8(),
+        left + nominal_text_width(size, label_chars),
+        y,
+        size,
+        Anchor::MIDDLE_LEFT,
+        words.as_str(),
+    )?;
     Ok(())
 }
 

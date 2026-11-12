@@ -15,7 +15,7 @@
 //! | attitude | quat w x y z f32×4; rates p q r f32×3; age f32 | 32 |
 //! | kinematics | pos NED f32×3; vel NED f32×3; age f32 | 28 |
 //! | air | ias f32; baro f32; age f32; tas f32; indicated vs f32 | 20 |
-//! | nav | source u8; fromto u8; course ref u8; 0; course f32; cdi f32; vdev f32; dist f32; age f32; to ident 9; from ident 9; scale u8; facility u8; sequencing u8 | 45 |
+//! | nav | source u8; fromto u8; course ref u8; 0; course f32; cdi f32; vdev f32; dist f32; age f32; to ident 9; from ident 9; scale u8; facility u8; sequencing u8; position source u8; position integrity u8 | 47 |
 //! | wind | from f32; speed f32; age f32 | 12 |
 //! | heading | reference u8; 0×3; heading f32; age f32 | 12 |
 //! | variation | source u8; 0×3; east f32; age f32 | 12 |
@@ -151,13 +151,7 @@ pub(super) fn decode_nav(state: &mut AircraftState, p: &[u8]) {
     let age = opt(get_f32(p, 20));
     // Unknown wire values are preserved as Unknown, never mapped to a
     // benign known value (VAL-01 fail-safe decoding).
-    let source = match get_u8(p, 0) {
-        0 => NavSource::None,
-        1 => NavSource::Gps,
-        2 => NavSource::Nav1,
-        3 => NavSource::Nav2,
-        _ => NavSource::Unknown,
-    };
+    let source = NavSource::from_u8(get_u8(p, 0));
     let fromto = match get_u8(p, 1) {
         0 => NavFromTo::Off,
         1 => NavFromTo::To,
@@ -170,6 +164,8 @@ pub(super) fn decode_nav(state: &mut AircraftState, p: &[u8]) {
             scale: crate::aircraft::NavScale::from_u8(get_u8(p, 42)),
             facility: crate::aircraft::NavFacility::from_u8(get_u8(p, 43)),
             sequencing: crate::aircraft::NavSequencing::from_u8(get_u8(p, 44)),
+            position_source: crate::aircraft::PositionSource::from_u8(get_u8(p, 45)),
+            position_integrity: crate::aircraft::PositionIntegrity::from_u8(get_u8(p, 46)),
             course_rad: get_f32(p, 4),
             cdi_dots: get_f32(p, 8),
             fromto,
@@ -187,19 +183,9 @@ pub(super) fn encode_nav(state: &AircraftState, out: &mut [u8]) -> Result<Option
     if absent(&state.nav) {
         return Ok(None);
     }
-    let p = sized(out, 45)?;
+    let p = sized(out, 47)?;
     let nav = state.nav.data.unwrap_or_default();
-    put_u8(
-        p,
-        0,
-        match nav.source {
-            NavSource::None => 0,
-            NavSource::Gps => 1,
-            NavSource::Nav1 => 2,
-            NavSource::Nav2 => 3,
-            NavSource::Unknown => 255,
-        },
-    );
+    put_u8(p, 0, nav.source.to_u8());
     put_u8(
         p,
         1,
@@ -226,7 +212,9 @@ pub(super) fn encode_nav(state: &AircraftState, out: &mut [u8]) -> Result<Option
     put_u8(p, 42, nav.scale.to_u8());
     put_u8(p, 43, nav.facility.to_u8());
     put_u8(p, 44, nav.sequencing.to_u8());
-    Ok(Some(45))
+    put_u8(p, 45, nav.position_source.to_u8());
+    put_u8(p, 46, nav.position_integrity.to_u8());
+    Ok(Some(47))
 }
 
 pub(super) fn decode_wind(state: &mut AircraftState, p: &[u8]) {

@@ -49,7 +49,7 @@
 //!
 //! | id | group | lane | reason |
 //! |----|-------|------|--------|
-//! | 0x12 | BearingPointers | stamped | Two pointers. Per pointer: a source enum in the shipped `NavSource` coding (0 None, 1 Gps, 2 Nav1, 3 Nav2, 255 fail-closed Unknown), bearing rad f32, a heading reference, and a per-pointer validity. |
+//! | 0x12 | BearingPointers | stamped | Two pointers. Per pointer: a source enum in the shipped `NavSource` coding (0 None, 1 Gps, 2 Nav1, 3 Nav2, 4 Fms, 255 fail-closed Unknown), bearing rad f32, a heading reference, and a per-pointer validity. |
 //! | 0x13 | AirframeConfig | stamped | Flap position ratio plus an optional selected detent (sensed and selected are never conflated), and per-axis trim ratios (elevator first). Every field is optional and NaN-absent. Configuration takes its own id: flap and trim are airframe configuration, not engine, so 0x0E keeps its engine charter. |
 //! | 0x14 | ApModes | stamped | Engagement (Off/FD/AP, Unknown fail-closed), active and armed lateral mode, active and armed vertical mode. Each mode enum has a None value distinct from Unknown. Stamped because a stale "AP engaged" annunciation is the failure the freshness discipline exists to prevent (the `fc_state.rs` precedent). |
 //! | 0x15 | ApTargets | declared | Selected airspeed m/s, selected vertical speed m/s, and an altitude target with the same reference-identity trio as `altitude_sel` (class, origin, geoid model). Declared per the issue's stamped-versus-declared analysis: the targets are defensibly UI-like state, while modes and engagement are telemetry. |
@@ -68,6 +68,7 @@
 //! | Dynamics (0x0B) | `ias_trend f32` (d(IAS)/dt), NaN-absent, plus Trust valid bit 9 (16 to 20 bytes) |
 //! | Nav (0x04) | `scale_mode u8` (Enroute/Terminal/Approach, 255 fail-closed Unknown; 42 to 43 bytes) |
 //! | Nav (0x04) | `facility_type u8` (None/VOR/Localizer, any other value fail-closed Unknown, and a facility that cannot belong to the source fails the group) then `sequencing u8` (Sequencing/HOLD/SUSP, any other value fail-closed Unknown; 43 to 45 bytes; ABI v10). A later facility kind such as GLS is an appended value. |
+//! | Nav (0x04) | Source code 4 is `Fms`, flight-management guidance, in the nav group and in each bearing pointer. `position_source u8` (None/GPS/Visual/Inertial/DeadReckoning/Blended) then `position_integrity u8` (Normal/Degraded/SensorExcluded) follow `sequencing`. Any other value is fail-closed Unknown. A position source that cannot belong to the source fails the group, and so does an integrity without a position source (45 to 47 bytes; ABI v11). |
 
 use crate::aircraft::AircraftState;
 use crate::signal::SignalStatus;

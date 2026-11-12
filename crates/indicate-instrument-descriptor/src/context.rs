@@ -103,7 +103,7 @@ impl<'a> DrawContext<'a> {
     }
 
     /// Attaches the engine samples beside the state: a view over the
-    /// admitted frame bytes ([`indicate_instrument_state::abi::v10::engine_samples`])
+    /// admitted frame bytes ([`indicate_instrument_state::abi::v11::engine_samples`])
     /// or a producer's own slice. `PanelData::engine` carries their
     /// group status; read the samples only while it shows a value.
     #[must_use]

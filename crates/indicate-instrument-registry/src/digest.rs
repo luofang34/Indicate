@@ -10,7 +10,7 @@ use indicate_instrument_scene::{
     angular::{ANGULAR_SCENE_VERSION, AngularSceneWriter},
     volume::{Extent3D, VOLUME_SCENE_VERSION, VolumeSceneWriter},
 };
-use indicate_instrument_state::{FreshnessPolicy, abi::v10, resolve};
+use indicate_instrument_state::{FreshnessPolicy, abi::v11, resolve};
 use indicate_sha256::Sha256Ctx;
 
 use crate::registry::Registry;
@@ -57,7 +57,7 @@ pub fn scene_digest(registry: &Registry, scratch: &mut [u8]) -> Result<[u8; 32],
         SCENE_FORMAT_VERSION,
         ANGULAR_SCENE_VERSION,
         VOLUME_SCENE_VERSION,
-        v10::VERSION,
+        v11::VERSION,
     ]);
     for panel in registry.panels() {
         digest_panel_contract(&mut ctx, panel);

@@ -150,7 +150,8 @@ const PRESENTABLE_QUALITIES: [u32; 2] = [0, 1];
 /// The guidance's own phase scale selects both widths from `profile`,
 /// and its own TO/FROM resolution sets the flag. An unknown phase, a
 /// phase without a usable lateral and vertical width, or an unknown
-/// TO/FROM or sequencing state removes the display.
+/// TO/FROM or sequencing state removes the display. So does a position
+/// sensor the lane does not name, or an unknown position integrity.
 pub fn nav_display_state(
     snapshot: Option<&NavSnapshot>,
     profile: &DeviationScaleProfile,
@@ -166,12 +167,17 @@ pub fn nav_display_state(
     let lateral_m_per_dot = profile.lateral_m_per_dot(guidance.scale)?;
     let vertical_m_per_dot = profile.vertical_m_per_dot(guidance.scale)?;
     let fromto = from_to(guidance.to_from, guidance.lateral_deviation_m)?;
-    if guidance.sequencing == NavSequencing::Unknown {
+    if guidance.sequencing == NavSequencing::Unknown
+        || !guidance.position_source.fits(NavSource::Fms)
+        || !guidance.position_integrity.fits(guidance.position_source)
+    {
         return None;
     }
     Some(Stamped {
         data: Some(NavData {
-            source: NavSource::Gps,
+            // This lane is flight-management guidance, whatever sensor
+            // positions it.
+            source: NavSource::Fms,
             scale: guidance.scale,
             fromto,
             course_rad: guidance.course_rad,
@@ -193,10 +199,11 @@ pub fn nav_display_state(
             dist_nm: Some(guidance.distance_to_waypoint_m / M_PER_NM),
             to_ident: guidance.to_ident,
             from_ident: guidance.from_ident,
-            // This lane is the GPS navigation solution: it is tuned to
-            // no ground facility.
+            // A flight-management course is tuned to no ground facility.
             facility: NavFacility::None,
             sequencing: guidance.sequencing,
+            position_source: guidance.position_source,
+            position_integrity: guidance.position_integrity,
         }),
         age_ms: Some(snapshot.age_ms as f32),
     })
