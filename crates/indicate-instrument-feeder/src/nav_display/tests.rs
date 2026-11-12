@@ -6,11 +6,11 @@
 
 use indicate_instrument_state::{IdentStr, NavData, NavFromTo, NavScale};
 
-use super::{FULL_SCALE_DOTS, LateralScaleProfile, M_PER_NM, VDEV_M_PER_DOT, nav_display_state};
+use super::{DeviationScaleProfile, M_PER_FT, M_PER_NM, OUTER_DOT, PhaseWidths, nav_display_state};
 use crate::nav_guidance::{Guidance, NavGuidanceTracker, NavSnapshot};
 use crate::stamp::{CLOCK_HOST_MONOTONIC, ROLE_NAVIGATION_SOLUTION, RawStamp};
 
-const GNSS: LateralScaleProfile = LateralScaleProfile::GNSS_NAVIGATOR;
+const GNSS: DeviationScaleProfile = DeviationScaleProfile::GNSS_NAVIGATOR;
 const PHASES: [NavScale; 3] = [NavScale::Enroute, NavScale::Terminal, NavScale::Approach];
 
 fn snapshot(guidance: Guidance) -> NavSnapshot {
@@ -26,7 +26,7 @@ fn guidance() -> Guidance {
         from_ident: IdentStr::new("KMRY").expect("valid"),
         course_rad: 0.6,
         lateral_deviation_m: 926.0,
-        vertical_deviation_m: 8.0,
+        vertical_deviation_m: 500.0 * M_PER_FT,
         distance_to_waypoint_m: 1852.0,
         scale: NavScale::Terminal,
         to_from: NavFromTo::To,
@@ -36,7 +36,7 @@ fn guidance() -> Guidance {
     }
 }
 
-fn nav(guidance: Guidance, profile: &LateralScaleProfile) -> Option<NavData> {
+fn nav(guidance: Guidance, profile: &DeviationScaleProfile) -> Option<NavData> {
     nav_display_state(Some(&snapshot(guidance)), profile).and_then(|stamped| stamped.data)
 }
 
@@ -59,9 +59,10 @@ fn fly_to_signs_and_units_convert_exactly() {
     // scale: the course line is LEFT, so the deflection is one dot
     // NEGATIVE and flying toward the bar closes the error.
     assert!((nav.cdi_dots + 1.0).abs() < 1e-6);
-    // Ownship 8 m ABOVE profile: the profile is LOWER on the display,
-    // one dot POSITIVE — the axes disagree on which way is up.
-    assert!((nav.vdev_dots.expect("constrained") - 8.0 / VDEV_M_PER_DOT).abs() < 1e-6);
+    // Ownship 500 ft ABOVE profile at terminal scale: the profile is
+    // LOWER on the display, one dot POSITIVE — the axes disagree on
+    // which way is up.
+    assert!((nav.vdev_dots.expect("constrained") - 1.0).abs() < 1e-5);
     assert!((nav.dist_nm.expect("distance") - 1852.0 / M_PER_NM).abs() < 1e-6);
     assert_eq!(nav.fromto, NavFromTo::To);
     assert_eq!(nav.to_ident.as_str(), "WPT-2");
@@ -69,26 +70,33 @@ fn fly_to_signs_and_units_convert_exactly() {
 }
 
 #[test]
-fn the_gnss_profile_widths_are_two_one_and_three_tenths_nautical_miles() {
-    let widths = PHASES.map(|phase| GNSS.full_scale_m(phase).expect("width"));
-    assert_eq!(widths, [2.0 * 1852.0, 1852.0, 0.3 * 1852.0]);
-    let m_per_dot = PHASES.map(|phase| GNSS.m_per_dot(phase).expect("width"));
-    assert_eq!(m_per_dot, [1852.0, 926.0, 0.15 * 1852.0]);
-    let unmanned = LateralScaleProfile::SMALL_UNMANNED;
+fn the_shipped_profiles_carry_their_stated_widths() {
+    let lateral = PHASES.map(|phase| GNSS.lateral_m_per_dot(phase).expect("width"));
+    assert_eq!(lateral, [1852.0, 926.0, 0.15 * 1852.0]);
+    let vertical = PHASES.map(|phase| GNSS.vertical_m_per_dot(phase).expect("width"));
     assert_eq!(
-        PHASES.map(|phase| unmanned.m_per_dot(phase).expect("width")),
+        vertical,
+        [500.0 * M_PER_FT, 500.0 * M_PER_FT, 75.0 * M_PER_FT]
+    );
+    let unmanned = DeviationScaleProfile::SMALL_UNMANNED;
+    assert_eq!(
+        PHASES.map(|phase| unmanned.lateral_m_per_dot(phase).expect("width")),
         [100.0, 25.0, 10.0]
+    );
+    assert_eq!(
+        PHASES.map(|phase| unmanned.vertical_m_per_dot(phase).expect("width")),
+        [8.0; 3]
     );
 }
 
 #[test]
 fn each_declared_phase_puts_its_own_full_scale_width_on_the_outer_dot() {
-    for profile in [GNSS, LateralScaleProfile::SMALL_UNMANNED] {
+    for profile in [GNSS, DeviationScaleProfile::SMALL_UNMANNED] {
         for phase in PHASES {
-            let width = profile.full_scale_m(phase).expect("width");
+            let width = profile.widths(phase).expect("width").lateral_m;
             for (deviation_m, dots) in [
-                (width, -FULL_SCALE_DOTS),
-                (-width, FULL_SCALE_DOTS),
+                (width, -OUTER_DOT),
+                (-width, OUTER_DOT),
                 (width / 2.0, -1.0),
                 (0.0, 0.0),
             ] {
@@ -124,13 +132,28 @@ fn one_distance_reads_differently_at_each_phase() {
 }
 
 #[test]
+fn each_declared_phase_puts_its_own_vertical_width_on_the_outer_dot() {
+    for phase in PHASES {
+        let width = GNSS.widths(phase).expect("width").vertical_m;
+        for (deviation_m, dots) in [(width, OUTER_DOT), (-width / 2.0, -1.0)] {
+            let mut sample = guidance();
+            sample.scale = phase;
+            sample.vertical_deviation_m = deviation_m;
+            let vdev = nav(sample, &GNSS).expect("displays").vdev_dots;
+            let vdev = vdev.expect("constrained");
+            assert!((vdev - dots).abs() < 1e-5, "{phase:?}: {vdev} dots");
+        }
+    }
+}
+
+#[test]
 fn a_deviation_past_full_scale_stays_finite_and_unclamped_for_the_panel_to_peg() {
     let mut far = guidance();
     far.scale = NavScale::Approach;
     far.lateral_deviation_m = 10.0 * M_PER_NM;
     let nav = nav(far, &GNSS).expect("displays");
     assert!(nav.cdi_dots.is_finite());
-    assert!(nav.cdi_dots < -FULL_SCALE_DOTS * 10.0);
+    assert!(nav.cdi_dots < -OUTER_DOT * 10.0);
 }
 
 #[test]
@@ -147,12 +170,24 @@ fn an_undeclared_phase_is_absent_never_a_default_width() {
 #[test]
 fn a_profile_without_a_usable_width_is_absent() {
     for width in [0.0, -50.0, f32::NAN, f32::INFINITY] {
-        let profile = LateralScaleProfile {
-            terminal_full_scale_m: width,
+        let lateral = DeviationScaleProfile {
+            terminal: PhaseWidths {
+                lateral_m: width,
+                ..GNSS.terminal
+            },
             ..GNSS
         };
-        assert_eq!(profile.full_scale_m(NavScale::Terminal), None);
-        assert!(nav(guidance(), &profile).is_none(), "{width}");
+        let vertical = DeviationScaleProfile {
+            terminal: PhaseWidths {
+                vertical_m: width,
+                ..GNSS.terminal
+            },
+            ..GNSS
+        };
+        assert_eq!(lateral.lateral_m_per_dot(NavScale::Terminal), None);
+        assert_eq!(vertical.vertical_m_per_dot(NavScale::Terminal), None);
+        assert!(nav(guidance(), &lateral).is_none(), "{width}");
+        assert!(nav(guidance(), &vertical).is_none(), "{width}");
     }
 }
 
@@ -244,7 +279,7 @@ fn the_flag_and_scale_flip_in_the_sample_that_flips_them() {
             .and_then(|stamped| stamped.data)
             .expect("displays");
         assert_eq!((nav.fromto, nav.scale), (flag, phase), "step {sequence}");
-        let m_per_dot = GNSS.m_per_dot(phase).expect("width");
+        let m_per_dot = GNSS.lateral_m_per_dot(phase).expect("width");
         assert!((nav.cdi_dots + 926.0 / m_per_dot).abs() < 1e-5);
     }
 }
