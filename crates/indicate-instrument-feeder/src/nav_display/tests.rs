@@ -1,12 +1,17 @@
-//! The deviation-to-dots profile: fly-to signs, unit conversions, and
-//! the absent-not-centered contract.
+//! The deviation-to-dots profile: fly-to signs, unit conversions, the
+//! phase scale and TO/FROM flag the source states, and the
+//! absent-not-centered contract.
 
 #![allow(clippy::expect_used, clippy::panic)]
 
-use indicate_instrument_state::{IdentStr, NavFromTo};
+use indicate_instrument_state::{IdentStr, NavData, NavFromTo, NavScale};
 
-use super::{LATERAL_M_PER_DOT_TERMINAL, M_PER_NM, VDEV_M_PER_DOT, nav_display_state};
-use crate::nav_guidance::{Guidance, NavSnapshot};
+use super::{FULL_SCALE_DOTS, LateralScaleProfile, M_PER_NM, VDEV_M_PER_DOT, nav_display_state};
+use crate::nav_guidance::{Guidance, NavGuidanceTracker, NavSnapshot};
+use crate::stamp::{CLOCK_HOST_MONOTONIC, ROLE_NAVIGATION_SOLUTION, RawStamp};
+
+const GNSS: LateralScaleProfile = LateralScaleProfile::GNSS_NAVIGATOR;
+const PHASES: [NavScale; 3] = [NavScale::Enroute, NavScale::Terminal, NavScale::Approach];
 
 fn snapshot(guidance: Guidance) -> NavSnapshot {
     NavSnapshot {
@@ -20,34 +25,40 @@ fn guidance() -> Guidance {
         to_ident: IdentStr::new("WPT-2").expect("valid"),
         from_ident: IdentStr::new("KMRY").expect("valid"),
         course_rad: 0.6,
-        lateral_deviation_m: 25.0,
+        lateral_deviation_m: 926.0,
         vertical_deviation_m: 8.0,
         distance_to_waypoint_m: 1852.0,
+        scale: NavScale::Terminal,
+        to_from: NavFromTo::To,
         leg_index: 1,
         waypoint_count: 4,
         solution_quality: 0,
     }
 }
 
+fn nav(guidance: Guidance, profile: &LateralScaleProfile) -> Option<NavData> {
+    nav_display_state(Some(&snapshot(guidance)), profile).and_then(|stamped| stamped.data)
+}
+
 #[test]
 fn absent_guidance_is_absent_not_centered() {
-    assert!(nav_display_state(None).is_none());
+    assert!(nav_display_state(None, &GNSS).is_none());
     let mut unusable = guidance();
     unusable.solution_quality = 2;
-    assert!(nav_display_state(Some(&snapshot(unusable))).is_none());
+    assert!(nav(unusable, &GNSS).is_none());
     let mut unknown_quality = guidance();
     unknown_quality.solution_quality = 7;
-    assert!(nav_display_state(Some(&snapshot(unknown_quality))).is_none());
+    assert!(nav(unknown_quality, &GNSS).is_none());
 }
 
 #[test]
 fn fly_to_signs_and_units_convert_exactly() {
-    let stamped = nav_display_state(Some(&snapshot(guidance()))).expect("displays");
+    let stamped = nav_display_state(Some(&snapshot(guidance())), &GNSS).expect("displays");
     let nav = stamped.data.expect("group present");
-    // Ownship 25 m RIGHT of course: the course line is LEFT, so the
-    // deflection is one dot NEGATIVE and flying toward the bar closes
-    // the error.
-    assert!((nav.cdi_dots + 25.0 / LATERAL_M_PER_DOT_TERMINAL).abs() < 1e-6);
+    // Ownship 926 m (half a nautical mile) RIGHT of course at terminal
+    // scale: the course line is LEFT, so the deflection is one dot
+    // NEGATIVE and flying toward the bar closes the error.
+    assert!((nav.cdi_dots + 1.0).abs() < 1e-6);
     // Ownship 8 m ABOVE profile: the profile is LOWER on the display,
     // one dot POSITIVE — the axes disagree on which way is up.
     assert!((nav.vdev_dots.expect("constrained") - 8.0 / VDEV_M_PER_DOT).abs() < 1e-6);
@@ -58,21 +69,182 @@ fn fly_to_signs_and_units_convert_exactly() {
 }
 
 #[test]
-fn untracked_lateral_clears_the_flag_with_a_finite_zero() {
-    let mut untracked = guidance();
-    untracked.lateral_deviation_m = f32::NAN;
-    let stamped = nav_display_state(Some(&snapshot(untracked))).expect("displays");
-    let nav = stamped.data.expect("group present");
+fn the_gnss_profile_widths_are_two_one_and_three_tenths_nautical_miles() {
+    let widths = PHASES.map(|phase| GNSS.full_scale_m(phase).expect("width"));
+    assert_eq!(widths, [2.0 * 1852.0, 1852.0, 0.3 * 1852.0]);
+    let m_per_dot = PHASES.map(|phase| GNSS.m_per_dot(phase).expect("width"));
+    assert_eq!(m_per_dot, [1852.0, 926.0, 0.15 * 1852.0]);
+    let unmanned = LateralScaleProfile::SMALL_UNMANNED;
+    assert_eq!(
+        PHASES.map(|phase| unmanned.m_per_dot(phase).expect("width")),
+        [100.0, 25.0, 10.0]
+    );
+}
+
+#[test]
+fn each_declared_phase_puts_its_own_full_scale_width_on_the_outer_dot() {
+    for profile in [GNSS, LateralScaleProfile::SMALL_UNMANNED] {
+        for phase in PHASES {
+            let width = profile.full_scale_m(phase).expect("width");
+            for (deviation_m, dots) in [
+                (width, -FULL_SCALE_DOTS),
+                (-width, FULL_SCALE_DOTS),
+                (width / 2.0, -1.0),
+                (0.0, 0.0),
+            ] {
+                let mut sample = guidance();
+                sample.scale = phase;
+                sample.lateral_deviation_m = deviation_m;
+                let nav = nav(sample, &profile).expect("displays");
+                assert!(
+                    (nav.cdi_dots - dots).abs() < 1e-5,
+                    "{phase:?} {deviation_m} m: {} dots, want {dots}",
+                    nav.cdi_dots
+                );
+                // The annunciated scale is the one the dots are on.
+                assert_eq!(nav.scale, phase);
+            }
+        }
+    }
+}
+
+#[test]
+fn one_distance_reads_differently_at_each_phase() {
+    // 0.3 NM right of course: full scale on approach, 0.6 of a dot
+    // terminal, and 0.3 of a dot enroute.
+    let dots = PHASES.map(|phase| {
+        let mut sample = guidance();
+        sample.scale = phase;
+        sample.lateral_deviation_m = 0.3 * M_PER_NM;
+        nav(sample, &GNSS).expect("displays").cdi_dots
+    });
+    for (got, want) in dots.into_iter().zip([-0.3, -0.6, -2.0]) {
+        assert!((got - want).abs() < 1e-5, "{dots:?}");
+    }
+}
+
+#[test]
+fn a_deviation_past_full_scale_stays_finite_and_unclamped_for_the_panel_to_peg() {
+    let mut far = guidance();
+    far.scale = NavScale::Approach;
+    far.lateral_deviation_m = 10.0 * M_PER_NM;
+    let nav = nav(far, &GNSS).expect("displays");
+    assert!(nav.cdi_dots.is_finite());
+    assert!(nav.cdi_dots < -FULL_SCALE_DOTS * 10.0);
+}
+
+#[test]
+fn an_undeclared_phase_is_absent_never_a_default_width() {
+    let mut undeclared = guidance();
+    undeclared.scale = NavScale::Unknown;
+    assert!(nav(undeclared, &GNSS).is_none());
+    // Not tracking does not excuse it: the course and distance would
+    // still be drawn against a scale nobody named.
+    undeclared.lateral_deviation_m = f32::NAN;
+    assert!(nav(undeclared, &GNSS).is_none());
+}
+
+#[test]
+fn a_profile_without_a_usable_width_is_absent() {
+    for width in [0.0, -50.0, f32::NAN, f32::INFINITY] {
+        let profile = LateralScaleProfile {
+            terminal_full_scale_m: width,
+            ..GNSS
+        };
+        assert_eq!(profile.full_scale_m(NavScale::Terminal), None);
+        assert!(nav(guidance(), &profile).is_none(), "{width}");
+    }
+}
+
+#[test]
+fn the_stated_flag_is_the_drawn_flag() {
+    for flag in [NavFromTo::To, NavFromTo::From] {
+        let mut sample = guidance();
+        sample.to_from = flag;
+        let nav = nav(sample, &GNSS).expect("displays");
+        assert_eq!(nav.fromto, flag);
+        // FROM does not reverse the needle: the HSI's course arrow
+        // turns with the course, so right of course is right of course.
+        assert!((nav.cdi_dots + 1.0).abs() < 1e-6);
+    }
+}
+
+#[test]
+fn a_stated_off_flag_removes_the_bar_but_keeps_the_course() {
+    let mut off = guidance();
+    off.to_from = NavFromTo::Off;
+    let nav = nav(off, &GNSS).expect("displays");
     assert_eq!(nav.fromto, NavFromTo::Off);
     assert_eq!(nav.cdi_dots, 0.0);
-    // The still-valid course and distance survive.
     assert!((nav.course_rad - 0.6).abs() < 1e-6);
+}
+
+#[test]
+fn an_unknown_flag_is_absent_never_a_benign_one() {
+    let mut unknown = guidance();
+    unknown.to_from = NavFromTo::Unknown;
+    assert!(nav(unknown, &GNSS).is_none());
+    unknown.lateral_deviation_m = f32::NAN;
+    assert!(nav(unknown, &GNSS).is_none());
+}
+
+#[test]
+fn untracked_lateral_clears_the_flag_with_a_finite_zero() {
+    for flag in [NavFromTo::To, NavFromTo::From] {
+        let mut untracked = guidance();
+        untracked.to_from = flag;
+        untracked.lateral_deviation_m = f32::NAN;
+        let nav = nav(untracked, &GNSS).expect("displays");
+        assert_eq!(nav.fromto, NavFromTo::Off);
+        assert_eq!(nav.cdi_dots, 0.0);
+        // The still-valid course and distance survive.
+        assert!((nav.course_rad - 0.6).abs() < 1e-6);
+    }
 }
 
 #[test]
 fn unconstrained_vertical_stays_absent() {
     let mut flat = guidance();
     flat.vertical_deviation_m = f32::NAN;
-    let stamped = nav_display_state(Some(&snapshot(flat))).expect("displays");
-    assert_eq!(stamped.data.expect("group").vdev_dots, None);
+    assert_eq!(nav(flat, &GNSS).expect("group").vdev_dots, None);
+}
+
+fn stamp(sequence: u32) -> RawStamp {
+    RawStamp {
+        role: ROLE_NAVIGATION_SOLUTION,
+        integrity: 2,
+        source_id: 11,
+        incarnation: [2; 16],
+        epoch: 0,
+        sequence,
+        acquired_at_ns: 0,
+        clock: CLOCK_HOST_MONOTONIC,
+    }
+}
+
+#[test]
+fn the_flag_and_scale_flip_in_the_sample_that_flips_them() {
+    // A holding pattern: inbound TO the fix, past it FROM, back TO. The
+    // source sequences the phase too. Each change reaches the display in
+    // the sample that carries it, through the tracker a shell runs.
+    let steps = [
+        (NavFromTo::To, NavScale::Enroute),
+        (NavFromTo::From, NavScale::Terminal),
+        (NavFromTo::To, NavScale::Terminal),
+        (NavFromTo::To, NavScale::Approach),
+    ];
+    let mut tracker = NavGuidanceTracker::new();
+    for (sequence, (flag, phase)) in (1u32..).zip(steps) {
+        let mut sample = guidance();
+        sample.to_from = flag;
+        sample.scale = phase;
+        let now_ms = f64::from(sequence) * 100.0;
+        let snapshot = tracker.observe(Some(&(stamp(sequence), sample)), now_ms);
+        let nav = nav_display_state(snapshot.as_ref(), &GNSS)
+            .and_then(|stamped| stamped.data)
+            .expect("displays");
+        assert_eq!((nav.fromto, nav.scale), (flag, phase), "step {sequence}");
+        let m_per_dot = GNSS.m_per_dot(phase).expect("width");
+        assert!((nav.cdi_dots + 926.0 / m_per_dot).abs() < 1e-5);
+    }
 }

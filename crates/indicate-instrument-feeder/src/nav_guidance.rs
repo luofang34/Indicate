@@ -10,7 +10,7 @@
 //! than judged: the panel's freshness policy owns when guidance stops
 //! showing, so there is no second staleness rule to diverge from it.
 
-use indicate_instrument_state::IdentStr;
+use indicate_instrument_state::{IdentStr, NavFromTo, NavScale};
 
 use crate::clock::{age_ms, clock_ok};
 use crate::stamp::{ROLE_NAVIGATION_SOLUTION, RawStamp, serial_is_newer, stamp_fault_for_role};
@@ -36,6 +36,19 @@ pub struct Guidance {
     pub vertical_deviation_m: f32,
     /// Distance to the active waypoint, meters.
     pub distance_to_waypoint_m: f32,
+    /// The phase scale the source flies the lateral deviation to.
+    ///
+    /// The source owns this choice, because the phase follows the
+    /// flight plan and only the source knows the plan. The display
+    /// profile converts the phase into meters per dot. `Unknown`
+    /// removes the guidance display.
+    pub scale: NavScale,
+    /// Whether the active fix is ahead (`To`) or behind (`From`) on the
+    /// desired course. The source states it, because the source knows
+    /// where the fix is. A display does not infer it from a distance.
+    /// `Off` removes the deviation bar, and `Unknown` removes the
+    /// guidance display.
+    pub to_from: NavFromTo,
     /// Active leg index.
     pub leg_index: u32,
     /// Plan waypoint count.
