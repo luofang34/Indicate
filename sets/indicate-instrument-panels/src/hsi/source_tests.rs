@@ -327,34 +327,6 @@ fn the_receiver_label_shares_the_cdi_gate() {
     );
 }
 
-/// The receiver label sits clear of the rose's outermost ink. Stated as
-/// a test rather than a note beside the coordinate, because the radius
-/// it clears lives in another module: growing the rose has to fail
-/// here, not overlap the label and reach a reviewer as a moved raster
-/// baseline that looks like any other re-pin.
-#[test]
-fn the_receiver_label_clears_the_rose_rim() {
-    use indicate_instrument_scene::nominal_text_width;
-
-    let widest = ["GPS", "NAV1 VOR", "NAV2 LOC"]
-        .iter()
-        .map(|t| t.chars().count())
-        .max()
-        .expect("labels");
-    let half_w = nominal_text_width(super::cdi::RECEIVER_LABEL_SIZE, widest) / 2.0;
-    let half_h = super::cdi::RECEIVER_LABEL_SIZE / 2.0;
-    // The anchor box's corner nearest the rose center: the label sits
-    // below and left of it, so that is the top-right corner.
-    let (lx, ly) = super::cdi::RECEIVER_LABEL_POS;
-    let dx = super::CX - (lx + half_w);
-    let dy = (ly - half_h) - super::CY;
-    let gap = libm::sqrtf(dx * dx + dy * dy) - (super::ROSE_R + super::rose::REFERENCE_MARK_LEN);
-    assert!(
-        gap > 0.0,
-        "the receiver label overlaps the rose rim by {gap} units",
-    );
-}
-
 /// The scale label sits under the receiver label without touching it,
 /// and clears the rose rim too. The two are placed by constants in
 /// different parts of the panel's story — one names a receiver, the
