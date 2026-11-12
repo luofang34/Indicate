@@ -43,6 +43,47 @@ Entries are newest first, and the tag's message repeats the same five
 values so `git show <tag>` answers the question without a checkout.
 `CONTRIBUTING.md` has the release steps.
 
+## [0.11.0] — 2026-11-11
+
+The PFD paints no tape label that is cut, struck through, or overlapping
+at its design size.
+
+- **Speed labels sit clear of their ticks.** They are right-aligned
+  short of the gradation ticks, so no tick or band crosses a digit and
+  no label runs past the strip edge.
+- **Altitude labels fit between the ticks and the vertical-speed bar.**
+  A long value such as `-1300` or `12500` shrinks to fit.
+- **Tape labels keep clear of the readout band.** A label that would
+  run under a readout box, the altitude reference label, or the
+  vertical-speed label is omitted, not drawn half hidden.
+- **The vertical-speed label keeps clear of the boxes.** It parks above
+  or below the readout band, and missing-rate dashes sit just above the
+  readout box.
+- **Boxed readouts keep clear of their borders.** TAS, GS, the
+  barometric setting, and the selected altitude fit inside their box
+  less a 4-unit inset.
+- **The failed-tape cross covers the strip above its readout**, so its
+  `IAS` or `ALT` label never lands on the readout dashes.
+
+`pfd::layout_tests` sweeps the whole speed and altitude ranges with a
+light-aircraft V-speed set. It fails on any text run that is cut by its
+clip, crossed by a tick, under a box, against its box border, or
+overlapping another run.
+
+The corpus moves to 9 because both built-in PFD drum fixtures re-render.
+The composition digest, the screen-composition digest, and the PFD raster
+baseline move with the paint.
+
+| Value | This release |
+|---|---|
+| State ABI | 9 |
+| Scene format | 1 |
+| Corpus | 9 |
+| Composition digest | `4e4a7a89fd3c2605e410e13f8003094295b7b84a3fd7755feded6e46252762ca` |
+| Panel set | `pfd`, `hsi`, `autoflight`, `monitor` |
+
+Panel set changed since the previous release: no.
+
 ## [0.10.0] — 2026-11-11
 
 The navigation guidance lane states its phase scale and its TO/FROM flag.

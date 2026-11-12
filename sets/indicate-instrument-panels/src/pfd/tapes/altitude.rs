@@ -2,18 +2,92 @@
 //! the reference label, the baro and selection boxes, and the
 //! vertical-speed bar beside it.
 
-use indicate_instrument_scene::{Anchor, PaintMode, SceneError, SceneWriter};
-use indicate_instrument_state::{AltitudeClass, Sig};
+use indicate_instrument_scene::{
+    Anchor, PaintMode, SceneError, SceneWriter, nominal_text_ink_width,
+};
+use indicate_instrument_state::{AltitudeClass, Sig, SignalStatus};
 use indicate_instrument_state::{GroupId, PanelData};
 use indicate_instrument_symbology::{fmt_label, palette, safety, status_paint};
 
 use super::super::drum;
 use super::{
-    ALT_READOUT, ALTITUDE_TAPE_TOP, CENTER_Y, TAPE_BOTTOM, fitted_readout_size, fitted_text_size,
-    ladder_label_fits, pointed_box,
+    ALT_READOUT, ALTITUDE_TAPE_TOP, CENTER_Y, READOUT_TOP, TAPE_BOTTOM, fitted_box_text_size,
+    fitted_text_size, ladder_label_fits, pointed_box,
 };
 
 const PX_PER_FT: f32 = 1.2;
+
+/// Where the altitude reference label (BARO, STD, REL, ...) sits under
+/// the readout box, and its run size.
+const REFERENCE_LABEL_Y: f32 = 222.0;
+/// Run size of the altitude reference label.
+const REFERENCE_LABEL_SIZE: f32 = 12.0;
+
+/// The band ladder labels stay clear of: the readout box and the
+/// reference label under it.
+const LADDER_KEEP_OUT: (f32, f32) = (READOUT_TOP, REFERENCE_LABEL_Y + REFERENCE_LABEL_SIZE / 2.0);
+
+/// Right end of the gradation ticks, which start at the tape's inner
+/// edge.
+const TICK_RIGHT: f32 = 400.0;
+
+/// Left edge of the ladder labels: a gap past the ticks.
+const LABEL_LEFT: f32 = TICK_RIGHT + 4.0;
+
+/// Left edge of the vertical-speed bar at the tape's outer edge.
+const VSI_LEFT: f32 = 466.0;
+
+/// The widest a ladder label's ink may run: a gap short of the
+/// vertical-speed bar.
+const LABEL_INK_WIDTH: f32 = VSI_LEFT - 2.0 - LABEL_LEFT;
+
+/// Run size of a ladder label.
+const LABEL_SIZE: f32 = 18.0;
+
+/// Run size of the vertical-speed label.
+const VSI_LABEL_SIZE: f32 = 12.0;
+
+/// A ladder label's run size: the preferred size, shrunk so a long
+/// value ("-1300", "12500") stays clear of the vertical-speed bar.
+fn label_size(chars: usize) -> f32 {
+    let ink = nominal_text_ink_width(LABEL_SIZE, chars);
+    if ink <= LABEL_INK_WIDTH {
+        LABEL_SIZE
+    } else {
+        LABEL_SIZE * LABEL_INK_WIDTH / ink
+    }
+}
+
+/// Where the vertical-speed label sits, if it draws: at the bar's tip,
+/// kept clear of the boxes above and below the tape and of the readout
+/// band, so it never lands on a box or the reference label. A missing
+/// rate puts its dashes just above the readout.
+fn vsi_label_y(data: &PanelData) -> Option<f32> {
+    let v = data.vsi_fpm;
+    let clear_above = LADDER_KEEP_OUT.0 - VSI_LABEL_SIZE / 2.0;
+    let clear_below = LADDER_KEEP_OUT.1 + VSI_LABEL_SIZE / 2.0;
+    if !v.status.shows_value() {
+        return Some(clear_above);
+    }
+    if v.value.abs() < 100.0 {
+        return None;
+    }
+    let len = vsi_length(v.value);
+    // Clamped clear of the selected-altitude box above and the baro box
+    // below: at full scale the label parks at the strip edge instead of
+    // sliding its ink under a readout box.
+    let tip_y = (CENTER_Y - len).clamp(32.0, 328.0);
+    Some(if len >= 0.0 {
+        tip_y.min(clear_above)
+    } else {
+        tip_y.max(clear_below)
+    })
+}
+
+/// Bar length for a vertical speed: ±1500 fpm full scale over 180 px.
+fn vsi_length(fpm: f32) -> f32 {
+    (fpm / 1500.0 * 180.0).clamp(-170.0, 170.0)
+}
 
 /// Right-edge altitude tape with selected-altitude bug and baro box.
 /// The tape carries its reference label (REL amber, BARO/STD/MSL/AGL
@@ -41,19 +115,25 @@ pub fn altitude_tape(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<()
         )?;
         scene.stroke(palette::WHITE, 2.0)?;
         scene.fill_color(palette::WHITE)?;
+        let vsi_label = vsi_label_y(data);
         let lo = ((alt.value - 155.0) / 20.0) as i32;
         let hi = ((alt.value + 155.0) / 20.0) as i32;
         for step in lo..=hi {
             let ft = step * 20;
             let y = CENTER_Y - (ft as f32 - alt.value) * PX_PER_FT;
-            scene.line(390.0, y, 400.0, y)?;
-            if step.rem_euclid(5) == 0 && ladder_label_fits(y, 18.0, ALTITUDE_TAPE_TOP) {
+            scene.line(390.0, y, TICK_RIGHT, y)?;
+            let clear_of_vsi =
+                vsi_label.is_none_or(|v| (y - v).abs() >= (LABEL_SIZE + VSI_LABEL_SIZE) / 2.0);
+            if step.rem_euclid(5) == 0
+                && clear_of_vsi
+                && ladder_label_fits(y, LABEL_SIZE, ALTITUDE_TAPE_TOP, LADDER_KEEP_OUT)
+            {
                 let label = fmt_label!(12, "{ft}");
                 scene.text_attributed(
                     altitude_claim(data),
-                    408.0,
+                    LABEL_LEFT,
                     y,
-                    18.0,
+                    label_size(label.as_str().chars().count()),
                     Anchor::MIDDLE_LEFT,
                     label.as_str(),
                 )?;
@@ -112,7 +192,13 @@ fn reference_label(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), 
         AltitudeClass::Unknown => safety::FAILURE_RED,
         _ => palette::WHITE,
     })?;
-    scene.text(442.0, 222.0, 12.0, Anchor::CENTER, class.label())?;
+    scene.text(
+        442.0,
+        REFERENCE_LABEL_Y,
+        REFERENCE_LABEL_SIZE,
+        Anchor::CENTER,
+        class.label(),
+    )?;
     Ok(())
 }
 
@@ -137,7 +223,7 @@ fn baro_and_sel_boxes(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(
         25.0,
         text.as_str(),
         color,
-        fitted_readout_size(90.0, text.as_str(), 16.0, baro.status),
+        fitted_box_text_size(90.0, text.as_str(), 16.0, baro.status),
         baro.status,
     )?;
     if data.altitude.setting_mismatch {
@@ -155,7 +241,7 @@ fn baro_and_sel_boxes(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(
                 GroupId::Selections.to_u8(),
                 435.0,
                 12.0,
-                18.0,
+                fitted_box_text_size(90.0, text.as_str(), 18.0, SignalStatus::Valid),
                 Anchor::CENTER,
                 text.as_str(),
             )?;
@@ -176,7 +262,7 @@ pub fn vsi(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneErr
     let v = data.vsi_fpm;
     scene.stroke(palette::GREY, 1.0)?;
     for dy in [-120.0f32, -60.0, 60.0, 120.0] {
-        scene.line(466.0, CENTER_Y + dy, 474.0, CENTER_Y + dy)?;
+        scene.line(VSI_LEFT, CENTER_Y + dy, VSI_LEFT + 8.0, CENTER_Y + dy)?;
     }
     if !v.status.shows_value() {
         // Dashes rather than an empty strip. Every other readout on this
@@ -186,29 +272,25 @@ pub fn vsi(scene: &mut SceneWriter<'_>, data: &PanelData) -> Result<(), SceneErr
         // dash path stays unclaimed, like the others: it is the honest
         // degraded display, not a value derived from a withheld group.
         scene.fill_color(palette::WHITE)?;
-        scene.text(452.0, CENTER_Y, 12.0, Anchor::CENTER, "---")?;
+        let y = vsi_label_y(data).unwrap_or(CENTER_Y);
+        scene.text(452.0, y, VSI_LABEL_SIZE, Anchor::CENTER, "---")?;
         return Ok(());
     }
-    // ±1500 fpm full scale over 180 px.
-    let len = (v.value / 1500.0 * 180.0).clamp(-170.0, 170.0);
+    let len = vsi_length(v.value);
     scene.fill_color(palette::MAGENTA)?;
     if len >= 0.0 {
-        scene.rect(PaintMode::Fill, 466.0, CENTER_Y - len, 8.0, len.max(1.0))?;
+        scene.rect(PaintMode::Fill, VSI_LEFT, CENTER_Y - len, 8.0, len.max(1.0))?;
     } else {
-        scene.rect(PaintMode::Fill, 466.0, CENTER_Y, 8.0, -len)?;
+        scene.rect(PaintMode::Fill, VSI_LEFT, CENTER_Y, 8.0, -len)?;
     }
-    if v.value.abs() >= 100.0 {
-        // Clamped clear of the selected-altitude box above and the baro
-        // box below: at full scale the label parks at the strip edge
-        // instead of sliding its ink under a readout box.
-        let tip_y = (CENTER_Y - len).clamp(32.0, 328.0);
+    if let Some(y) = vsi_label_y(data) {
         let label = fmt_label!(12, "{}", libm::roundf(v.value / 50.0) as i64 * 50);
         scene.fill_color(palette::WHITE)?;
         scene.text_attributed(
             GroupId::Kinematics.to_u8(),
             452.0,
-            tip_y,
-            12.0,
+            y,
+            VSI_LABEL_SIZE,
             Anchor::CENTER,
             label.as_str(),
         )?;

@@ -314,7 +314,7 @@ fn air_data_failure_cues_are_annunciations() {
     let scene = render(&data, &PfdConfig::default());
     let annunciations = layer_texts(&scene, LayerId::Annunciation);
     let tapes = layer_texts(&scene, LayerId::Tapes);
-    for expected in [("IAS", [45.0, 160.0, 20.0]), ("ALT", [435.0, 160.0, 20.0])] {
+    for expected in [("IAS", [45.0, 90.0, 20.0]), ("ALT", [435.0, 90.0, 20.0])] {
         assert!(
             annunciations
                 .iter()

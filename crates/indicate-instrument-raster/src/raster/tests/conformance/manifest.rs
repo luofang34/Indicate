@@ -22,11 +22,11 @@ use super::outcomes::{Outcome, outcome_of};
 use crate::{MAX_DIMENSION, MAX_POLYGON_VERTICES, WORST_CASE_FRAME_BYTES};
 
 const SCHEMA_VERSION: u32 = 2;
-const CORPUS_VERSION: u32 = 8;
-const REVIEW_REASON: &str = "Re-pin the two built-in PFD drum fixtures after true-airspeed, \
-groundspeed, and barometric-setting labels size to their readout boxes. Both fixtures still \
-verify deterministic rolling-digit replay. No entry is added or removed. Each hand-built scene \
-is unchanged.";
+const CORPUS_VERSION: u32 = 9;
+const REVIEW_REASON: &str = "Re-pin the two built-in PFD drum fixtures after tape labels move \
+clear of their ticks, readout boxes, reference label, and vertical-speed label, and boxed \
+readouts keep clear of their borders. Both fixtures still verify deterministic rolling-digit \
+replay. No entry is added or removed. Each hand-built scene is unchanged.";
 const REVIEW_APPROVED_BY: &str =
     "REN-04 owner; regenerated goldens require human review and are never rewritten by CI.";
 

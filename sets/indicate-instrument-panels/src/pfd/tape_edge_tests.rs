@@ -58,7 +58,7 @@ fn speed_ladder_omits_labels_crossing_either_tape_edge() {
         let mut data = flying();
         data.ias_kt = Sig::with_status(ias, SignalStatus::Valid);
         let scene = render(&data, &PfdConfig::default());
-        assert_labels_fit(&ladder_labels(&scene, 70.0, 20.0), SPEED_TAPE_TOP);
+        assert_labels_fit(&ladder_labels(&scene, 76.0, 20.0), SPEED_TAPE_TOP);
     }
 }
 
@@ -70,7 +70,7 @@ fn altitude_ladder_omits_the_bisected_1200_label_at_1075_ft() {
     data.selections.altitude_sel_m = Some(365.76);
 
     let scene = render(&data, &PfdConfig::default());
-    let labels = ladder_labels(&scene, 408.0, 18.0);
+    let labels = ladder_labels(&scene, 404.0, 18.0);
     assert_labels_fit(&labels, ALTITUDE_TAPE_TOP);
     assert!(
         labels.iter().all(|label| label.text != "1200"),
